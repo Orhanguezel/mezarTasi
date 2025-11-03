@@ -13,13 +13,13 @@ const toBool = (v: string | undefined, d = false) => {
 const toList = (v: string | undefined) =>
   (v ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const CORS_LIST = toList(process.env.CORS_ORIGIN);
 const CORS_ORIGIN = CORS_LIST.length ? CORS_LIST : [FRONTEND_URL];
 
 export const env = {
   NODE_ENV: process.env.NODE_ENV ?? 'development',
-  PORT: toInt(process.env.PORT, 8081),
+  PORT: toInt(process.env.PORT, 8082),
 
   QUIZ: {
     DURATION_SECONDS: Number(process.env.QUIZ_DURATION_SECONDS ?? 60),
@@ -56,16 +56,6 @@ export const env = {
     publicStorageBase: process.env.PUBLIC_STORAGE_BASE || '',
   },
 
-  PAYTR: {
-    MERCHANT_ID: process.env.PAYTR_MERCHANT_ID || '',
-    MERCHANT_KEY: process.env.PAYTR_MERCHANT_KEY || '',
-    MERCHANT_SALT: process.env.PAYTR_MERCHANT_SALT || '',
-    BASE_URL: process.env.PAYTR_BASE_URL || 'https://www.paytr.com/odeme',
-    OK_URL: process.env.PAYTR_OK_URL || '',
-    FAIL_URL: process.env.PAYTR_FAIL_URL || '',
-    TEST_MODE: (process.env.PAYTR_TEST_MODE ?? '1') as '0' | '1',
-    DIRECT_REQUEST: toBool(process.env.PAYTR_DIRECT_REQUEST, false),
-  },
 
   GOOGLE: {
     CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? '',
