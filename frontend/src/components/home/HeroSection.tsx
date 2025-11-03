@@ -15,100 +15,87 @@ export function HeroSection({ onNavigate }: HeroSectionProps) {
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
-  // Context'ten slider verilerini al
+  // Vite feature-flag: Dev'de her zaman görünür; prod'da VITE_SHOW_ADMIN_SHORTCUT=1 ise açılır
+  const showAdminShortcut =
+    import.meta.env.DEV ||
+    import.meta.env.VITE_SHOW_ADMIN_SHORTCUT === "1";
+
+  // Context'ten slider verileri
   const { sliders } = useSliders();
 
-  // Sadece aktif sliderleri filtrele
-  const slides = sliders.filter(slide => slide.isActive).sort((a, b) => a.order - b.order);
+  // Sadece aktif slider'lar
+  const slides = sliders
+    .filter((s) => s.isActive)
+    .sort((a, b) => a.order - b.order);
 
-  // Mobile touch swipe minimum distance
   const minSwipeDistance = 50;
 
-  // Reset to first slide if current slide no longer exists
+  // Geçerli index out-of-range ise sıfırla
   useEffect(() => {
     if (currentSlide >= slides.length && slides.length > 0) {
       setCurrentSlide(0);
     }
   }, [slides.length, currentSlide]);
 
-  // Otomatik slider geçişi - mobil connection'a göre optimize edilmiş
+  // Otomatik geçiş (bağlantı hızına göre aralık)
   useEffect(() => {
     if (slides.length > 1) {
-      // Check connection speed and adjust interval
-      let intervalTime = 5000; // Default 5 seconds
-
-      if ('connection' in navigator) {
-        const connection = (navigator as any).connection;
-        if (connection) {
-          switch (connection.effectiveType) {
-            case 'slow-2g':
-            case '2g':
-              intervalTime = 8000; // Slower transitions for slow connections
-              break;
-            case '3g':
-              intervalTime = 6000;
-              break;
-            default:
-              intervalTime = 5000;
-          }
+      let intervalTime = 5000;
+      // Bağlantı durumu (desteklenen tarayıcılarda)
+      const anyNav = navigator as any;
+      const conn = anyNav?.connection;
+      if (conn?.effectiveType) {
+        switch (conn.effectiveType) {
+          case "slow-2g":
+          case "2g":
+            intervalTime = 8000;
+            break;
+          case "3g":
+            intervalTime = 6000;
+            break;
+          default:
+            intervalTime = 5000;
         }
       }
-
-      const interval = setInterval(() => {
-        setCurrentSlide((prev) => (prev + 1) % slides.length);
-      }, intervalTime);
-
-      return () => clearInterval(interval);
+      const t = setInterval(
+        () => setCurrentSlide((p) => (p + 1) % slides.length),
+        intervalTime
+      );
+      return () => clearInterval(t);
     }
   }, [slides.length]);
 
-  // Hero image loading optimization
+  // İlk görseli preload et
   useEffect(() => {
     if (slides.length > 0) {
-      const firstImage = new Image();
-      firstImage.onload = () => {
-        setIsLoading(false);
-      };
-      firstImage.src = slides[0].image + '?w=1200&h=600&fit=crop&fm=webp&q=85';
+      const img = new Image();
+      img.onload = () => setIsLoading(false);
+      img.src = `${slides[0].image}?w=1200&h=600&fit=crop&fm=webp&q=85`;
+    } else {
+      setIsLoading(false);
     }
   }, [slides]);
 
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % slides.length);
-  };
+  const nextSlide = () => setCurrentSlide((p) => (p + 1) % slides.length);
+  const prevSlide = () =>
+    setCurrentSlide((p) => (p - 1 + slides.length) % slides.length);
 
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-  };
-
-  // Mobile touch handlers
+  // Touch handlers
   const onTouchStart = (e: React.TouchEvent) => {
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
   };
-
   const onTouchMove = (e: React.TouchEvent) => {
     setTouchEnd(e.targetTouches[0].clientX);
   };
-
   const onTouchEnd = () => {
     if (!touchStart || !touchEnd) return;
-
     const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-
-    if (isLeftSwipe && slides.length > 1) {
-      nextSlide();
-    }
-    if (isRightSwipe && slides.length > 1) {
-      prevSlide();
-    }
+    if (distance > minSwipeDistance && slides.length > 1) nextSlide();
+    if (distance < -minSwipeDistance && slides.length > 1) prevSlide();
   };
 
-
-
-  // Slide yoksa loading göster
+  // Slide yoksa basit placeholder
   if (slides.length === 0) {
     return (
       <section className="relative h-[280px] md:h-[380px] lg:h-[450px] overflow-hidden bg-gray-900">
@@ -123,18 +110,16 @@ export function HeroSection({ onNavigate }: HeroSectionProps) {
     );
   }
 
-  const currentSlideData = slides[currentSlide];
-
   return (
     <section className="relative h-[280px] md:h-[380px] lg:h-[450px] overflow-hidden hero-section">
-      {/* Loading state for better UX */}
+      {/* Loading overlay */}
       {isLoading && (
         <div className="absolute inset-0 z-20">
           <SkeletonLoader type="hero" />
         </div>
       )}
 
-      {/* Slider Container with touch support */}
+      {/* Slider alanı */}
       <div
         className="relative w-full h-full mobile-optimized"
         onTouchStart={onTouchStart}
@@ -144,62 +129,60 @@ export function HeroSection({ onNavigate }: HeroSectionProps) {
         {slides.map((slide, index) => (
           <div
             key={slide.id}
-            className={`absolute inset-0 transition-all duration-1000 will-change-opacity ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'
-              }`}
+            className={`absolute inset-0 transition-all duration-1000 will-change-opacity ${
+              index === currentSlide ? "opacity-100 z-10" : "opacity-0 z-0"
+            }`}
             style={{
-              // Mobile performance optimization
-              transform: index === currentSlide ? 'translateZ(0)' : 'translateZ(-1px)',
-              backfaceVisibility: 'hidden'
+              transform: index === currentSlide ? "translateZ(0)" : "translateZ(-1px)",
+              backfaceVisibility: "hidden",
             }}
           >
-            {/* Background Image */}
             <ImageOptimized
               src={slide.image}
               alt={slide.alt || slide.title}
               className="w-full h-full object-cover optimized-image"
-              priority={index === 0} // Preload first slide
+              priority={index === 0}
               sizes="100vw"
-              quality={index === 0 ? 90 : 75} // Higher quality for first slide
+              quality={index === 0 ? 90 : 75}
             />
-
-            {/* Minimal Overlay - sadece kontrast için */}
-            <div className="absolute inset-0 bg-black/10"></div>
+            <div className="absolute inset-0 bg-black/10" />
           </div>
         ))}
       </div>
 
-      {/* Navigation Buttons - Sadece birden fazla slide varsa göster */}
+      {/* Navigasyon */}
       {slides.length > 1 && (
         <>
           <button
             onClick={prevSlide}
-            className="absolute left-2 md:left-4 top-1/2 transform -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-1.5 md:p-2 rounded-full transition-all duration-300 z-20 hover-optimize touch-manipulation backdrop-blur-sm"
+            className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-1.5 md:p-2 rounded-full transition-all duration-300 z-20 backdrop-blur-sm"
             aria-label="Önceki slide"
-            style={{ minWidth: '40px', minHeight: '40px' }}
+            style={{ minWidth: "40px", minHeight: "40px" }}
           >
             <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
           </button>
 
           <button
             onClick={nextSlide}
-            className="absolute right-2 md:right-4 top-1/2 transform -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-1.5 md:p-2 rounded-full transition-all duration-300 z-20 hover-optimize touch-manipulation backdrop-blur-sm"
+            className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-1.5 md:p-2 rounded-full transition-all duration-300 z-20 backdrop-blur-sm"
             aria-label="Sonraki slide"
-            style={{ minWidth: '40px', minHeight: '40px' }}
+            style={{ minWidth: "40px", minHeight: "40px" }}
           >
             <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
           </button>
 
-          {/* Slide Indicators - Minimal dots */}
-          <div className="absolute bottom-4 md:bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-1.5 z-20 hero-indicators">
+          {/* Dots */}
+          <div className="absolute bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 flex space-x-1.5 z-20">
             {slides.map((slide, index) => (
               <button
                 key={slide.id}
                 onClick={() => setCurrentSlide(index)}
-                className={`slide-indicator relative transition-all duration-300 hover-optimize touch-manipulation rounded-full ${index === currentSlide
-                  ? 'bg-white/90 w-6 h-1.5'
-                  : 'bg-white/40 hover:bg-white/60 w-1.5 h-1.5'
-                  }`}
-                style={{ minWidth: '6px', minHeight: '6px' }}
+                className={`transition-all duration-300 rounded-full ${
+                  index === currentSlide
+                    ? "bg-white/90 w-6 h-1.5"
+                    : "bg-white/40 hover:bg-white/60 w-1.5 h-1.5"
+                }`}
+                style={{ minWidth: "6px", minHeight: "6px" }}
                 aria-label={`Slide ${index + 1}`}
               />
             ))}
@@ -207,11 +190,13 @@ export function HeroSection({ onNavigate }: HeroSectionProps) {
         </>
       )}
 
-      {/* Admin Panel Quick Access - Sadece development modunda */}
-      {process.env.NODE_ENV === 'development' && (
+      {/* Admin kısayol — Dev veya flag ile prod */}
+      {showAdminShortcut && (
         <div className="absolute top-4 right-4 z-30">
           <Button
-            onClick={() => onNavigate?.('admin')}
+            onClick={() =>
+              onNavigate?.("admin") ?? (window.location.href = "/admin")
+            }
             variant="outline"
             size="sm"
             className="bg-black/20 text-white border-white/30 hover:bg-black/40 backdrop-blur-sm"
@@ -220,8 +205,6 @@ export function HeroSection({ onNavigate }: HeroSectionProps) {
           </Button>
         </div>
       )}
-
-
     </section>
   );
 }
