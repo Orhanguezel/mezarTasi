@@ -1,0 +1,23 @@
+/* src/index.css */
+@import "@/styles/sidebar.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---- Sidebar tokenları ve yardımcı sınıflar ---- */
+@layer base {
+  :root {
+    /* HSL tokenlar – istersen değerleri değiştir */
+    --sidebar-background: 222.2 47.4% 11.2%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 172 66% 50%;
+    --sidebar-accent: 199 89% 48%;
+    --sidebar-border: 0 0% 100%/0.10;
+  }
+}
+
+@layer utilities {
+  .bg-sidebar { background-color: hsl(var(--sidebar-background)); }
+  .text-sidebar-foreground { color: hsl(var(--sidebar-foreground)); }
+  .border-sidebar-border { border-color: hsl(var(--sidebar-border)); }
+}
