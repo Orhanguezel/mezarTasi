@@ -11,6 +11,12 @@ cd /var/www/productsPark/backend
 rm -rf dist .tsbuildinfo
 bun run build
 
+ALLOW_DROP=true bun run db:seed
+# veya
+ALLOW_DROP=true node dist/db/seed/index.js
+
+
+
 mkdir -p dist/db/seed/sql
 cp -f src/db/seed/sql/*.sql dist/db/seed/sql/
 
