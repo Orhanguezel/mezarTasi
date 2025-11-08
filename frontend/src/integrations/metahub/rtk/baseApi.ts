@@ -10,12 +10,12 @@ import type {
 } from "@reduxjs/toolkit/query";
 import { metahubTags } from "./tags";
 import { tokenStore } from "@/integrations/metahub/core/token";
-import { BASE_URL as DB_BASE_URL } from "@/integrations/metahub/db/from/constants";
 
 /* ---------- Base URL resolve ---------- */
 function trimSlash(x: string) {
   return x.replace(/\/+$/, "");
 }
+
 function guessDevBackend(): string {
   try {
     const loc = typeof window !== "undefined" ? window.location : null;
@@ -26,7 +26,19 @@ function guessDevBackend(): string {
     return "http://localhost:8081";
   }
 }
-const BASE_URL = trimSlash(DB_BASE_URL || (import.meta.env.DEV ? guessDevBackend() : "/"));
+
+function resolveBaseUrl(): string {
+  // Öncelik env -> yoksa PROD: /api, DEV: 8081
+  const envUrl =
+    (import.meta.env as any).VITE_API_BASE ??
+    (import.meta.env as any).NEXT_PUBLIC_API_BASE ??
+    "";
+  if (typeof envUrl === "string" && envUrl.trim()) return trimSlash(envUrl.trim());
+  if ((import.meta as any).env?.DEV) return guessDevBackend();
+  return "/api";
+}
+
+const BASE_URL = resolveBaseUrl();
 
 /* ---------- helpers & guards ---------- */
 type AnyArgs = string | FetchArgs;
@@ -70,6 +82,19 @@ function extractPath(u: string): string {
   }
 }
 
+/** Göreli url'leri '/foo' formatına normalize et */
+function normalizeUrlArg(arg: AnyArgs): AnyArgs {
+  if (typeof arg === "string") {
+    if (/^https?:\/\//i.test(arg) || arg.startsWith("/")) return arg;
+    return `/${arg}`;
+  }
+  const url = arg.url ?? "";
+  if (url && !/^https?:\/\//i.test(url) && !url.startsWith("/")) {
+    return { ...arg, url: `/${url}` };
+  }
+  return arg;
+}
+
 /* ---------- Base Query ---------- */
 type RBQ = BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError, unknown, FetchBaseQueryMeta>;
 
@@ -83,7 +108,7 @@ const rawBaseQuery: RBQ = fetchBaseQuery({
       if (!headers.has("Accept")) headers.set("Accept", "application/json");
       if (!headers.has("Accept-Language")) {
         const lang =
-          (import.meta.env.VITE_DEFAULT_LOCALE as string | undefined) ??
+          ((import.meta.env as any).VITE_DEFAULT_LOCALE as string | undefined) ??
           (typeof navigator !== "undefined" ? navigator.language : "tr");
         headers.set("Accept-Language", lang || "tr");
       }
@@ -92,7 +117,10 @@ const rawBaseQuery: RBQ = fetchBaseQuery({
 
     // Bearer token
     const token =
-      tokenStore.get() || (typeof window !== "undefined" ? localStorage.getItem("mh_access_token") || "" : "");
+      tokenStore.get() ||
+      (typeof window !== "undefined"
+        ? localStorage.getItem("mh_access_token") || ""
+        : "");
     if (token && !headers.has("authorization")) {
       headers.set("authorization", `Bearer ${token}`);
     }
@@ -100,7 +128,7 @@ const rawBaseQuery: RBQ = fetchBaseQuery({
     if (!headers.has("Accept")) headers.set("Accept", "application/json");
     if (!headers.has("Accept-Language")) {
       const lang =
-        (import.meta.env.VITE_DEFAULT_LOCALE as string | undefined) ??
+        ((import.meta.env as any).VITE_DEFAULT_LOCALE as string | undefined) ??
         (typeof navigator !== "undefined" ? navigator.language : "tr");
       headers.set("Accept-Language", lang || "tr");
     }
@@ -141,7 +169,7 @@ function ensureProperHeaders(fa: FetchArgs): FetchArgs {
 }
 
 const baseQueryWithReauth: RBQ = async (args, _api, extra) => {
-  let req: AnyArgs = args;
+  let req: AnyArgs = normalizeUrlArg(args);
   const path = typeof req === "string" ? req : req.url || "";
   const cleanPath = extractPath(path);
 
@@ -157,7 +185,11 @@ const baseQueryWithReauth: RBQ = async (args, _api, extra) => {
 
   if (result.error?.status === 401 && !AUTH_SKIP_REAUTH.has(cleanPath)) {
     const refreshRes = await rawBaseQuery(
-      { url: "/auth/v1/token/refresh", method: "POST", headers: { "x-skip-auth": "1", Accept: "application/json" } },
+      {
+        url: "/auth/v1/token/refresh",
+        method: "POST",
+        headers: { "x-skip-auth": "1", Accept: "application/json" },
+      },
       _api,
       extra
     );
@@ -171,7 +203,7 @@ const baseQueryWithReauth: RBQ = async (args, _api, extra) => {
           localStorage.setItem("mh_access_token", access_token);
         } catch {}
 
-        let retry: AnyArgs = args;
+        let retry: AnyArgs = normalizeUrlArg(args);
         if (typeof retry !== "string") {
           if (AUTH_SKIP_REAUTH.has(cleanPath)) {
             const orig = (retry.headers as Record<string, string> | undefined) ?? {};
@@ -206,4 +238,4 @@ export const baseApi = createApi({
   tagTypes: metahubTags,
 });
 
-export { rawBaseQuery };
+export { rawBaseQuery, BASE_URL };

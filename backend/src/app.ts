@@ -1,3 +1,4 @@
+// src/app.ts
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import cookie from '@fastify/cookie';
@@ -9,7 +10,7 @@ import type { FastifyInstance } from 'fastify';
 import { env } from '@/core/env';
 import { registerErrorHandlers } from '@/core/error';
 
-// Modüller
+// Public modüller
 import { registerAuth } from '@/modules/auth/router';
 import { registerStorage } from '@/modules/storage/router';
 import { registerProfiles } from '@/modules/profiles/router';
@@ -25,17 +26,16 @@ import { registerFooterSections } from "@/modules/footerSections/router";
 import { registerInfoCards } from "@/modules/info_cards/router";
 import { registerAnnouncements } from "@/modules/announcements/router"; 
 import { registerSimpleCampaigns } from "@/modules/campaigns/router";
-import { registerCemeteries} from "@/modules/cemeteries/router";
+import { registerCemeteries } from "@/modules/cemeteries/router";
 import { registerRecentWorks } from "@/modules/recent_works/router";
 import { registerFaqs } from "@/modules/faqs/router";
-import { registerServices } from "@/modules/services/router"
+import { registerServices } from "@/modules/services/router";
 import { registerReviews } from "@/modules/review/router";
 import { registerContacts } from "@/modules/contact/router";
 import { registerAccessories } from "@/modules/accessories/router";
 import { registerSlider } from "@/modules/slider/router";
-import { registerSliderAdmin } from "@/modules/slider/admin.routes";
 
-
+// Admin modüller
 import { registerProductsAdmin } from "@/modules/products/admin.routes";
 import { registerBlogAdmin } from "@/modules/blog/admin.routes";
 import { registerCustomPagesAdmin } from "@/modules/customPages/admin.routes";
@@ -45,13 +45,14 @@ import { registerUserAdmin } from "@/modules/auth/admin.routes";
 import { registerCampaignsAdmin } from "@/modules/campaigns/admin.routes";
 import { registerAnnouncementsAdmin } from "@/modules/announcements/admin.routes";
 import { registerInfoCardsAdmin } from "@/modules/info_cards/admin.routes";
-import { registerCemeteriesAdmin} from "@/modules/cemeteries/admin.routes";
+import { registerCemeteriesAdmin } from "@/modules/cemeteries/admin.routes";
 import { registerRecentWorksAdmin } from "@/modules/recent_works/admin.routes";
 import { registerFaqsAdmin } from "@/modules/faqs/admin.routes";
 import { registerServicesAdmin } from "@/modules/services/admin.routes";
 import { registerReviewsAdmin } from "@/modules/review/admin.routes";
 import { registerContactsAdmin } from "@/modules/contact/admin.routes";
 import { registerAccessoriesAdmin } from "@/modules/accessories/admin.routes";
+import { registerSliderAdmin } from "@/modules/slider/admin.routes";
 
 function parseCorsOrigins(v?: string | string[]): boolean | string[] {
   if (!v) return true;
@@ -74,29 +75,20 @@ export async function createApp() {
 
   // --- CORS ---
   await app.register(cors, {
-  origin: parseCorsOrigins(env.CORS_ORIGIN as any),
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'Prefer',
-    'Accept',
-    'Accept-Language',
-    'x-skip-auth',
-    'Range',
-  ],
-  exposedHeaders: ['x-total-count', 'content-range', 'range'],
-});
-
-
-
+    origin: parseCorsOrigins(env.CORS_ORIGIN as any),
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type','Authorization','Prefer','Accept','Accept-Language',
+      'x-skip-auth','Range',
+    ],
+    exposedHeaders: ['x-total-count','content-range','range'],
+  });
 
   // --- Cookie ---
   const cookieSecret =
     (globalThis as any).Bun?.env?.COOKIE_SECRET ??
-    process.env.COOKIE_SECRET ??
-    'cookie-secret';
+    process.env.COOKIE_SECRET ?? 'cookie-secret';
 
   await app.register(cookie, {
     secret: cookieSecret,
@@ -115,13 +107,13 @@ export async function createApp() {
     cookie: { cookieName: 'access_token', signed: false },
   });
 
-  // 🔒 Guard
+  // 🔒 Guard & 🗄️ MySQL
   await app.register(authPlugin);
-  // 🗄️ MySQL
   await app.register(mysqlPlugin);
 
-  // Public health
+  // Health hem kökte hem /api altında
   app.get('/health', async () => ({ ok: true }));
+  app.get('/api/health', async () => ({ ok: true }));
 
   // Multipart
   await app.register(multipart, {
@@ -129,50 +121,52 @@ export async function createApp() {
     limits: { fileSize: 20 * 1024 * 1024 },
   });
 
-  // Modüller
- // --- Admin modüller (prefix: /admin) ---
-await app.register(async (i) => registerProductsAdmin(i),       { prefix: "/admin" });
-await app.register(async (i) => registerBlogAdmin(i),           { prefix: "/admin" });
-await app.register(async (i) => registerCustomPagesAdmin(i),    { prefix: "/admin" });
-await app.register(async (i) => registerSiteSettingsAdmin(i),   { prefix: "/admin" });
-await app.register(async (i) => registerPopupsAdmin(i),         { prefix: "/admin" });
-await app.register(async (i) => registerUserAdmin(i),           { prefix: "/admin" });
-await app.register(async (i) => registerCampaignsAdmin(i),      { prefix: "/admin" });
-await app.register(async (i) => registerAnnouncementsAdmin(i),  { prefix: "/admin" });
-await app.register(async (i) => registerInfoCardsAdmin(i),      { prefix: "/admin" });
-await app.register(async (i) => registerCemeteriesAdmin(i),     { prefix: "/admin" });
-await app.register(async (i) => registerRecentWorksAdmin(i),    { prefix: "/admin" });
-await app.register(async (i) => registerFaqsAdmin(i),           { prefix: "/admin" });
-await app.register(async (i) => registerServicesAdmin(i),       { prefix: "/admin" });
-await app.register(async (i) => registerReviewsAdmin(i),        { prefix: "/admin" });
-await app.register(async (i) => registerContactsAdmin(i),       { prefix: "/admin" });
-await app.register(async (i) => registerAccessoriesAdmin(i),    { prefix: "/admin" });
-await app.register(async (i) => registerSliderAdmin(i),         { prefix: "/admin" });
+  // === TÜM ROUTER’LARI /api ALTINDA TOPLA ===
+  await app.register(async (api) => {
+    // --- Admin modüller → /api/admin/...
+    await api.register(registerProductsAdmin,    { prefix: "/admin" });
+    await api.register(registerBlogAdmin,        { prefix: "/admin" });
+    await api.register(registerCustomPagesAdmin, { prefix: "/admin" });
+    await api.register(registerSiteSettingsAdmin,{ prefix: "/admin" });
+    await api.register(registerPopupsAdmin,      { prefix: "/admin" });
+    await api.register(registerUserAdmin,        { prefix: "/admin" });
+    await api.register(registerCampaignsAdmin,   { prefix: "/admin" });
+    await api.register(registerAnnouncementsAdmin,{ prefix: "/admin" });
+    await api.register(registerInfoCardsAdmin,   { prefix: "/admin" });
+    await api.register(registerCemeteriesAdmin,  { prefix: "/admin" });
+    await api.register(registerRecentWorksAdmin, { prefix: "/admin" });
+    await api.register(registerFaqsAdmin,        { prefix: "/admin" });
+    await api.register(registerServicesAdmin,    { prefix: "/admin" });
+    await api.register(registerReviewsAdmin,     { prefix: "/admin" });
+    await api.register(registerContactsAdmin,    { prefix: "/admin" });
+    await api.register(registerAccessoriesAdmin, { prefix: "/admin" });
+    await api.register(registerSliderAdmin,      { prefix: "/admin" });
 
-  await registerAuth(app);
-  await registerStorage(app);
-  await registerProfiles(app);
-  await registerCategories(app);
-  await registerSubCategories(app);
-  await registerProducts(app);
-  await registerCustomPages(app);
-  await registerBlog(app);
-  await registerSiteSettings(app);
-  await registerPopups(app);
-  await registerUserRoles(app);
-  await registerFooterSections(app);
-  await registerInfoCards(app);
-  await registerAnnouncements(app);
-  await registerSimpleCampaigns(app);
-  await registerCemeteries(app);
-  await registerRecentWorks(app);
-  await registerFaqs(app);
-  await registerServices(app);
-  await registerReviews(app);
-  await registerContacts(app);
-  await registerAccessories(app);
-  await registerSlider(app);
-
+    // --- Public modüller → /api/...
+    await registerAuth(api);
+    await registerStorage(api);       
+    await registerProfiles(api);
+    await registerCategories(api);
+    await registerSubCategories(api);
+    await registerProducts(api);
+    await registerCustomPages(api);
+    await registerBlog(api);
+    await registerSiteSettings(api);
+    await registerPopups(api);
+    await registerUserRoles(api);
+    await registerFooterSections(api);
+    await registerInfoCards(api);
+    await registerAnnouncements(api);
+    await registerSimpleCampaigns(api);
+    await registerCemeteries(api);
+    await registerRecentWorks(api);
+    await registerFaqs(api);
+    await registerServices(api);
+    await registerReviews(api);
+    await registerContacts(api);
+    await registerAccessories(api);
+    await registerSlider(api);
+  }, { prefix: "/api" });
 
   registerErrorHandlers(app);
   return app;
