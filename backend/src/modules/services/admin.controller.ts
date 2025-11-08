@@ -1,4 +1,7 @@
+// src/modules/services/admin.controller.ts
 import type { RouteHandler } from "fastify";
+import { z } from "zod";
+
 import {
   serviceAdminListQuerySchema,
   serviceCreateSchema,
@@ -6,7 +9,7 @@ import {
   serviceReorderSchema,
   serviceSetStatusSchema,
   serviceAttachImageSchema,
-} from "./validation";
+} from "./validation.js";
 import {
   repoListServicesAdmin,
   repoGetServiceById,
@@ -17,12 +20,12 @@ import {
   repoSetServiceStatus,
   repoAttachServiceImage,
   repoDetachServiceImage,
-} from "./repository";
+} from "./repository.js";
 
 import { env } from "@/core/env";
 import { db } from "@/db/client";
 import { and, eq, like, sql as dsql } from "drizzle-orm";
-import { services } from "./schema";
+import { services } from "./schema.js";
 
 /* ---- publicUrlOf: storage ile birebir aynı kurallar ---- */
 function publicUrlOf(
@@ -47,7 +50,7 @@ function publicUrlOf(
 
 /* ---- slider ile aynı view alanları ---- */
 const toAdminView = (row: any) => {
-  const s = row.svc;
+  const s = row.svc ?? row; // repo bazı yerlerde { svc, ... } döndürüyor olabilir
   const eff =
     row.asset_bucket
       ? publicUrlOf(row.asset_bucket, row.asset_path, row.asset_provider_url)
@@ -93,8 +96,16 @@ const toAdminView = (row: any) => {
   };
 };
 
+// Tip yardımcıları (Zod’dan derive)
+type AdminListQuery = z.infer<typeof serviceAdminListQuerySchema>;
+type CreateBody = z.infer<typeof serviceCreateSchema>;
+type UpdateBody = z.infer<typeof serviceUpdateSchema>;
+type ReorderBody = z.infer<typeof serviceReorderSchema>;
+type SetStatusBody = z.infer<typeof serviceSetStatusSchema>;
+type AttachImageBody = z.infer<typeof serviceAttachImageSchema>;
+
 /** GET /admin/services */
-export const adminListServices: RouteHandler<{ Querystring: unknown }> = async (
+export const adminListServices: RouteHandler<{ Querystring: AdminListQuery }> = async (
   req,
   reply
 ) => {
@@ -106,7 +117,7 @@ export const adminListServices: RouteHandler<{ Querystring: unknown }> = async (
 
   const q = parsed.data;
 
-  // storage ile aynı: toplam sayıyı başlıklarda ver
+  // toplam sayıyı başlıklarda ver
   const where = and(
     q.is_active === undefined
       ? dsql`1=1`
@@ -146,7 +157,7 @@ export const adminGetService: RouteHandler<{ Params: { id: string } }> = async (
 };
 
 /** POST /admin/services */
-export const adminCreateService: RouteHandler<{ Body: unknown }> = async (
+export const adminCreateService: RouteHandler<{ Body: CreateBody }> = async (
   req,
   reply
 ) => {
@@ -162,7 +173,7 @@ export const adminCreateService: RouteHandler<{ Body: unknown }> = async (
 /** PATCH /admin/services/:id */
 export const adminUpdateService: RouteHandler<{
   Params: { id: string };
-  Body: unknown;
+  Body: UpdateBody;
 }> = async (req, reply) => {
   const id = String((req.params as any)?.id || "");
   if (!id) return reply.code(400).send({ error: { message: "invalid_params" } });
@@ -187,7 +198,7 @@ export const adminDeleteService: RouteHandler<{ Params: { id: string } }> =
   };
 
 /** POST /admin/services/reorder */
-export const adminReorderServices: RouteHandler<{ Body: unknown }> = async (
+export const adminReorderServices: RouteHandler<{ Body: ReorderBody }> = async (
   req,
   reply
 ) => {
@@ -203,7 +214,7 @@ export const adminReorderServices: RouteHandler<{ Body: unknown }> = async (
 /** POST /admin/services/:id/status */
 export const adminSetServiceStatus: RouteHandler<{
   Params: { id: string };
-  Body: unknown;
+  Body: SetStatusBody;
 }> = async (req, reply) => {
   const id = String((req.params as any)?.id || "");
   if (!id) return reply.code(400).send({ error: { message: "invalid_params" } });
@@ -220,7 +231,7 @@ export const adminSetServiceStatus: RouteHandler<{
 /** POST /admin/services/:id/attach-image */
 export const adminAttachServiceImage: RouteHandler<{
   Params: { id: string };
-  Body: unknown;
+  Body: AttachImageBody;
 }> = async (req, reply) => {
   const id = String((req.params as any)?.id || "");
   if (!id) return reply.code(400).send({ error: { message: "invalid_params" } });

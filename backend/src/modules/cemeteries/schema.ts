@@ -86,3 +86,6 @@ export function rowToView(r: CemeteryRow) {
     updated_at: r.updated_at,
   };
 }
+
+export type CemeteryView = ReturnType<typeof rowToView>;
+
