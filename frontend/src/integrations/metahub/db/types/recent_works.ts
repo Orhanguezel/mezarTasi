@@ -1,3 +1,5 @@
+// src/integrations/metahub/db/types/recent_works.ts
+
 // === Shared primitives ===
 export type BoolLike = boolean | 0 | 1 | "0" | "1" | "true" | "false";
 

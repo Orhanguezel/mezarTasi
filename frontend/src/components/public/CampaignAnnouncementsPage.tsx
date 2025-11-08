@@ -1,4 +1,8 @@
-// src/components/public/CampaignAnnouncementsPage.tsx
+// =============================================================
+// FILE: src/components/public/CampaignAnnouncementsPage.tsx
+// =============================================================
+"use client";
+
 import React, { useMemo, useState } from "react";
 import { ImageWithFallback } from "../figma/ImageWithFallback";
 import { Button } from "../ui/button";
@@ -13,7 +17,6 @@ import type { AnnouncementView } from "@/integrations/metahub/db/types/announcem
 import { DetailPanel } from "./CampaignAnnouncementDetailPanel";
 
 type Kind = "campaign" | "announcement";
-
 type ListItem = {
   kind: Kind;
   id: string;
@@ -25,11 +28,20 @@ type ListItem = {
   active: boolean;
   label: "Kampanya" | "Duyuru";
 };
-
 type Selected = { kind: Kind; id: string } | null;
 
 const placeholderImg =
   "https://images.unsplash.com/photo-1556740749-887f6717d7e4?w=800&h=500&fit=crop";
+
+function campaignImageUrl(c: SimpleCampaignView): string {
+  return (
+    c.images?.[0]?.image_effective_url ??
+    c.images?.[0]?.image_url ??
+    c.image_effective_url ??
+    c.image_url ??
+    placeholderImg
+  );
+}
 
 const htmlToText = (html: string) => {
   if (!html) return "";
@@ -48,7 +60,6 @@ const firstImgFromHtml = (html: string): string | null => {
 
 interface CampaignAnnouncementsPageProps {
   onNavigate: (page: string) => void;
-  /** İstersen dışarıdan bir seçili kayıt ile başlatabilirsin (opsiyonel) */
   initialSelected?: Selected;
 }
 
@@ -71,8 +82,8 @@ const CampaignAnnouncementsPage: React.FC<CampaignAnnouncementsPageProps> = ({
       kind: "campaign",
       id: String(c.id),
       title: c.title,
-      desc: c.description,
-      image: c.images?.[0] || placeholderImg,
+      desc: c.description ?? "",
+      image: campaignImageUrl(c),
       tags: c.seo_keywords || [],
       active: !!c.is_active,
       label: "Kampanya",
@@ -81,10 +92,10 @@ const CampaignAnnouncementsPage: React.FC<CampaignAnnouncementsPageProps> = ({
 
     const fromAnnouncements: ListItem[] = (announcements as AnnouncementView[]).map((a) => ({
       kind: "announcement",
-      id: String(a.id),
+      id: String((a as any).slug ?? (a as any).uuid ?? a.id), // 🔹 slug/uuid öncelikli
       title: a.title,
       desc: a.html ? htmlToText(a.html).slice(0, 220) : a.description || "",
-      image: firstImgFromHtml(a.html) || placeholderImg,
+      image: firstImgFromHtml(a.html || "") || placeholderImg,
       tags: [],
       active: a.is_active !== false,
       label: "Duyuru",
@@ -109,7 +120,6 @@ const CampaignAnnouncementsPage: React.FC<CampaignAnnouncementsPageProps> = ({
     });
   }, [items, searchKeyword]);
 
-  // Seçili kaydı bul
   const selectedItem: ListItem | null = selected
     ? items.find((it) => it.kind === selected.kind && it.id === selected.id) ?? null
     : null;
@@ -151,18 +161,15 @@ const CampaignAnnouncementsPage: React.FC<CampaignAnnouncementsPageProps> = ({
                 placeholder="Başlık, açıklama veya etiket ara..."
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && null}
+                onKeyDown={() => {}}
                 className="w-full pl-4 pr-12 py-3 text-lg border-2 border-emerald-200 focus:border-emerald-500 rounded-lg"
               />
               <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400 w-5 h-5" />
             </div>
-            <Button className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-lg">
-              Ara
-            </Button>
           </div>
         </div>
 
-        {/* Liste grid – her zaman sayfada */}
+        {/* Liste */}
         <div className="max-w-5xl mx-auto grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((it) => (
             <button
@@ -192,18 +199,14 @@ const CampaignAnnouncementsPage: React.FC<CampaignAnnouncementsPageProps> = ({
           ))}
         </div>
 
-        {/* Back */}
         <div className="text-center mt-10">
-          <Button
-            onClick={() => onNavigate("home")}
-            className="bg-slate-600 hover:bg-slate-700 text-white px-8 py-3 rounded-lg"
-          >
+          <Button onClick={() => onNavigate("home")} className="bg-slate-600 hover:bg-slate-700 text-white px-8 py-3 rounded-lg">
             ← Ana Sayfaya Dön
           </Button>
         </div>
       </div>
 
-      {/* Modal – yalnızca seçili varken açık */}
+      {/* Modal (standalone kullanım için) */}
       <ModalWrapper
         isOpen={!!selected}
         onClose={() => setSelected(null)}
@@ -231,11 +234,7 @@ const CampaignAnnouncementsPage: React.FC<CampaignAnnouncementsPageProps> = ({
                       className="shrink-0 w-48 text-left bg-white rounded-lg border border-emerald-100 hover:shadow transition"
                       onClick={() => setSelected({ kind: "campaign", id: x.id })}
                     >
-                      <ImageWithFallback
-                        src={x.image}
-                        alt={x.title}
-                        className="w-full h-24 object-cover rounded-t-lg"
-                      />
+                      <ImageWithFallback src={x.image} alt={x.title} className="w-full h-24 object-cover rounded-t-lg" />
                       <div className="p-2">
                         <div className="text-[10px] text-emerald-700 font-semibold mb-1">Kampanya</div>
                         <div className="text-xs text-slate-800 line-clamp-2">{x.title}</div>
@@ -252,40 +251,3 @@ const CampaignAnnouncementsPage: React.FC<CampaignAnnouncementsPageProps> = ({
 };
 
 export default CampaignAnnouncementsPage;
-
-/** ============================================
- *  Home’da kullanmak için: Aktif kampanyalar “row”
- *  ============================================ */
-export const ActiveCampaignsRow: React.FC<{ onOpen: (id: string) => void }> = ({ onOpen }) => {
-  const { data: campaigns = [] } = useListSimpleCampaignsQuery(undefined, {
-    refetchOnMountOrArgChange: 30,
-  });
-
-  const actives = (campaigns as SimpleCampaignView[]).filter((c) => !!c.is_active);
-  if (!actives.length) return null;
-
-  return (
-    <div className="container mx-auto px-4 py-6">
-      <h3 className="text-xl text-emerald-800 mb-3">Aktif Kampanyalar</h3>
-      <div className="flex gap-4 overflow-x-auto pb-2">
-        {actives.map((c) => (
-          <button
-            key={c.id}
-            className="shrink-0 w-64 text-left bg-white rounded-xl border border-emerald-100 hover:shadow transition"
-            onClick={() => onOpen(String(c.id))}
-          >
-            <ImageWithFallback
-              src={c.images?.[0] || placeholderImg}
-              alt={c.title}
-              className="w-full h-32 object-cover rounded-t-xl"
-            />
-            <div className="p-3">
-              <div className="text-[10px] text-emerald-700 font-semibold mb-1">Kampanya</div>
-              <div className="text-sm text-slate-800 line-clamp-2">{c.title}</div>
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};

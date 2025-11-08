@@ -6,11 +6,21 @@ export const ServiceTypeEnum = z.enum(["gardening", "soil", "other"]);
 /* ---- LIST QUERIES (slider ile aynı isimleşme) ---- */
 export const servicePublicListQuerySchema = z.object({
   q: z.string().optional(),
-  limit: z.coerce.number().int().min(0).max(200).default(50),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
   offset: z.coerce.number().int().min(0).default(0),
-  sort: z.enum(["display_order", "name", "created_at", "updated_at"]).default("display_order"),
-  order: z.enum(["asc", "desc"]).default("asc"),
+  sort: z.enum(["created_at","updated_at","name","display_order"]).default("display_order"),
+  order: z.enum(["asc","desc"]).default("asc"),
+  // ✅ tek string, CSV veya string[] destekle
+  type: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .transform((v) => {
+      if (!v) return [];
+      if (Array.isArray(v)) return v.filter(Boolean).map(s => s.toLowerCase().trim());
+      return String(v).split(",").map(s => s.toLowerCase().trim()).filter(Boolean);
+    }),
 });
+
 
 export const serviceAdminListQuerySchema = servicePublicListQuerySchema.extend({
   is_active: z.coerce.boolean().optional(),

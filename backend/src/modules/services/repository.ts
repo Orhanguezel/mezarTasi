@@ -1,5 +1,5 @@
 import { db } from "@/db/client";
-import { and, asc, desc, eq, like, sql } from "drizzle-orm";
+import { and, asc, desc, eq, like, sql,inArray } from "drizzle-orm";
 import { services, type NewServiceRow } from "./schema";
 import { storageAssets } from "@/modules/storage/schema";
 import {
@@ -40,20 +40,54 @@ const selectWithAsset = {
 
 /* ---- PUBLIC LIST (aktifler) ---- */
 export async function repoListServicesPublic(q: ServicePublicListQuery) {
-  const where = and(
-    eq(services.is_active, 1 as any),
-    q.q ? like(services.name, `%${q.q}%`) : sql`1=1`
-  );
-  const orderBy = sortMap[q.sort](q.order);
+  const sorts = {
+    created_at: services.created_at,
+    updated_at: services.updated_at,
+    name: services.name,
+    display_order: services.display_order,
+  } as const;
 
-  return db
-    .select(selectWithAsset)
+  const whereParts = [eq(services.is_active, 1)];
+  if (q.type && q.type.length) {
+    whereParts.push(inArray(services.type, q.type));
+  }
+
+  const rows = await db
+    .select({
+      id: services.id,
+      slug: services.slug,
+      name: services.name,
+      type: services.type,
+      category: services.category,
+      material: services.material,
+      price: services.price,
+      description: services.description,
+      featured: services.featured,
+      is_active: services.is_active,
+      display_order: services.display_order,
+      image_url: services.image_url,
+      storage_asset_id: services.storage_asset_id,
+      alt: services.alt,
+      featured_image: services.featured_image,
+      area: services.area,
+      duration: services.duration,
+      maintenance: services.maintenance,
+      season: services.season,
+      soil_type: services.soil_type,
+      thickness: services.thickness,
+      equipment: services.equipment,
+      warranty: services.warranty,
+      includes: services.includes,
+      created_at: services.created_at,
+      updated_at: services.updated_at,
+    })
     .from(services)
-    .leftJoin(storageAssets, eq(services.storage_asset_id, storageAssets.id))
-    .where(where)
-    .orderBy(orderBy)
+    .where(and(...whereParts))
+    .orderBy(q.order === "desc" ? desc(sorts[q.sort]) : asc(sorts[q.sort]))
     .limit(q.limit)
     .offset(q.offset);
+
+  return rows;
 }
 
 /* ---- ADMIN LIST ---- */

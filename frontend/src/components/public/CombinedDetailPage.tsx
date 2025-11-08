@@ -11,9 +11,28 @@ import {
 import {
   useGetAnnouncementByIdQuery,
 } from "@/integrations/metahub/rtk/endpoints/announcements.endpoints";
+import type { SimpleCampaignView } from "@/integrations/metahub/db/types/campaigns";
 
 const placeholderImg =
   "https://images.unsplash.com/photo-1556740749-887f6717d7e4?w=800&h=500&fit=crop";
+
+// images[] içindeki obje/alanları string URL’e indirger
+function campaignImageUrl(c: SimpleCampaignView): string {
+  return (
+    c.images?.[0]?.image_effective_url ??
+    c.images?.[0]?.image_url ??
+    c.image_effective_url ??
+    c.image_url ??
+    placeholderImg
+  );
+}
+
+// Duyuru HTML’inden ilk img src’sini al
+function firstImgFromHtml(html?: string | null): string {
+  if (!html) return placeholderImg;
+  const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return m?.[1] ?? placeholderImg;
+}
 
 export type Selected = { kind: "campaign"; id: string } | { kind: "announcement"; id: string };
 
@@ -22,20 +41,19 @@ export const CombinedDetailPage: React.FC<{
   onBack: () => void;
 }> = ({ selected, onBack }) => {
   const isCampaign = selected.kind === "campaign";
-  const id = selected.id;
-
-  // Skip guard’lar
-  const {
-    data: campaign,
-    isFetching: fetchingC,
-    isError: errorC,
-  } = useGetSimpleCampaignByIdQuery(id, { skip: !isCampaign || !id });
+  const id = selected.id?.trim();
 
   const {
-    data: announcement,
-    isFetching: fetchingA,
-    isError: errorA,
-  } = useGetAnnouncementByIdQuery(id, { skip: isCampaign || !id });
+     data: campaign,
+     isFetching: fetchingC,
+     isError: errorC,
+  } = useGetSimpleCampaignByIdQuery(id!, { skip: !isCampaign || !id });
+
+  const {
+     data: announcement,
+     isFetching: fetchingA,
+     isError: errorA,
+  } = useGetAnnouncementByIdQuery(id!, { skip: isCampaign || !id });
 
   const isFetching = fetchingC || fetchingA;
   const isError = errorC || errorA;
@@ -73,8 +91,9 @@ export const CombinedDetailPage: React.FC<{
     );
   }
 
+  // === Kampanya ===
   if (isCampaign && campaign) {
-    const img = campaign.images?.[0] || placeholderImg;
+    const imgSrc = campaignImageUrl(campaign); // <- her zaman string
     const date = campaign.created_at
       ? new Date(campaign.created_at).toLocaleDateString("tr-TR")
       : null;
@@ -90,7 +109,7 @@ export const CombinedDetailPage: React.FC<{
 
         <div className="flex justify-center">
           <div className="w-80 h-64 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-            <ImageWithFallback src={img} alt={campaign.title} className="w-full h-full object-cover" />
+            <ImageWithFallback src={imgSrc} alt={campaign.title} className="w-full h-full object-cover" />
           </div>
         </div>
 
@@ -155,10 +174,10 @@ export const CombinedDetailPage: React.FC<{
     );
   }
 
-  // Duyuru (Announcement)
+  // === Duyuru ===
   const a = announcement!;
   const date = a.created_at ? new Date(a.created_at).toLocaleDateString("tr-TR") : null;
-  const img = a.html ? (a.html.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] ?? placeholderImg) : placeholderImg;
+  const imgSrc = firstImgFromHtml(a.html);
 
   return (
     <div className="bg-white max-w-2xl mx-auto p-6 space-y-6 rounded-2xl shadow">
@@ -168,18 +187,19 @@ export const CombinedDetailPage: React.FC<{
         {date && <div className="text-sm text-gray-500">{date}</div>}
       </div>
 
-      {!!img && (
+      {!!imgSrc && (
         <div className="flex justify-center">
           <div className="w-80 h-64 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-            <ImageWithFallback src={img} alt={a.title} className="w-full h-full object-cover" />
+            <ImageWithFallback src={imgSrc} alt={a.title} className="w-full h-full object-cover" />
           </div>
         </div>
       )}
 
-      {/* Duyuru HTML içeriği */}
       {a.html && (
-        <div className="prose prose-sm max-w-none prose-p:leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: a.html }} />
+        <div
+          className="prose prose-sm max-w-none prose-p:leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: a.html }}
+        />
       )}
 
       <div className="text-center">

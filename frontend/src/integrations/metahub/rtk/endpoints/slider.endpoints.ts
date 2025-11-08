@@ -18,7 +18,7 @@ import type {
 } from "@/integrations/metahub/db/types/slider";
 
 // ---- helpers ----
-const BASE = "/slider";
+const BASE = "/sliders";
 const ADMIN_BASE = "/admin/sliders";
 
 const buildParams = (

@@ -15,18 +15,54 @@ type SimpleCampaignPageProps = {
   campaignId: string;
 };
 
+const PLACEHOLDER =
+  "https://images.unsplash.com/photo-1594968973184-9040a5a79963?w=800&h=600&fit=crop&crop=center";
+
+/** Objeyi güvenli biçimde string URL'e indirger */
+function pickImageUrl(x: unknown): string | undefined {
+  if (!x) return undefined;
+  if (typeof x === "string") return x;
+  if (typeof x === "object") {
+    const o = x as Record<string, any>;
+    const cands = [
+      o.public_url,
+      o.url,
+      o.image_url,
+      o.src,
+      o.path,
+      o.file_url,
+      o.asset?.url,
+      o.storage_asset?.public_url,
+    ];
+    const u = cands.find((v) => typeof v === "string" && v.trim());
+    return u;
+  }
+  return undefined;
+}
+
+/** images alanını daima string[] yap */
+function toImageUrls(images: unknown): string[] {
+  if (!Array.isArray(images)) return [];
+  const arr = images
+    .map((it) => pickImageUrl(it))
+    .filter((u): u is string => typeof u === "string" && !!u.trim());
+  return arr;
+}
+
 export function SimpleCampaignPage({ onNavigate, campaignId }: SimpleCampaignPageProps) {
-  // RTK — kampanya detayı
   const { data, isLoading, isError } = useGetSimpleCampaignByIdQuery(campaignId);
 
   // SEO meta’ları güncelle
   useEffect(() => {
     if (!data) return;
 
-    const pageTitle = data.meta_title || data.title;
-    const keywords = Array.isArray(data.seo_keywords) ? data.seo_keywords : [];
+    const pageTitle = data.title;
+    const keywords: string[] = Array.isArray((data as any).seo_keywords)
+      ? (data as any).seo_keywords
+      : [];
+    // meta_description alanı yok → description veya fallback üret
     const desc =
-      data.meta_description ||
+      (typeof data.description === "string" && data.description.trim()) ||
       `${data.title} - ${keywords.slice(0, 3).join(", ")} için özel fırsatlar. İstanbul'da mezar yapımı hizmetleri.`;
 
     document.title = `${pageTitle} - Mezarisim.com`;
@@ -52,7 +88,6 @@ export function SimpleCampaignPage({ onNavigate, campaignId }: SimpleCampaignPag
     };
   }, [data]);
 
-  // Loading
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -61,7 +96,6 @@ export function SimpleCampaignPage({ onNavigate, campaignId }: SimpleCampaignPag
     );
   }
 
-  // Error / Not found
   if (isError || !data) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -76,8 +110,10 @@ export function SimpleCampaignPage({ onNavigate, campaignId }: SimpleCampaignPag
   }
 
   const title = data.title;
-  const images = Array.isArray(data.images) ? data.images : [];
-  const seoKeywords = Array.isArray(data.seo_keywords) ? data.seo_keywords : [];
+  const imageUrls = toImageUrls((data as any).images);
+  const seoKeywords: string[] = Array.isArray((data as any).seo_keywords)
+    ? (data as any).seo_keywords
+    : [];
   const description = data.description ?? "";
 
   const handleCall = () => {
@@ -140,15 +176,15 @@ export function SimpleCampaignPage({ onNavigate, campaignId }: SimpleCampaignPag
           <CardContent className="pt-6">
             <h3 className="text-xl font-semibold text-gray-800 mb-6 text-center">Kampanya Görselleri</h3>
 
-            {images.length > 0 ? (
+            {imageUrls.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {images.slice(0, 5).map((img, i) => (
+                {imageUrls.slice(0, 5).map((src, i) => (
                   <div
-                    key={`${img}-${i}`}
+                    key={`${i}-${src}`}
                     className="aspect-square overflow-hidden rounded-lg border-2 border-gray-200 hover:border-teal-300 transition-colors duration-200 group"
                   >
                     <ImageOptimized
-                      src={img}
+                      src={src}
                       alt={`${title} görsel ${i + 1}`}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       priority={i < 2}
@@ -157,8 +193,15 @@ export function SimpleCampaignPage({ onNavigate, campaignId }: SimpleCampaignPag
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-500">Henüz görsel eklenmemiş</p>
+              <div className="grid grid-cols-1">
+                <div className="aspect-square overflow-hidden rounded-lg border-2 border-gray-200">
+                  <ImageOptimized
+                    src={PLACEHOLDER}
+                    alt={`${title} placeholder`}
+                    className="w-full h-full object-cover"
+                    priority
+                  />
+                </div>
               </div>
             )}
           </CardContent>

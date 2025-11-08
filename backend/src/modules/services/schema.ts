@@ -72,6 +72,7 @@ export const services = mysqlTable(
     idxAsset: index("services_asset_idx").on(t.storage_asset_id),
     idxCreated: index("services_created_idx").on(t.created_at), // ← migration ile hizalı
     idxUpdated: index("services_updated_idx").on(t.updated_at),
+    idxActiveTypeOrder: index("services_active_type_order_idx").on(t.is_active, t.type, t.display_order),
   })
 );
 

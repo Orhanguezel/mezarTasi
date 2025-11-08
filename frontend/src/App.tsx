@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/App.tsx
+// =============================================================
 import { useEffect, useMemo, useState } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -20,13 +23,13 @@ import { MissionVisionPage } from "./components/public/MissionVisionPage";
 import { QualityPolicyPage } from "./components/public/QualityPolicyPage";
 import { FAQPage } from "./components/public/FAQPage";
 import { ProductDetailPage } from "./components/public/ProductDetailPage";
+import { CemeteriesPage } from "./components/public/CemeteriesPage";
 
-import CampaignAnnouncementsPage, { ActiveCampaignsRow } from "./components/public/CampaignAnnouncementsPage";
+import CampaignAnnouncementsPage from "./components/public/CampaignAnnouncementsPage";
 import { DetailPanel } from "./components/public/CampaignAnnouncementDetailPanel";
 import { RecentWorkDetailPage } from "./components/public/RecentWorkDetailPage";
 import { ModalWrapper } from "./components/public/ModalWrapper";
 import { DataProvider } from "./contexts/DataContext";
-import { RecentWork } from "./data/recentWorksData";
 
 import { useListSimpleCampaignsQuery } from "@/integrations/metahub/rtk/endpoints/campaigns.endpoints";
 import type { SimpleCampaignView } from "@/integrations/metahub/db/types/campaigns";
@@ -54,7 +57,8 @@ type PageKey =
   | "accessories"
   | "gardening"
   | "soilfilling"
-  | "productDetail";
+  | "productDetail"
+  | "cemetery";
 
 const routeMap: Record<PageKey, string> = {
   home: "/",
@@ -71,6 +75,7 @@ const routeMap: Record<PageKey, string> = {
   adminAccess: "/adminkotrol",
   admin: "/admin",
   productDetail: "/product/:id",
+  cemetery: "/cemetery",
 };
 
 function useCurrentPageKey(): PageKey {
@@ -88,28 +93,122 @@ function useCurrentPageKey(): PageKey {
   if (pathname.startsWith("/soilfilling")) return "soilfilling";
   if (pathname.startsWith("/contact")) return "contact";
   if (pathname.startsWith("/product/")) return "productDetail";
+  if (pathname.startsWith("/cemetery")) return "cemetery";
   return "home";
 }
 
-/** Bir kampanya objesi/slug/id’den string ID üret */
+/** Bir kampanya objesi/slug/id’den string ID üret – tüm durumları kabul et */
 function resolveCampaignId(c: any): string | undefined {
-  if (!c) return undefined;
+  if (c == null) return undefined;
   if (typeof c === "string") {
     const s = c.trim();
-    if (!s) return undefined;
-    const looksUuidOrSlug = /[a-zA-Z]/.test(s) || s.includes("-") || s.length >= 24;
-    return looksUuidOrSlug ? s : undefined;
+    return s || undefined;
   }
-  if (typeof c === "number") return undefined;
+  if (typeof c === "number") return String(c);
   if (typeof c === "object") {
     const possible = c.id ?? c.campaignId ?? c.slug ?? c.uuid ?? c._id ?? c.ID;
-    if (typeof possible === "string") {
-      const s = possible.trim();
-      const looksUuidOrSlug = /[a-zA-Z]/.test(s) || s.includes("-") || s.length >= 24;
-      return looksUuidOrSlug ? s : undefined;
-    }
+    if (possible == null) return undefined;
+    return String(possible).trim() || undefined;
   }
   return undefined;
+}
+
+/** Bir duyuru objesi/slug/id’den string ID üret – slug/uuid öncelikli */
+function resolveAnnouncementId(a: any): string | undefined {
+  if (a == null) return undefined;
+  if (typeof a === "string") {
+    const s = a.trim();
+    return s || undefined;
+  }
+  if (typeof a === "number") return String(a);
+  if (typeof a === "object") {
+    const possible = a.slug ?? a.uuid ?? a.id ?? a._id ?? a.ID;
+    if (possible == null) return undefined;
+    return String(possible).trim() || undefined;
+  }
+  return undefined;
+}
+
+/** Home sayfasında kullanılacak Aktif Kampanyalar şeridi (App içinde lokal) */
+function HomeActiveCampaignsRow(props: { onOpen: (id: string) => void }) {
+  const { data: campaigns = [] } = useListSimpleCampaignsQuery(undefined, {
+    refetchOnMountOrArgChange: 30,
+  });
+  const items = (campaigns as SimpleCampaignView[]).filter((c) => !!c.is_active);
+  if (!items.length) return null;
+
+  return (
+    <div className="container mx-auto px-4 py-6">
+      <h3 className="text-xl text-emerald-800 mb-3">Aktif Kampanyalar</h3>
+      <div className="flex gap-4 overflow-x-auto pb-2">
+        {items.map((x) => (
+          <button
+            key={`home-camp-${x.id}`}
+            className="shrink-0 w-64 text-left bg-white rounded-xl border border-emerald-100 hover:shadow transition"
+            onClick={() => props.onOpen(String(x.id))}
+          >
+            <img
+              src={
+                (x as any).images?.[0]?.image_effective_url ||
+                (x as any).images?.[0]?.image_url ||
+                x.image_effective_url ||
+                x.image_url ||
+                "https://images.unsplash.com/photo-1556740749-887f6717d7e4?w=800&h=500&fit=crop"
+              }
+              alt={x.title}
+              className="w-full h-32 object-cover rounded-t-xl"
+            />
+            <div className="p-3">
+              <div className="text-[10px] text-emerald-700 font-semibold mb-1">Kampanya</div>
+              <div className="text-sm text-slate-800 line-clamp-2">{x.title}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** İlgili aktif kampanyalar şeridi (detay modalı içinde kullanılıyor) */
+function RelatedActiveCampaigns(props: { currentId: string; onOpen: (id: string) => void }) {
+  const { data: campaigns = [] } = useListSimpleCampaignsQuery(undefined, {
+    refetchOnMountOrArgChange: 30,
+  });
+  const items = (campaigns as SimpleCampaignView[]).filter(
+    (c) => !!c.is_active && String(c.id) !== props.currentId
+  );
+  if (!items.length) return null;
+
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-medium text-slate-700 mb-3">Diğer aktif kampanyalar</h3>
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {items.map((x: SimpleCampaignView) => (
+          <button
+            key={`rel-${x.id}`}
+            className="shrink-0 w-48 text-left bg-white rounded-lg border border-emerald-100 hover:shadow transition"
+            onClick={() => props.onOpen(String(x.id))}
+          >
+            <img
+              src={
+                (x as any).images?.[0]?.image_effective_url ||
+                (x as any).images?.[0]?.image_url ||
+                x.image_effective_url ||
+                x.image_url ||
+                "https://images.unsplash.com/photo-1556740749-887f6717d7e4?w=800&h=500&fit=crop"
+              }
+              alt={x.title}
+              className="w-full h-24 object-cover rounded-t-lg"
+            />
+            <div className="p-2">
+              <div className="text-[10px] text-emerald-700 font-semibold mb-1">Kampanya</div>
+              <div className="text-xs text-slate-800 line-clamp-2">{x.title}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /** ------- Sayfa Parçaları ------- */
@@ -119,13 +218,14 @@ function HomeComposition(props: {
   onClearSearch: () => void;
   onProductDetail: (id: number) => void;
   refreshKey: number;
-  openRecentWork: (w: RecentWork) => void;
+  openRecentWork: (payload: { id: string; slug?: string }) => void;
   openCampaigns: (c?: any) => void;
+  openAnnouncement: (a?: any) => void;
 }) {
   return (
     <>
       <HeroSection onNavigate={() => { }} />
-      <ActiveCampaignsRow onOpen={(id) => props.openCampaigns(id)} />
+      <HomeActiveCampaignsRow onOpen={(id) => props.openCampaigns(id)} />
       <ProductGallery
         searchTerm={props.searchTerm}
         showSearchResults={props.showSearchResults}
@@ -137,6 +237,7 @@ function HomeComposition(props: {
         onNavigate={() => { }}
         onOpenRecentWorkModal={(w) => props.openRecentWork(w)}
         onOpenCampaignsModal={(c) => props.openCampaigns(c)}
+        onOpenAnnouncementModal={(a) => props.openAnnouncement(a)}
       />
     </>
   );
@@ -156,45 +257,6 @@ function ProductDetailWrapper(props: { onProductDetail: (id: number) => void }) 
   );
 }
 
-/** İlgili aktif kampanyalar şeridi */
-function RelatedActiveCampaigns(props: { currentId: string; onOpen: (id: string) => void }) {
-  const { data: campaigns = [] } = useListSimpleCampaignsQuery(undefined, {
-    refetchOnMountOrArgChange: 30,
-  });
-  const items = (campaigns as SimpleCampaignView[]).filter(
-    (c) => !!c.is_active && String(c.id) !== props.currentId
-  );
-  if (!items.length) return null;
-
-  return (
-    <div className="mt-6">
-      <h3 className="text-sm font-medium text-slate-700 mb-3">Diğer aktif kampanyalar</h3>
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        {items.map((x) => (
-          <button
-            key={`rel-${x.id}`}
-            className="shrink-0 w-48 text-left bg-white rounded-lg border border-emerald-100 hover:shadow transition"
-            onClick={() => props.onOpen(String(x.id))}
-          >
-            <img
-              src={
-                x.image_effective_url || x.image_url ||
-                "https://images.unsplash.com/photo-1556740749-887f6717d7e4?w=800&h=500&fit=crop"
-              }
-              alt={x.title}
-              className="w-full h-24 object-cover rounded-t-lg"
-            />
-            <div className="p-2">
-              <div className="text-[10px] text-emerald-700 font-semibold mb-1">Kampanya</div>
-              <div className="text-xs text-slate-800 line-clamp-2">{x.title}</div>
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /** ------- App ------- */
 export default function App() {
   const location = useLocation();
@@ -207,8 +269,10 @@ export default function App() {
 
   const [showCampaignsModal, setShowCampaignsModal] = useState(false);
   const [showRecentWorkModal, setShowRecentWorkModal] = useState(false);
-  const [selectedRecentWork, setSelectedRecentWork] = useState<RecentWork | null>(null);
+  const [selectedRecentWork, setSelectedRecentWork] = useState<{ id: string; slug?: string } | null>(null);
+
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+  const [selectedAnnouncementId, setSelectedAnnouncementId] = useState<string | null>(null);
 
   const hidePublicChrome = useMemo(
     () => location.pathname.startsWith("/admin") || location.pathname.startsWith("/adminkotrol"),
@@ -217,7 +281,7 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-app", hidePublicChrome ? "admin" : "site");
-    document.body.id = "site-root";
+    (document.body || document.documentElement).id = "site-root";
   }, [hidePublicChrome]);
 
   useEffect(() => {
@@ -253,14 +317,23 @@ export default function App() {
     navigate(`/product/${productId}`);
   };
 
-  const openRecentWork = (w: RecentWork) => {
-    setSelectedRecentWork(w);
+  // Artık { id, slug? } payload bekliyoruz
+  const openRecentWork = (payload: { id: string; slug?: string }) => {
+    setSelectedRecentWork(payload);
     setShowRecentWorkModal(true);
   };
 
   const openCampaigns = (c?: any) => {
     const cid = resolveCampaignId(c);
     setSelectedCampaignId(cid ?? null);
+    setSelectedAnnouncementId(null); // kampanya açılırken duyuru seçimi temizle
+    setShowCampaignsModal(true);
+  };
+
+  const openAnnouncement = (a?: any) => {
+    const aid = resolveAnnouncementId(a);
+    setSelectedAnnouncementId(aid ?? null);
+    setSelectedCampaignId(null); // duyuru açılırken kampanya seçimi temizle
     setShowCampaignsModal(true);
   };
 
@@ -291,6 +364,7 @@ export default function App() {
                   refreshKey={refreshKey}
                   openRecentWork={openRecentWork}
                   openCampaigns={openCampaigns}
+                  openAnnouncement={openAnnouncement}
                 />
               }
             />
@@ -299,6 +373,7 @@ export default function App() {
             <Route path="/mission" element={<MissionVisionPage onNavigate={onNavigateString} />} />
             <Route path="/quality" element={<QualityPolicyPage onNavigate={onNavigateString} />} />
             <Route path="/faq" element={<FAQPage onNavigate={onNavigateString} />} />
+            <Route path="/cemetery" element={<CemeteriesPage onNavigate={onNavigateString} />} />
 
             <Route
               path="/pricing"
@@ -325,66 +400,66 @@ export default function App() {
             {/* Admin akışı */}
             <Route path="/adminkotrol" element={<AdminSecretAccess onNavigate={onNavigateString} />} />
 
-            {/* ✅ Admin panel VE tüm form rotaları: hepsi AdminPanel içinde render edilir */}
+            {/* ✅ Admin panel VE tüm form rotaları */}
             <Route path="/admin" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/products" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/products/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/products/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
-            {/* ✅ Kategoriler için form rotaları da AdminPanel içinde */}
+
             <Route path="/admin/categories" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/categories/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/categories/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
-            {/* ✅ Alt Kategoriler için form rotaları da AdminPanel içinde */}
+
             <Route path="/admin/subcategories" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/subcategories/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/subcategories/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
-            {/* ✅ Custom Pages için form rotaları da AdminPanel içinde */}
+
             <Route path="/admin/pages" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/pages/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/pages/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
-            {/* ✅ SSS (FAQ) için form rotaları da AdminPanel içinde */}
+
             <Route path="/admin/faqs" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/faqs/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/faqs/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
-            {/* ✅ Son Çalışmalar için form rotaları da AdminPanel içinde */}
+
             <Route path="/admin/recent-works" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/recent-works/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/recent-works/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
-            {/* ✅ Site Ayarları için form rotaları da AdminPanel içinde */}
+
             <Route path="/admin/site-settings" element={<AdminPanel onNavigate={onNavigateString} />} />
-            {/* ✅ Duyurular için form rotaları da AdminPanel içinde */}
+
             <Route path="/admin/announcements" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/announcements/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/announcements/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
-            {/* ✅ Kullanıcılar için form rotaları da AdminPanel içinde */}
+
             <Route path="/admin/users" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/users/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/users/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
-            {/* ✅ Kampanyalar için form rotaları da AdminPanel içinde */}
+
             <Route path="/admin/campaigns" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/campaigns/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/campaigns/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
-            {/* ✅ Son Çalışmalar için form rotaları da AdminPanel içinde */}
+
             <Route path="/admin/recent_works" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/recent_works/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/recent_works/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
-            {/* ✅ İletişim Mesajları için form rotaları da AdminPanel içinde */}
+
             <Route path="/admin/contacts" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/contacts/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/contacts/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
-            {/* ✅ Hizmetler için form rotaları da AdminPanel içinde */}
+
             <Route path="/admin/services" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/services/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/services/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
-            {/* ✅ Aksesuarlar için form rotaları da AdminPanel içinde */}
+
             <Route path="/admin/accessories" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/accessories/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/accessories/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
-            {/* ✅ Sliderlar için form rotaları da AdminPanel içinde */}
+
             <Route path="/admin/sliders" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/sliders/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/sliders/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
-            {/* ✅ Yorumlar için form rotaları da AdminPanel içinde */}
+
             <Route path="/admin/reviews" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/reviews/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/reviews/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
@@ -403,8 +478,15 @@ export default function App() {
           onClose={() => {
             setShowCampaignsModal(false);
             setSelectedCampaignId(null);
+            setSelectedAnnouncementId(null);
           }}
-          title={selectedCampaignId ? "Kampanya Detayı" : "Duyuru / Kampanyalar"}
+          title={
+            selectedCampaignId
+              ? "Kampanya Detayı"
+              : selectedAnnouncementId
+              ? "Duyuru Detayı"
+              : "Duyuru / Kampanyalar"
+          }
           maxWidth="max-w-3xl"
         >
           {selectedCampaignId ? (
@@ -412,6 +494,8 @@ export default function App() {
               <DetailPanel kind="campaign" id={selectedCampaignId} />
               <RelatedActiveCampaigns currentId={selectedCampaignId} onOpen={(id) => setSelectedCampaignId(id)} />
             </>
+          ) : selectedAnnouncementId ? (
+            <DetailPanel kind="announcement" id={selectedAnnouncementId} />
           ) : (
             <CampaignAnnouncementsPage onNavigate={onNavigateString} />
           )}
@@ -429,7 +513,8 @@ export default function App() {
         >
           {selectedRecentWork && (
             <RecentWorkDetailPage
-              work={selectedRecentWork}
+              id={selectedRecentWork.id}
+              slug={selectedRecentWork.slug}
               onBack={() => {
                 setShowRecentWorkModal(false);
                 setSelectedRecentWork(null);

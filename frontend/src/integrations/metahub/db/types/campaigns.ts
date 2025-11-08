@@ -1,8 +1,18 @@
+// src/integrations/metahub/db/types/campaigns.ts
+
 // === Shared primitives ===
 export type BoolLike = boolean | 0 | 1 | "0" | "1" | "true" | "false";
 
+// Opsiyonel: kampanya görsel item tipi (galeri uyumluluğu için)
+export type CampaignImageView = {
+  id?: string;
+  image_url?: string | null;
+  storage_asset_id?: string | null;
+  alt?: string | null;
+  image_effective_url?: string | null;
+};
+
 // === Rows (DB) & Views (FE) ===
-// Row: backend DB kayıt alanları (JSON-string için string)
 export type SimpleCampaignRow = {
   id: string;
   title: string;
@@ -22,7 +32,6 @@ export type SimpleCampaignRow = {
   updated_at?: string;
 };
 
-// View: FE’de kullanılacak normalize tip
 export type SimpleCampaignView = {
   id: string;
   title: string;
@@ -34,6 +43,9 @@ export type SimpleCampaignView = {
   storage_asset_id?: string | null;
   alt?: string | null;
   image_effective_url?: string | null;
+
+  // 🔹 Galeri uyumluluğu (opsiyonel). Tek görsel varsa buraya 1 elemanlı array de koyabilirsin.
+  images?: CampaignImageView[];
 
   created_at?: string;
   updated_at?: string;
