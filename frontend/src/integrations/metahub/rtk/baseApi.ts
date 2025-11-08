@@ -26,7 +26,7 @@ function guessDevBackend(): string {
     return "http://localhost:8081";
   }
 }
-const BASE_URL = trimSlash(DB_BASE_URL || (import.meta.env.DEV ? guessDevBackend() : "/api"));
+const BASE_URL = trimSlash(DB_BASE_URL || (import.meta.env.DEV ? guessDevBackend() : "/"));
 
 /* ---------- helpers & guards ---------- */
 type AnyArgs = string | FetchArgs;
