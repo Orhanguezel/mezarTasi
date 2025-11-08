@@ -1,9 +1,14 @@
+// -------------------------------------------------------------
+// FILE: src/.../ContactPage.tsx
+// -------------------------------------------------------------
 import { useState } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
-import backgroundImage from 'figma:asset/0a9012ca17bfb48233c0877277b7fb8427a12d4c.png';
+import backgroundImage from "figma:asset/0a9012ca17bfb48233c0877277b7fb8427a12d4c.png";
+import { useCreateContactMutation } from "@/integrations/metahub/rtk/endpoints/contacts.endpoints";
+import type { ContactCreateInput } from "@/integrations/metahub/db/types/contacts";
 
 interface ContactPageProps {
   onNavigate: (page: string) => void;
@@ -15,30 +20,55 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
     email: "",
     phone: "",
     subject: "",
-    message: ""
+    message: "",
+    website: "", // honeypot
   });
+
+  const [createContact, { isLoading }] = useCreateContactMutation();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Form submission logic here
-    console.log("Form submitted:", formData);
-    alert("Mesajınız başarıyla gönderildi! En kısa sürede size dönüş yapacağız.");
-    // Reset form
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      subject: "",
-      message: ""
-    });
+
+    const basePayload = {
+      name: formData.name.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone.trim(),
+      subject: formData.subject.trim(),
+      message: formData.message.trim(),
+    };
+
+    // website'i ya hiç gönder (omit) ya da null gönder
+    const websiteTrim = formData.website.trim();
+    const payload: ContactCreateInput = websiteTrim
+      ? { ...basePayload, website: websiteTrim }
+      : { ...basePayload, website: null }; // <-- exactOptionalPropertyTypes uyumlu
+
+    try {
+      const res = await createContact(payload).unwrap();
+      console.log("Contact created:", res);
+      alert("Mesajınız başarıyla gönderildi! En kısa sürede size dönüş yapacağız.");
+
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        subject: "",
+        message: "",
+        website: "",
+      });
+    } catch (err: any) {
+      console.error("Contact create error:", err);
+      alert(
+        typeof err?.data?.error === "string"
+          ? `Hata: ${err.data.error}`
+          : "Mesaj gönderilirken bir hata oluştu. Lütfen tekrar deneyin."
+      );
+    }
   };
 
   return (
@@ -62,7 +92,9 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
               <span>İletişim</span>
             </nav>
             <h1 className="text-2xl md:text-4xl mb-2">BİZE ULAŞIN!</h1>
-            <p className="text-base md:text-lg opacity-90">Daha fazla bilgi edinmek ve fiyat teklifi almak için bizimle iletişime geçin!</p>
+            <p className="text-base md:text-lg opacity-90">
+              Daha fazla bilgi edinmek ve fiyat teklifi almak için bizimle iletişime geçin!
+            </p>
           </div>
         </div>
       </div>
@@ -71,13 +103,11 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
       <div className="bg-white py-8 md:py-16">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 max-w-6xl mx-auto">
-
             {/* Left Column - Contact Information */}
             <div className="space-y-6 md:space-y-8">
               <div className="bg-gray-50 rounded-lg p-6 md:p-8">
                 <h2 className="text-lg md:text-xl text-teal-500 mb-6">Mezarisim.com</h2>
                 <div className="space-y-4 md:space-y-6">
-
                   {/* Company Name */}
                   <div className="flex items-start space-x-3 md:space-x-4">
                     <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 bg-teal-100 rounded-full flex items-center justify-center">
@@ -96,7 +126,9 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                     </div>
                     <div>
                       <h3 className="text-sm md:text-base text-gray-800 mb-1">Adres</h3>
-                      <p className="text-sm md:text-base text-gray-600 leading-relaxed">Hekimbaşı Mah. Yıldıztepe Cad. No:41 Ümraniye / İstanbul</p>
+                      <p className="text-sm md:text-base text-gray-600 leading-relaxed">
+                        Hekimbaşı Mah. Yıldıztepe Cad. No:41 Ümraniye / İstanbul
+                      </p>
                     </div>
                   </div>
 
@@ -160,6 +192,21 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
             {/* Right Column - Contact Form */}
             <div className="bg-gray-50 rounded-lg p-6 md:p-8">
               <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+                {/* Honeypot (gizli) */}
+                <div className="hidden">
+                  <Label htmlFor="website" className="text-gray-700 mb-2 block text-sm md:text-base">
+                    Website
+                  </Label>
+                  <Input
+                    id="website"
+                    name="website"
+                    type="text"
+                    value={formData.website}
+                    onChange={handleInputChange}
+                    autoComplete="off"
+                    tabIndex={-1}
+                  />
+                </div>
 
                 {/* Name Field */}
                 <div>
@@ -174,6 +221,7 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                     onChange={handleInputChange}
                     className="w-full"
                     required
+                    disabled={isLoading}
                   />
                 </div>
 
@@ -190,6 +238,7 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                     onChange={handleInputChange}
                     className="w-full"
                     required
+                    disabled={isLoading}
                   />
                 </div>
 
@@ -206,6 +255,7 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                     onChange={handleInputChange}
                     className="w-full"
                     required
+                    disabled={isLoading}
                   />
                 </div>
 
@@ -222,6 +272,7 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                     onChange={handleInputChange}
                     className="w-full"
                     required
+                    disabled={isLoading}
                   />
                 </div>
 
@@ -237,6 +288,7 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                     onChange={handleInputChange}
                     className="w-full min-h-24 md:min-h-32 resize-none"
                     required
+                    disabled={isLoading}
                   />
                 </div>
 
@@ -244,8 +296,9 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                 <Button
                   type="submit"
                   className="w-full bg-teal-500 hover:bg-teal-600 text-white py-3 text-sm md:text-base"
+                  disabled={isLoading}
                 >
-                  MESAJ GÖNDER
+                  {isLoading ? "GÖNDERİLİYOR..." : "MESAJ GÖNDER"}
                 </Button>
               </form>
             </div>
@@ -257,7 +310,9 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
       <div className="bg-gray-50 py-8 md:py-16">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-xl md:text-2xl text-teal-500 mb-6 md:mb-8 text-center">HARİTA ÜZERİNDE YERİMİZ</h2>
+            <h2 className="text-xl md:text-2xl text-teal-500 mb-6 md:mb-8 text-center">
+              HARİTA ÜZERİNDE YERİMİZ
+            </h2>
 
             <div className="bg-white rounded-lg shadow-lg overflow-hidden">
               <div className="relative w-full h-64 md:h-96">

@@ -126,6 +126,24 @@ export async function updateCustomPage(id: string, patch: Partial<NewCustomPageR
   return getCustomPageById(id);
 }
 
+/** Sadece featured image set/kaldır (asset_id ve opsiyonel url/alt) */
+export async function setCustomPageFeaturedImage(id: string, args: {
+  asset_id: string | null;
+  image_url?: string | null;
+  alt?: string | null;
+}) {
+  const patch: Partial<NewCustomPageRow> = {
+    featured_image_asset_id: args.asset_id ?? null,
+  };
+  if (typeof args.image_url !== "undefined") {
+    patch.featured_image = args.image_url ?? null;
+  }
+  if (typeof args.alt !== "undefined") {
+    patch.featured_image_alt = args.alt ?? null;
+  }
+  return updateCustomPage(id, patch);
+}
+
 /** delete (hard) */
 export async function deleteCustomPage(id: string) {
   const res = await db.delete(customPages).where(eq(customPages.id, id)).execute();

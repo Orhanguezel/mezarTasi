@@ -6,39 +6,34 @@
 import * as React from "react";
 import { toast } from "sonner";
 import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
-  SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
+  SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
 } from "@/components/ui/sidebar";
 import {
-  BarChart3, Package, Settings, LogOut, Home, FileText, Menu, MessageSquare, FolderTree, Megaphone,
+  BarChart3, Package, Settings, LogOut, Home, FileText, Menu,
+  MessageSquare, FolderTree, Megaphone, HelpCircle, Users, Mail
 } from "lucide-react";
 import { metahub } from "@/integrations/metahub/client";
-
-// ✅ 'categories' de aktif sekmelere eklendi
-export type ActiveTab =
-  | "products"
-  | "slider"
-  | "keywords"
-  | "campaigns"
-  | "categories" 
-  | "subcategories"  
-  | "pages"
-  | "menu"
-  | "popups";
-
-
+import type { ActiveTab } from "./AdminLayout";
 
 type MenuValue =
   | "products"
-  | "slider"
+  | "sliders"
   | "campaigns"
+  | "recent_works"
+  | "services"
   | "categories"
-  | "subcategories" 
+  | "accessories"
+  | "subcategories"
   | "blog"
   | "pages"
-  | "menu"
-  | "popups"
-  | "settings";
+  | "sitesettings"
+  | "faqs"
+  | "announcements"
+  | "users"
+  | "contacts"
+  | "settings"
+  | "reviews";
 
 const menuGroups: {
   label: string;
@@ -48,8 +43,11 @@ const menuGroups: {
     label: "Genel",
     items: [
       { title: "Dashboard", icon: BarChart3, value: "products" },
-      { title: "Ana Sayfa Ayarları", icon: Home, value: "slider" },
-      { title: "Kampanyalar", icon: Megaphone, value: "campaigns" }
+      { title: "Sayfa Ayarları", icon: Home, value: "sitesettings" },
+      { title: "Kampanyalar", icon: Megaphone, value: "campaigns" },
+      { title: "Son Çalışmalar", icon: FileText, value: "recent_works" }, 
+      { title: "Hizmetler", icon: FolderTree, value: "services" },
+      { title: "Slaytlar", icon: FolderTree, value: "sliders" },
     ],
   },
   {
@@ -57,32 +55,47 @@ const menuGroups: {
     items: [
       { title: "Ürünler", icon: Package, value: "products" },
       { title: "Kategoriler", icon: FolderTree, value: "categories" },
-      { title:"Alt Kategoriler",icon:FolderTree,  value:"subcategories"},
+      { title: "Alt Kategoriler", icon: FolderTree, value: "subcategories" },
+      { title: "Aksesuarlar", icon: FolderTree, value: "accessories" },
       { title: "Sayfalar", icon: FileText, value: "pages" },
-      { title: "Menü", icon: Menu, value: "menu" },
-      { title: "Popup'lar", icon: MessageSquare, value: "popups" }
+      { title: "SSS (FAQ)", icon: HelpCircle, value: "faqs" },
+      { title: "Duyurular", icon: Megaphone, value: "announcements" },
+      { title: "İletişim Mesajları", icon: Mail, value: "contacts" },
+      { title: "Yorumlar", icon: MessageSquare, value: "reviews" },
+      { title: "Kullanıcılar", icon: Users, value: "users" },
     ],
   },
   { label: "Ayarlar", items: [{ title: "Genel Ayarlar", icon: Settings, value: "settings" }] },
 ];
 
-// ✅ Menü -> Sekme eşlemesi (aktif olanlar)
 const MENU_TO_TAB: Partial<Record<MenuValue, ActiveTab>> = {
   products: "products",
-  slider: "slider",
+  sliders: "sliders",
   campaigns: "campaigns",
+  recent_works: "recent_works",
   categories: "categories",
   subcategories: "subcategories",
+  accessories: "accessories",
   pages: "pages",
-  menu: "menu",
-  popups: "popups",
+  sitesettings: "sitesettings",
+  faqs: "faqs",
+  announcements: "announcements",
+  users: "users",
+  contacts: "contacts",
+  settings: "settings",
+  reviews: "reviews",
+  services: "services",
 };
-
-
 
 const NavButton = React.forwardRef<
   HTMLButtonElement,
-  { isActive?: boolean; onClick?: () => void; className?: string; children: React.ReactNode; titleWhenCollapsed?: string }
+  {
+    isActive?: boolean;
+    onClick?: () => void;
+    className?: string;
+    children: React.ReactNode;
+    titleWhenCollapsed?: string;
+  }
 >(({ isActive, onClick, className, children, titleWhenCollapsed }, ref) => {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -90,9 +103,18 @@ const NavButton = React.forwardRef<
     <SidebarMenuButton
       asChild
       isActive={!!isActive}
-      className={[isActive ? "bg-white/10 text-white" : "hover:bg-white/5 hover:text-white", className || ""].join(" ")}
+      className={[
+        isActive ? "bg-white/10 text-white" : "hover:bg-white/5 hover:text-white",
+        className || "",
+      ].join(" ")}
     >
-      <button ref={ref} type="button" onClick={onClick} title={collapsed ? titleWhenCollapsed : undefined} aria-label={collapsed ? titleWhenCollapsed : undefined}>
+      <button
+        ref={ref}
+        type="button"
+        onClick={onClick}
+        title={collapsed ? titleWhenCollapsed : undefined}
+        aria-label={collapsed ? titleWhenCollapsed : undefined}
+      >
         {children}
       </button>
     </SidebarMenuButton>
@@ -107,7 +129,12 @@ export interface AdminSidebarProps {
   onNavigateLogin?: () => void;
 }
 
-export default function AdminSidebar({ activeTab, onTabChange, onNavigateHome, onNavigateLogin }: AdminSidebarProps) {
+export default function AdminSidebar({
+  activeTab,
+  onTabChange,
+  onNavigateHome,
+  onNavigateLogin,
+}: AdminSidebarProps) {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
 
@@ -147,7 +174,9 @@ export default function AdminSidebar({ activeTab, onTabChange, onNavigateHome, o
 
         {menuGroups.map((group) => (
           <SidebarGroup key={group.label}>
-            <SidebarGroupLabel className="text-xs font-medium text-white/60">{group.label}</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-xs font-medium text-white/60">
+              {group.label}
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => {
@@ -155,7 +184,11 @@ export default function AdminSidebar({ activeTab, onTabChange, onNavigateHome, o
                   const isActive = matchesActive(item.value, activeTab);
                   return (
                     <SidebarMenuItem key={item.value}>
-                      <NavButton isActive={isActive} onClick={() => handleClick(item.value)} titleWhenCollapsed={item.title}>
+                      <NavButton
+                        isActive={isActive}
+                        onClick={() => handleClick(item.value)}
+                        titleWhenCollapsed={item.title}
+                      >
                         <Icon className="h-4 w-4" />
                         {!isCollapsed && <span className="truncate">{item.title}</span>}
                       </NavButton>
@@ -172,7 +205,11 @@ export default function AdminSidebar({ activeTab, onTabChange, onNavigateHome, o
             <Home className="h-4 w-4" />
             {!isCollapsed && <span>Ana Sayfaya Dön</span>}
           </NavButton>
-          <NavButton onClick={handleLogout} className="text-red-300 hover:bg-red-500/10 hover:text-red-200" titleWhenCollapsed="Çıkış Yap">
+          <NavButton
+            onClick={handleLogout}
+            className="text-red-300 hover:bg-red-500/10 hover:text-red-200"
+            titleWhenCollapsed="Çıkış Yap"
+          >
             <LogOut className="h-4 w-4" />
             {!isCollapsed && <span>Çıkış Yap</span>}
           </NavButton>

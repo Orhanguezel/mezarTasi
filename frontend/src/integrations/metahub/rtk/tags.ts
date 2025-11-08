@@ -64,7 +64,23 @@ export const metahubTags = [
   "PaymentSessionsAdmin",
   "User","Users","Roles",
   "Specs",
-  "SubCategories"
+  "SubCategories",
+  "Announcements","Announcement",
+  "InfoCards","InfoCard",
+  "Campaigns","Campaign",
+  "Roles" ,"Role",
+  "SimpleCampaignAdmin",
+  "AnnouncementPublic","AnnouncementsPublic",
+  "SimpleCampaignPublic","SimpleCampaignsPublic",
+  "Cemeteries",
+  "RecentWorks","RecentWork",
+  "Category",
+  "Service","Services",
+  "ServiceCategories","ServiceCategory",
+  "Contacts","Contact",
+  "Accessory","Accessories",
+  "Slider" ,"Sliders",
+
 ] as const;
 
 export type MetahubTag = typeof metahubTags[number];

@@ -4,10 +4,6 @@ import {
   listCustomPages,
   getCustomPageById,
   getCustomPageBySlug,
-  createCustomPage,
-  updateCustomPage,
-  deleteCustomPage,
-  packContent,
 } from "./repository";
 
 type ListQuery = {
@@ -59,77 +55,4 @@ export const getPageBySlug: RouteHandler<{ Params: { slug: string } }> = async (
   const row = await getCustomPageBySlug(req.params.slug);
   if (!row) return reply.code(404).send({ error: { message: "not_found" } });
   return reply.send(row);
-};
-
-/** CREATE (public — istersen kapat) */
-type CreateBody = {
-  title: string;
-  slug?: string;
-  content_html: string;
-  meta_title?: string | null;
-  meta_description?: string | null;
-  is_published?: boolean;
-
-  // Görsel alanları
-  featured_image?: string | null;
-  featured_image_asset_id?: string | null;
-  featured_image_alt?: string | null;
-};
-
-export const createPage: RouteHandler<{ Body: CreateBody }> = async (req, reply) => {
-  const b = req.body;
-  if (!b?.title || !b?.content_html) {
-    return reply.code(400).send({ error: { message: "missing_required_fields" } });
-    }
-
-  const row = await createCustomPage({
-    id: randomUUID(),
-    title: b.title,
-    slug: (b.slug && b.slug.trim()) || b.title.trim().toLowerCase().replace(/\s+/g, "-"),
-    content: packContent(b.content_html),
-
-    featured_image: b.featured_image ?? null,
-    featured_image_asset_id: b.featured_image_asset_id ?? null,
-    featured_image_alt: b.featured_image_alt ?? null,
-
-    meta_title: b.meta_title ?? null,
-    meta_description: b.meta_description ?? null,
-    is_published: b.is_published ? 1 : 0,
-    created_at: new Date(),
-    updated_at: new Date(),
-  });
-
-  return reply.code(201).send(row);
-};
-
-/** UPDATE (patch) */
-type PatchBody = Partial<CreateBody>;
-
-export const updatePage: RouteHandler<{ Params: { id: string }; Body: PatchBody }> = async (req, reply) => {
-  const b = req.body ?? {};
-  const patched = await updateCustomPage(req.params.id, {
-    title: b.title,
-    slug: b.slug,
-    content: typeof b.content_html === "string" ? packContent(b.content_html) : undefined,
-
-    featured_image: typeof b.featured_image !== "undefined" ? (b.featured_image ?? null) : undefined,
-    featured_image_asset_id:
-      typeof b.featured_image_asset_id !== "undefined" ? (b.featured_image_asset_id ?? null) : undefined,
-    featured_image_alt:
-      typeof b.featured_image_alt !== "undefined" ? (b.featured_image_alt ?? null) : undefined,
-
-    meta_title: b.meta_title ?? null,
-    meta_description: b.meta_description ?? null,
-    is_published: typeof b.is_published === "boolean" ? (b.is_published ? 1 : 0) : undefined,
-  });
-
-  if (!patched) return reply.code(404).send({ error: { message: "not_found" } });
-  return reply.send(patched);
-};
-
-/** DELETE */
-export const removePage: RouteHandler<{ Params: { id: string } }> = async (req, reply) => {
-  const affected = await deleteCustomPage(req.params.id);
-  if (!affected) return reply.code(404).send({ error: { message: "not_found" } });
-  return reply.code(204).send();
 };

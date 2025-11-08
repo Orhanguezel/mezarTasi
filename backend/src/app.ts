@@ -17,19 +17,41 @@ import { registerCategories } from '@/modules/categories/router';
 import { registerSubCategories } from '@/modules/subcategories/router';
 import { registerProducts } from '@/modules/products/router';
 import { registerCustomPages } from '@/modules/customPages/router';
-import { registerMenuItems } from '@/modules/menuItems/router';
-import { registerMenuItemsAdmin } from '@/modules/menuItems/admin.routes';
 import { registerBlog } from '@/modules/blog/router';
 import { registerSiteSettings } from '@/modules/siteSettings/router';
 import { registerPopups } from '@/modules/popups/router';
 import { registerUserRoles } from "@/modules/userRoles/router";
 import { registerFooterSections } from "@/modules/footerSections/router";
+import { registerInfoCards } from "@/modules/info_cards/router";
+import { registerAnnouncements } from "@/modules/announcements/router"; 
+import { registerSimpleCampaigns } from "@/modules/campaigns/router";
+import { registerCemeteries} from "@/modules/cemeteries/router";
+import { registerRecentWorks } from "@/modules/recent_works/router";
+import { registerFaqs } from "@/modules/faqs/router";
+import { registerServices } from "@/modules/services/router"
+import { registerReviews } from "@/modules/review/router";
+import { registerContacts } from "@/modules/contact/router";
+import { registerAccessories } from "@/modules/accessories/router";
+import { registerSlider } from "@/modules/slider/router";
+import { registerSliderAdmin } from "@/modules/slider/admin.routes";
+
+
 import { registerProductsAdmin } from "@/modules/products/admin.routes";
 import { registerBlogAdmin } from "@/modules/blog/admin.routes";
 import { registerCustomPagesAdmin } from "@/modules/customPages/admin.routes";
 import { registerSiteSettingsAdmin } from '@/modules/siteSettings/admin.routes';
 import { registerPopupsAdmin } from '@/modules/popups/admin.routes';
 import { registerUserAdmin } from "@/modules/auth/admin.routes";
+import { registerCampaignsAdmin } from "@/modules/campaigns/admin.routes";
+import { registerAnnouncementsAdmin } from "@/modules/announcements/admin.routes";
+import { registerInfoCardsAdmin } from "@/modules/info_cards/admin.routes";
+import { registerCemeteriesAdmin} from "@/modules/cemeteries/admin.routes";
+import { registerRecentWorksAdmin } from "@/modules/recent_works/admin.routes";
+import { registerFaqsAdmin } from "@/modules/faqs/admin.routes";
+import { registerServicesAdmin } from "@/modules/services/admin.routes";
+import { registerReviewsAdmin } from "@/modules/review/admin.routes";
+import { registerContactsAdmin } from "@/modules/contact/admin.routes";
+import { registerAccessoriesAdmin } from "@/modules/accessories/admin.routes";
 
 function parseCorsOrigins(v?: string | string[]): boolean | string[] {
   if (!v) return true;
@@ -108,14 +130,25 @@ export async function createApp() {
   });
 
   // Modüller
-  await registerProductsAdmin(app);
-  await registerBlogAdmin(app);
-  await registerCustomPagesAdmin(app);
-  await registerSiteSettingsAdmin(app);
-  await registerPopupsAdmin(app);
-  await registerUserAdmin(app);
-  await registerMenuItems(app);
-  await registerMenuItemsAdmin(app);
+ // --- Admin modüller (prefix: /admin) ---
+await app.register(async (i) => registerProductsAdmin(i),       { prefix: "/admin" });
+await app.register(async (i) => registerBlogAdmin(i),           { prefix: "/admin" });
+await app.register(async (i) => registerCustomPagesAdmin(i),    { prefix: "/admin" });
+await app.register(async (i) => registerSiteSettingsAdmin(i),   { prefix: "/admin" });
+await app.register(async (i) => registerPopupsAdmin(i),         { prefix: "/admin" });
+await app.register(async (i) => registerUserAdmin(i),           { prefix: "/admin" });
+await app.register(async (i) => registerCampaignsAdmin(i),      { prefix: "/admin" });
+await app.register(async (i) => registerAnnouncementsAdmin(i),  { prefix: "/admin" });
+await app.register(async (i) => registerInfoCardsAdmin(i),      { prefix: "/admin" });
+await app.register(async (i) => registerCemeteriesAdmin(i),     { prefix: "/admin" });
+await app.register(async (i) => registerRecentWorksAdmin(i),    { prefix: "/admin" });
+await app.register(async (i) => registerFaqsAdmin(i),           { prefix: "/admin" });
+await app.register(async (i) => registerServicesAdmin(i),       { prefix: "/admin" });
+await app.register(async (i) => registerReviewsAdmin(i),        { prefix: "/admin" });
+await app.register(async (i) => registerContactsAdmin(i),       { prefix: "/admin" });
+await app.register(async (i) => registerAccessoriesAdmin(i),    { prefix: "/admin" });
+await app.register(async (i) => registerSliderAdmin(i),         { prefix: "/admin" });
+
   await registerAuth(app);
   await registerStorage(app);
   await registerProfiles(app);
@@ -128,6 +161,18 @@ export async function createApp() {
   await registerPopups(app);
   await registerUserRoles(app);
   await registerFooterSections(app);
+  await registerInfoCards(app);
+  await registerAnnouncements(app);
+  await registerSimpleCampaigns(app);
+  await registerCemeteries(app);
+  await registerRecentWorks(app);
+  await registerFaqs(app);
+  await registerServices(app);
+  await registerReviews(app);
+  await registerContacts(app);
+  await registerAccessories(app);
+  await registerSlider(app);
+
 
   registerErrorHandlers(app);
   return app;

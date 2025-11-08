@@ -1,3 +1,4 @@
+// admin.controller.ts
 import type { RouteHandler } from 'fastify';
 import { db } from '@/db/client';
 import { subCategories } from './schema';
@@ -10,7 +11,10 @@ import {
 } from './validation';
 import { buildInsertPayload, buildUpdatePayload } from './controller';
 
-// MySQL hata yardımcıları
+// 🔽 Storage tablo şeması (projedeki gerçek yoluna göre düzenli)
+import { storageAssets } from '@/modules/storage/schema';
+
+// MySQL yardımcıları
 function isDup(err: any) {
   const code = err?.code ?? err?.errno;
   return code === 'ER_DUP_ENTRY' || code === 1062;
@@ -18,6 +22,11 @@ function isDup(err: any) {
 function isFk(err: any) {
   const code = err?.code ?? err?.errno;
   return code === 'ER_NO_REFERENCED_ROW_2' || code === 1452;
+}
+
+// Relatif public path üret (origin’e ihtiyaç yok)
+function publicPath(bucket: string, path: string) {
+  return `/storage/${encodeURIComponent(bucket)}/${encodeURIComponent(path).replace(/%2F/gi, '/')}`;
 }
 
 /** POST /sub-categories (admin) */
@@ -139,3 +148,53 @@ export const adminToggleSubFeatured: RouteHandler<{ Params: { id: string }; Body
     if (!rows.length) return reply.code(404).send({ error: { message: 'not_found' } });
     return reply.send(rows[0]);
   };
+
+/** 🔥 PATCH /sub-categories/:id/image (admin)
+ * Body: { asset_id?: string | null; image_url?: string | null }
+ * - asset_id varsa storage_assets tablosundan public URL bulunur.
+ * - image_url string verilirse doğrudan set edilir.
+ * - null ise görsel temizlenir.
+ */
+export const adminSetSubCategoryImage: RouteHandler<{
+  Params: { id: string };
+  Body: { asset_id?: string | null; image_url?: string | null };
+}> = async (req, reply) => {
+  const { id } = req.params;
+  const { asset_id, image_url } = req.body ?? {};
+
+  if (asset_id === undefined && image_url === undefined) {
+    return reply.code(400).send({ error: { message: 'invalid_body' } });
+  }
+
+  let finalUrl: string | null = null;
+
+  if (typeof image_url === 'string') {
+    finalUrl = image_url.trim() || null;
+  } else if (asset_id === null) {
+    finalUrl = null;
+  } else if (typeof asset_id === 'string' && asset_id.trim()) {
+    const [asset] = await db
+      .select()
+      .from(storageAssets)
+      .where(eq(storageAssets.id, asset_id.trim()))
+      .limit(1);
+
+    if (!asset) return reply.code(404).send({ error: { message: 'asset_not_found' } });
+
+    // url varsa onu, yoksa /storage/bucket/path üret
+    finalUrl =
+      (asset as any).url ??
+      ((asset as any).bucket && (asset as any).path
+        ? publicPath((asset as any).bucket, (asset as any).path)
+        : null);
+  }
+
+  await db
+    .update(subCategories)
+    .set({ image_url: finalUrl, updated_at: sql`CURRENT_TIMESTAMP(3)` } as any)
+    .where(eq(subCategories.id, id));
+
+  const rows = await db.select().from(subCategories).where(eq(subCategories.id, id)).limit(1);
+  if (!rows.length) return reply.code(404).send({ error: { message: 'not_found' } });
+  return reply.send(rows[0]);
+};

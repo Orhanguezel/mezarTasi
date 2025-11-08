@@ -35,7 +35,6 @@ const baseCategorySchema = z.object({
 /** CREATE */
 export const categoryCreateSchema = baseCategorySchema.superRefine(
   (data: z.infer<typeof baseCategorySchema>, ctx: z.RefinementCtx) => {
-    // Eski istemciler parent_id gönderirse açıkça uyar
     if ('parent_id' in (data as Record<string, unknown>)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -69,3 +68,11 @@ export const categoryUpdateSchema = baseCategorySchema
 
 export type CategoryCreateInput = z.infer<typeof categoryCreateSchema>;
 export type CategoryUpdateInput = z.infer<typeof categoryUpdateSchema>;
+
+/** ✅ Yeni: Storage asset ile kategori görselini ayarlama/silme */
+export const categorySetImageSchema = z.object({
+  /** null/undefined ⇒ görseli kaldır */
+  asset_id: z.string().uuid().nullable().optional(),
+}).strict();
+
+export type CategorySetImageInput = z.infer<typeof categorySetImageSchema>;

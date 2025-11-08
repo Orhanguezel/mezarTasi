@@ -1,5 +1,6 @@
-// src/App.tsx
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
+
 import { Header } from "./components/layout/Header";
 import { HeroSection } from "./components/home/HeroSection";
 import { ProductGallery } from "./components/public/ProductGallery";
@@ -19,16 +20,27 @@ import { MissionVisionPage } from "./components/public/MissionVisionPage";
 import { QualityPolicyPage } from "./components/public/QualityPolicyPage";
 import { FAQPage } from "./components/public/FAQPage";
 import { ProductDetailPage } from "./components/public/ProductDetailPage";
-import CampaignAnnouncementsPage from "./components/public/CampaignAnnouncementsPage";
-import { ModalWrapper } from "./components/public/ModalWrapper";
+
+import CampaignAnnouncementsPage, { ActiveCampaignsRow } from "./components/public/CampaignAnnouncementsPage";
+import { DetailPanel } from "./components/public/CampaignAnnouncementDetailPanel";
 import { RecentWorkDetailPage } from "./components/public/RecentWorkDetailPage";
-import { CampaignDetailPage } from "./components/public/CampaignDetailPage";
+import { ModalWrapper } from "./components/public/ModalWrapper";
 import { DataProvider } from "./contexts/DataContext";
 import { RecentWork } from "./data/recentWorksData";
 
+import { useListSimpleCampaignsQuery } from "@/integrations/metahub/rtk/endpoints/campaigns.endpoints";
+import type { SimpleCampaignView } from "@/integrations/metahub/db/types/campaigns";
 
-// ---- Route tipi sadece App içinde (içeri kullanım) ----
-type Page =
+/** ------- Yardımcılar ------- */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [pathname]);
+  return null;
+}
+
+type PageKey =
   | "home"
   | "admin"
   | "adminAccess"
@@ -44,30 +56,170 @@ type Page =
   | "soilfilling"
   | "productDetail";
 
-const ADMIN_PAGES = new Set<Page>(["admin", "adminAccess"]);
+const routeMap: Record<PageKey, string> = {
+  home: "/",
+  about: "/about",
+  mission: "/mission",
+  quality: "/quality",
+  faq: "/faq",
+  pricing: "/pricing",
+  models: "/models",
+  accessories: "/accessories",
+  gardening: "/gardening",
+  soilfilling: "/soilfilling",
+  contact: "/contact",
+  adminAccess: "/adminkotrol",
+  admin: "/admin",
+  productDetail: "/product/:id",
+};
 
-function App() {
-  const [currentPage, setCurrentPage] = useState<Page>("home");
+function useCurrentPageKey(): PageKey {
+  const { pathname } = useLocation();
+  if (pathname.startsWith("/adminkotrol")) return "adminAccess";
+  if (pathname.startsWith("/admin")) return "admin";
+  if (pathname.startsWith("/about")) return "about";
+  if (pathname.startsWith("/mission")) return "mission";
+  if (pathname.startsWith("/quality")) return "quality";
+  if (pathname.startsWith("/faq")) return "faq";
+  if (pathname.startsWith("/pricing")) return "pricing";
+  if (pathname.startsWith("/models")) return "models";
+  if (pathname.startsWith("/accessories")) return "accessories";
+  if (pathname.startsWith("/gardening")) return "gardening";
+  if (pathname.startsWith("/soilfilling")) return "soilfilling";
+  if (pathname.startsWith("/contact")) return "contact";
+  if (pathname.startsWith("/product/")) return "productDetail";
+  return "home";
+}
+
+/** Bir kampanya objesi/slug/id’den string ID üret */
+function resolveCampaignId(c: any): string | undefined {
+  if (!c) return undefined;
+  if (typeof c === "string") {
+    const s = c.trim();
+    if (!s) return undefined;
+    const looksUuidOrSlug = /[a-zA-Z]/.test(s) || s.includes("-") || s.length >= 24;
+    return looksUuidOrSlug ? s : undefined;
+  }
+  if (typeof c === "number") return undefined;
+  if (typeof c === "object") {
+    const possible = c.id ?? c.campaignId ?? c.slug ?? c.uuid ?? c._id ?? c.ID;
+    if (typeof possible === "string") {
+      const s = possible.trim();
+      const looksUuidOrSlug = /[a-zA-Z]/.test(s) || s.includes("-") || s.length >= 24;
+      return looksUuidOrSlug ? s : undefined;
+    }
+  }
+  return undefined;
+}
+
+/** ------- Sayfa Parçaları ------- */
+function HomeComposition(props: {
+  searchTerm: string;
+  showSearchResults: boolean;
+  onClearSearch: () => void;
+  onProductDetail: (id: number) => void;
+  refreshKey: number;
+  openRecentWork: (w: RecentWork) => void;
+  openCampaigns: (c?: any) => void;
+}) {
+  return (
+    <>
+      <HeroSection onNavigate={() => { }} />
+      <ActiveCampaignsRow onOpen={(id) => props.openCampaigns(id)} />
+      <ProductGallery
+        searchTerm={props.searchTerm}
+        showSearchResults={props.showSearchResults}
+        onClearSearch={props.onClearSearch}
+        onProductDetail={props.onProductDetail}
+        refreshKey={props.refreshKey}
+      />
+      <ServicesSection
+        onNavigate={() => { }}
+        onOpenRecentWorkModal={(w) => props.openRecentWork(w)}
+        onOpenCampaignsModal={(c) => props.openCampaigns(c)}
+      />
+    </>
+  );
+}
+
+function ProductDetailWrapper(props: { onProductDetail: (id: number) => void }) {
+  const params = useParams();
+  const pid = Number(params.id);
+  if (!Number.isFinite(pid)) return <Navigate to="/" replace />;
+  return (
+    <ProductDetailPage
+      key={`product-${pid}`}
+      productId={pid}
+      onNavigate={() => { }}
+      onProductDetail={props.onProductDetail}
+    />
+  );
+}
+
+/** İlgili aktif kampanyalar şeridi */
+function RelatedActiveCampaigns(props: { currentId: string; onOpen: (id: string) => void }) {
+  const { data: campaigns = [] } = useListSimpleCampaignsQuery(undefined, {
+    refetchOnMountOrArgChange: 30,
+  });
+  const items = (campaigns as SimpleCampaignView[]).filter(
+    (c) => !!c.is_active && String(c.id) !== props.currentId
+  );
+  if (!items.length) return null;
+
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-medium text-slate-700 mb-3">Diğer aktif kampanyalar</h3>
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {items.map((x) => (
+          <button
+            key={`rel-${x.id}`}
+            className="shrink-0 w-48 text-left bg-white rounded-lg border border-emerald-100 hover:shadow transition"
+            onClick={() => props.onOpen(String(x.id))}
+          >
+            <img
+              src={
+                x.image_effective_url || x.image_url ||
+                "https://images.unsplash.com/photo-1556740749-887f6717d7e4?w=800&h=500&fit=crop"
+              }
+              alt={x.title}
+              className="w-full h-24 object-cover rounded-t-lg"
+            />
+            <div className="p-2">
+              <div className="text-[10px] text-emerald-700 font-semibold mb-1">Kampanya</div>
+              <div className="text-xs text-slate-800 line-clamp-2">{x.title}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** ------- App ------- */
+export default function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const currentPage = useCurrentPageKey();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Modals
   const [showCampaignsModal, setShowCampaignsModal] = useState(false);
   const [showRecentWorkModal, setShowRecentWorkModal] = useState(false);
   const [selectedRecentWork, setSelectedRecentWork] = useState<RecentWork | null>(null);
-  const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
 
-  const isAdmin = ADMIN_PAGES.has(currentPage);
+  const hidePublicChrome = useMemo(
+    () => location.pathname.startsWith("/admin") || location.pathname.startsWith("/adminkotrol"),
+    [location.pathname]
+  );
 
-  // Tailwind kapsam bayrağı
   useEffect(() => {
-    document.documentElement.setAttribute("data-app", isAdmin ? "admin" : "site");
+    document.documentElement.setAttribute("data-app", hidePublicChrome ? "admin" : "site");
     document.body.id = "site-root";
-  }, [isAdmin]);
+  }, [hidePublicChrome]);
 
-  // Admin panelinden gelen eventler
   useEffect(() => {
     const refresh = () => setRefreshKey((k) => k + 1);
     window.addEventListener("mezarisim-products-updated", refresh);
@@ -80,185 +232,192 @@ function App() {
     };
   }, []);
 
-  // Force rerender
-  useEffect(() => {
-    const h = () => setRefreshKey((k) => k + 1);
-    window.addEventListener("mezarisim-force-rerender", h);
-    return () => window.removeEventListener("mezarisim-force-rerender", h);
-  }, []);
-
-  // ---- İç navigasyon (Page) ----
-  const navigatePage = (page: Page) => {
-    console.log("🧭 App: Navigating to:", page, "(prev:", currentPage, ")");
-    setCurrentPage(page);
-    setShowSearchResults(false);
-    setSearchTerm("");
-  };
-
-  // ---- Dışa verilecek sarmalayıcı (string) ----
-  // AdminSecretAccess, Header, Footer vb. hala string bekliyorsa buna veriyoruz.
-  const navigateString: (page: string) => void = (page) => {
-    navigatePage(page as Page);
-  };
-
   const handleSearch = (term: string) => {
     setSearchTerm(term);
     const has = term.trim().length > 0;
     setShowSearchResults(has);
-    if (has) navigatePage("home");
+    if (has) navigate(routeMap.home);
   };
-
   const handleClearSearch = () => {
     setSearchTerm("");
     setShowSearchResults(false);
   };
 
-  const handleProductDetail = (productId: number) => {
-    setSelectedProductId(productId);
-    navigatePage("productDetail");
+  const onNavigateString = (page: string) => {
+    const key = page as PageKey;
+    if (key === "productDetail") return;
+    navigate(routeMap[key] ?? "/");
   };
 
-  // Admin kısa yol
-  useEffect(() => {
-    if (window.location.pathname === "/adminkotrol") {
-      navigatePage("adminAccess");
-    }
-  }, []);
-
-  // Router
-  const renderCurrentPage = () => {
-    switch (currentPage) {
-      case "adminAccess":
-        return <AdminSecretAccess onNavigate={navigateString} />;
-      case "admin":
-        return <AdminPanel onNavigate={navigateString} />;
-      case "contact":
-        return <ContactPage onNavigate={navigateString} />;
-      case "about":
-        return <AboutPage onNavigate={navigateString} />;
-      case "mission":
-        return <MissionVisionPage onNavigate={navigateString} />;
-      case "quality":
-        return <QualityPolicyPage onNavigate={navigateString} />;
-      case "faq":
-        return <FAQPage onNavigate={navigateString} />;
-      case "pricing":
-        return (
-          <PricingPage
-            key={`pricing-${refreshKey}`}
-            onNavigate={navigateString}
-            onProductDetail={handleProductDetail}
-          />
-        );
-      case "models":
-        return <ModelsPage onNavigate={navigateString} onProductDetail={handleProductDetail} />;
-      case "accessories":
-        return <AccessoriesPage onNavigate={navigateString} />;
-      case "gardening":
-        return <GardeningPage onNavigate={navigateString} />;
-      case "soilfilling":
-        return <SoilFillingPage onNavigate={navigateString} />;
-      case "productDetail":
-        return selectedProductId ? (
-          <ProductDetailPage
-            key={`product-${selectedProductId}`}
-            productId={selectedProductId}
-            onNavigate={navigateString}
-            onProductDetail={handleProductDetail}
-          />
-        ) : (
-          <>
-            <HeroSection onNavigate={navigateString} />
-            <ProductGallery
-              searchTerm={searchTerm}
-              showSearchResults={showSearchResults}
-              onClearSearch={handleClearSearch}
-              onProductDetail={handleProductDetail}
-              refreshKey={refreshKey}
-            />
-            <ServicesSection
-              onNavigate={navigateString}
-              onOpenRecentWorkModal={(w) => {
-                setSelectedRecentWork(w);
-                setShowRecentWorkModal(true);
-              }}
-              onOpenCampaignsModal={(c) => {
-                if (c) setSelectedCampaign(c);
-                setShowCampaignsModal(true);
-              }}
-            />
-          </>
-        );
-      case "home":
-      default:
-        return (
-          <>
-            <HeroSection onNavigate={navigateString} />
-            <ProductGallery
-              searchTerm={searchTerm}
-              showSearchResults={showSearchResults}
-              onClearSearch={handleClearSearch}
-              onProductDetail={handleProductDetail}
-              refreshKey={refreshKey}
-            />
-            <ServicesSection
-              onNavigate={navigateString}
-              onOpenRecentWorkModal={(w) => {
-                setSelectedRecentWork(w);
-                setShowRecentWorkModal(true);
-              }}
-              onOpenCampaignsModal={(c) => {
-                if (c) setSelectedCampaign(c);
-                setShowCampaignsModal(true);
-              }}
-            />
-          </>
-        );
-    }
+  const onProductDetail = (productId: number) => {
+    navigate(`/product/${productId}`);
   };
 
-  const hidePublicChrome = isAdmin;
+  const openRecentWork = (w: RecentWork) => {
+    setSelectedRecentWork(w);
+    setShowRecentWorkModal(true);
+  };
+
+  const openCampaigns = (c?: any) => {
+    const cid = resolveCampaignId(c);
+    setSelectedCampaignId(cid ?? null);
+    setShowCampaignsModal(true);
+  };
 
   return (
     <DataProvider>
+      <ScrollToTop />
+
       <div className="min-h-screen bg-white">
         {!hidePublicChrome && (
           <Header
             currentPage={currentPage}
-            onNavigate={navigateString}
+            onNavigate={onNavigateString}
             onSearch={handleSearch}
             searchTerm={searchTerm}
           />
         )}
 
-        <main className="min-h-screen">{renderCurrentPage()}</main>
+        <main className="min-h-screen">
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <HomeComposition
+                  searchTerm={searchTerm}
+                  showSearchResults={showSearchResults}
+                  onClearSearch={handleClearSearch}
+                  onProductDetail={onProductDetail}
+                  refreshKey={refreshKey}
+                  openRecentWork={openRecentWork}
+                  openCampaigns={openCampaigns}
+                />
+              }
+            />
 
-        {!hidePublicChrome && <Footer onNavigate={navigateString} />}
+            <Route path="/about" element={<AboutPage onNavigate={onNavigateString} />} />
+            <Route path="/mission" element={<MissionVisionPage onNavigate={onNavigateString} />} />
+            <Route path="/quality" element={<QualityPolicyPage onNavigate={onNavigateString} />} />
+            <Route path="/faq" element={<FAQPage onNavigate={onNavigateString} />} />
 
+            <Route
+              path="/pricing"
+              element={
+                <PricingPage
+                  key={`pricing-${refreshKey}`}
+                  onNavigate={onNavigateString}
+                  onProductDetail={onProductDetail}
+                />
+              }
+            />
+            <Route
+              path="/models"
+              element={<ModelsPage onNavigate={onNavigateString} onProductDetail={onProductDetail} />}
+            />
+            <Route path="/accessories" element={<AccessoriesPage onNavigate={onNavigateString} />} />
+            <Route path="/gardening" element={<GardeningPage onNavigate={onNavigateString} />} />
+            <Route path="/soilfilling" element={<SoilFillingPage onNavigate={onNavigateString} />} />
+            <Route path="/contact" element={<ContactPage onNavigate={onNavigateString} />} />
+
+            {/* Ürün detay */}
+            <Route path="/product/:id" element={<ProductDetailWrapper onProductDetail={onProductDetail} />} />
+
+            {/* Admin akışı */}
+            <Route path="/adminkotrol" element={<AdminSecretAccess onNavigate={onNavigateString} />} />
+
+            {/* ✅ Admin panel VE tüm form rotaları: hepsi AdminPanel içinde render edilir */}
+            <Route path="/admin" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/products" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/products/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/products/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            {/* ✅ Kategoriler için form rotaları da AdminPanel içinde */}
+            <Route path="/admin/categories" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/categories/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/categories/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            {/* ✅ Alt Kategoriler için form rotaları da AdminPanel içinde */}
+            <Route path="/admin/subcategories" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/subcategories/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/subcategories/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            {/* ✅ Custom Pages için form rotaları da AdminPanel içinde */}
+            <Route path="/admin/pages" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/pages/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/pages/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            {/* ✅ SSS (FAQ) için form rotaları da AdminPanel içinde */}
+            <Route path="/admin/faqs" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/faqs/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/faqs/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            {/* ✅ Son Çalışmalar için form rotaları da AdminPanel içinde */}
+            <Route path="/admin/recent-works" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/recent-works/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/recent-works/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            {/* ✅ Site Ayarları için form rotaları da AdminPanel içinde */}
+            <Route path="/admin/site-settings" element={<AdminPanel onNavigate={onNavigateString} />} />
+            {/* ✅ Duyurular için form rotaları da AdminPanel içinde */}
+            <Route path="/admin/announcements" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/announcements/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/announcements/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            {/* ✅ Kullanıcılar için form rotaları da AdminPanel içinde */}
+            <Route path="/admin/users" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/users/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/users/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            {/* ✅ Kampanyalar için form rotaları da AdminPanel içinde */}
+            <Route path="/admin/campaigns" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/campaigns/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/campaigns/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            {/* ✅ Son Çalışmalar için form rotaları da AdminPanel içinde */}
+            <Route path="/admin/recent_works" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/recent_works/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/recent_works/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            {/* ✅ İletişim Mesajları için form rotaları da AdminPanel içinde */}
+            <Route path="/admin/contacts" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/contacts/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/contacts/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            {/* ✅ Hizmetler için form rotaları da AdminPanel içinde */}
+            <Route path="/admin/services" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/services/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/services/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            {/* ✅ Aksesuarlar için form rotaları da AdminPanel içinde */}
+            <Route path="/admin/accessories" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/accessories/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/accessories/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            {/* ✅ Sliderlar için form rotaları da AdminPanel içinde */}
+            <Route path="/admin/sliders" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/sliders/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/sliders/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            {/* ✅ Yorumlar için form rotaları da AdminPanel içinde */}
+            <Route path="/admin/reviews" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/reviews/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/reviews/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+
+        {!hidePublicChrome && <Footer onNavigate={onNavigateString} />}
         {!hidePublicChrome && <FloatingCallButton />}
 
+        {/* Kampanya/Duyuru Modal */}
         <ModalWrapper
           isOpen={showCampaignsModal}
           onClose={() => {
             setShowCampaignsModal(false);
-            setSelectedCampaign(null);
+            setSelectedCampaignId(null);
           }}
-          title={selectedCampaign ? "Kampanya Detayı" : "Duyuru / Kampanyalar"}
+          title={selectedCampaignId ? "Kampanya Detayı" : "Duyuru / Kampanyalar"}
           maxWidth="max-w-3xl"
         >
-          {selectedCampaign ? (
-            <CampaignDetailPage
-              campaign={selectedCampaign}
-              onBack={() => {
-                setShowCampaignsModal(false);
-                setSelectedCampaign(null);
-              }}
-            />
+          {selectedCampaignId ? (
+            <>
+              <DetailPanel kind="campaign" id={selectedCampaignId} />
+              <RelatedActiveCampaigns currentId={selectedCampaignId} onOpen={(id) => setSelectedCampaignId(id)} />
+            </>
           ) : (
-            <CampaignAnnouncementsPage onNavigate={navigateString} />
+            <CampaignAnnouncementsPage onNavigate={onNavigateString} />
           )}
         </ModalWrapper>
 
+        {/* Son Çalışmalar Modal */}
         <ModalWrapper
           isOpen={showRecentWorkModal}
           onClose={() => {
@@ -282,5 +441,3 @@ function App() {
     </DataProvider>
   );
 }
-
-export default App;

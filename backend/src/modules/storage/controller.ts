@@ -1,3 +1,4 @@
+/// src/modules/storage/controller.ts
 import type { RouteHandler } from "fastify";
 import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, like, sql as dsql } from "drizzle-orm";
@@ -85,6 +86,8 @@ export const publicServe: RouteHandler<{ Params: { bucket: string; "*": string }
 };
 
 /** POST /storage/:bucket/upload (FormData) — server-side signed upload */
+// ... aynı importlar
+
 export const uploadToBucket: RouteHandler<{
   Params: { bucket: string };
   Querystring: { path?: string; upsert?: string };
@@ -102,12 +105,10 @@ export const uploadToBucket: RouteHandler<{
   const cleanName = desired.split("/").pop()!.replace(/[^\w.\-]+/g, "_");
   const folder = desired.includes("/") ? desired.split("/").slice(0, -1).join("/") : undefined;
 
-  // public_id sadece basename (ext’siz); klasör ayrı param
   const publicIdBase = cleanName.replace(/\.[^.]+$/, "");
 
   let up: any;
   try {
-    // server-side signed tercih → preset bağımlılığı yok
     up = await uploadBufferAuto(cfg, buf, { folder, publicId: publicIdBase, mime: mp.mimetype }, true);
   } catch (e: any) {
     const http = Number(e?.http_code) || 502;
@@ -118,8 +119,11 @@ export const uploadToBucket: RouteHandler<{
   }
 
   const path = folder ? `${folder}/${cleanName}` : cleanName;
+
+  // DB kaydı — ID biz üretiyoruz
+  const recId = randomUUID();
   const recordBase = {
-    id: randomUUID(),
+    id: recId,
     user_id: (req as any).user?.id ? String((req as any).user.id) : null,
     name: cleanName,
     bucket,
@@ -133,8 +137,8 @@ export const uploadToBucket: RouteHandler<{
     hash: up.etag ?? null,
     etag: up.etag ?? null,
     provider: "cloudinary" as const,
-    provider_public_id: up.public_id ?? null,           // "folder/name"
-    provider_resource_type: up.resource_type ?? null,    // "image" | "video" | "raw"
+    provider_public_id: up.public_id ?? null,
+    provider_resource_type: up.resource_type ?? null,
     provider_format: up.format ?? null,
     provider_version: typeof up.version === "number" ? up.version : null,
     metadata: null as Record<string, string> | null,
@@ -147,13 +151,45 @@ export const uploadToBucket: RouteHandler<{
     if (!isDup(e)) throw e;
     const existing = await getAssetByBucketPath(bucket, path);
     if (existing) {
-      return reply.send({ path: existing.path, url: publicUrlOf(existing.bucket, existing.path, existing.url) });
+      // ✅ DUP durumunda da ID’yi mutlaka döndür
+      return reply.send({
+        id: existing.id,
+        bucket: existing.bucket,
+        path: existing.path,
+        folder: existing.folder ?? null,
+        url: publicUrlOf(existing.bucket, existing.path, existing.url),
+        width: existing.width ?? null,
+        height: existing.height ?? null,
+        provider: existing.provider,
+        provider_public_id: existing.provider_public_id ?? null,
+        provider_resource_type: existing.provider_resource_type ?? null,
+        provider_format: existing.provider_format ?? null,
+        provider_version: existing.provider_version ?? null,
+        etag: existing.etag ?? null,
+      });
     }
     throw e;
   }
 
-  return reply.send({ path, url: publicUrlOf(bucket, path, up.secure_url) });
+  // ✅ Normal başarıda da ID’yi döndür
+  return reply.send({
+    id: recId,
+    bucket,
+    path,
+    folder: folder ?? null,
+    url: publicUrlOf(bucket, path, up.secure_url),
+    width: up.width ?? null,
+    height: up.height ?? null,
+    provider: "cloudinary",
+    provider_public_id: up.public_id ?? null,
+    provider_resource_type: up.resource_type ?? null,
+    provider_format: up.format ?? null,
+    provider_version: typeof up.version === "number" ? up.version : null,
+    etag: up.etag ?? null,
+  });
 };
+
+
 
 /** POST /storage/uploads/sign-put → S3 yoksa 501 */
 export const signPut: RouteHandler<{ Body: SignPutBody }> = async (_req, reply) => {

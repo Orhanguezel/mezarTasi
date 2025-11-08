@@ -2,14 +2,17 @@
 import type { RouteHandler } from 'fastify';
 import { db } from '@/db/client';
 import { categories } from './schema';
-import { eq, sql } from 'drizzle-orm'; // 🟢 sql eklendi
+import { eq, sql } from 'drizzle-orm';
 import {
   categoryCreateSchema,
   categoryUpdateSchema,
+  categorySetImageSchema,            // ✅ EKLENDİ
   type CategoryCreateInput,
   type CategoryUpdateInput,
+  type CategorySetImageInput,        // ✅ EKLENDİ
 } from './validation';
 import { buildInsertPayload, buildUpdatePayload } from './controller';
+import { storageAssets } from '@/modules/storage/schema'; // ✅ Storage referansı
 
 // MySQL hata yardımcıları
 function isDup(err: any) {
@@ -104,7 +107,7 @@ export const adminReorderCategories: RouteHandler<{ Body: { items: Array<{ id: s
         .update(categories)
         .set({
           display_order: n,
-          updated_at: sql`CURRENT_TIMESTAMP(3)`, // 🟢 doğrudan sql
+          updated_at: sql`CURRENT_TIMESTAMP(3)`,
         } as any)
         .where(eq(categories.id, it.id));
     }
@@ -120,7 +123,7 @@ export const adminToggleActive: RouteHandler<{ Params: { id: string }; Body: { i
       .update(categories)
       .set({
         is_active: v,
-        updated_at: sql`CURRENT_TIMESTAMP(3)`, // 🟢
+        updated_at: sql`CURRENT_TIMESTAMP(3)`,
       } as any)
       .where(eq(categories.id, id));
 
@@ -138,8 +141,61 @@ export const adminToggleFeatured: RouteHandler<{ Params: { id: string }; Body: {
       .update(categories)
       .set({
         is_featured: v,
-        updated_at: sql`CURRENT_TIMESTAMP(3)`, // 🟢
+        updated_at: sql`CURRENT_TIMESTAMP(3)`,
       } as any)
+      .where(eq(categories.id, id));
+
+    const rows = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
+    if (!rows.length) return reply.code(404).send({ error: { message: 'not_found' } });
+    return reply.send(rows[0]);
+  };
+
+/** ✅ YENİ: PATCH /categories/:id/image (admin)
+ * Body: { asset_id?: string | null }
+ * - asset_id verilirse → storage_assets’tan URL alınır ve categories.image_url güncellenir
+ * - asset_id null/undefined ise → categories.image_url = NULL (kaldır)
+ */
+export const adminSetCategoryImage: RouteHandler<{ Params: { id: string }; Body: CategorySetImageInput }> =
+  async (req, reply) => {
+    const { id } = req.params;
+
+    // Body doğrulama
+    const parsed = categorySetImageSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return reply.code(400).send({ error: { message: 'invalid_body', issues: parsed.error.flatten() } });
+    }
+    const assetId = parsed.data.asset_id ?? null;
+
+    // Görseli kaldır
+    if (!assetId) {
+      await db
+        .update(categories)
+        .set({ image_url: null, updated_at: sql`CURRENT_TIMESTAMP(3)` } as any)
+        .where(eq(categories.id, id));
+
+      const rows = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
+      if (!rows.length) return reply.code(404).send({ error: { message: 'not_found' } });
+      return reply.send(rows[0]);
+    }
+
+    // Asset’i getir
+    const [asset] = await db
+      .select({ bucket: storageAssets.bucket, path: storageAssets.path, url: storageAssets.url })
+      .from(storageAssets)
+      .where(eq(storageAssets.id, assetId))
+      .limit(1);
+
+    if (!asset) {
+      return reply.code(404).send({ error: { message: 'asset_not_found' } });
+    }
+
+    // Public URL: provider URL varsa onu, yoksa /storage/:bucket/:path (encoded)
+    const safePath = encodeURIComponent(asset.path).replaceAll('%2F', '/');
+    const publicUrl = asset.url ?? `/storage/${encodeURIComponent(asset.bucket)}/${safePath}`;
+
+    await db
+      .update(categories)
+      .set({ image_url: publicUrl, updated_at: sql`CURRENT_TIMESTAMP(3)` } as any)
       .where(eq(categories.id, id));
 
     const rows = await db.select().from(categories).where(eq(categories.id, id)).limit(1);

@@ -32,7 +32,7 @@ export type ApiCategory = Omit<
 
 const normalizeCategory = (c: ApiCategory): Category => ({
   id: c.id,
-  name: (c as any).name, // tipi güvene al
+  name: (c as any).name,
   slug: c.slug,
   description: (c.description ?? null) as string | null,
   image_url: (c.image_url ?? null) as string | null,
@@ -63,7 +63,12 @@ export type UpsertCategoryBody = {
   is_active?: boolean;
   is_featured?: boolean;
   display_order?: number;
-  // ⚠️ parent_id / seo_* alanları BE'de desteklenmiyor -> bilinçli olarak eklenmedi
+};
+
+// ✅ Yeni: kategori görselini storage asset ile ayarlama/kaldırma body tipi
+export type SetCategoryImageBody = {
+  /** asset_id verilirse set; null/undefined verilirse sil */
+  asset_id?: string | null;
 };
 
 const buildParams = (params?: ListParams):
@@ -188,6 +193,23 @@ export const categoriesAdminApi = baseApi.injectEndpoints({
         { type: "Categories", id: "LIST" },
       ],
     }),
+
+    // ✅ YENİ: kategori görseli ayarla/kaldır
+    setCategoryImageAdmin: b.mutation<
+      Category,
+      { id: string; body: SetCategoryImageBody }
+    >({
+      query: ({ id, body }): FetchArgs => ({
+        url: `/categories/${id}/image`,
+        method: "PATCH",
+        body,
+      }),
+      transformResponse: (res: unknown): Category => normalizeCategory(res as ApiCategory),
+      invalidatesTags: (_r, _e, arg) => [
+        { type: "Categories", id: arg.id },
+        { type: "Categories", id: "LIST" },
+      ],
+    }),
   }),
   overrideExisting: true,
 });
@@ -202,4 +224,6 @@ export const {
   useReorderCategoriesAdminMutation,
   useToggleActiveCategoryAdminMutation,
   useToggleFeaturedCategoryAdminMutation,
+  // ✅ export yeni hook
+  useSetCategoryImageAdminMutation,
 } = categoriesAdminApi;

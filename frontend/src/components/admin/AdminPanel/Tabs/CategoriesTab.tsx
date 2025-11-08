@@ -1,74 +1,55 @@
-// =============================================================
-// FILE: src/components/admin/AdminPanel/Tabs/CategoriesTab.tsx
-// =============================================================
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   useListCategoriesAdminQuery,
-  useCreateCategoryAdminMutation,
-  useUpdateCategoryAdminMutation,
   useDeleteCategoryAdminMutation,
 } from "@/integrations/metahub/rtk/endpoints/admin/categories_admin.endpoints";
 
-import CategoryDialog, { UiCategoryLite } from "../Dialogs/CategoryDialog";
-
-// UI iç tipi (DB değil)
 type UiCategory = { id?: string; value: string; label: string };
 
-const slugify = (v: string) =>
-  v
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9ğüşöçı\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-
 export const TabsCategories: React.FC = () => {
-  // Dialog state
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<UiCategory | null>(null);
+  const nav = useNavigate();
 
-  // RTK data
   const { data, isLoading, isFetching, refetch } = useListCategoriesAdminQuery({
     sort: "display_order",
     order: "asc",
     limit: 200,
   });
 
-  const [createCategory, { isLoading: creating }] = useCreateCategoryAdminMutation();
-  const [updateCategory, { isLoading: updating }] = useUpdateCategoryAdminMutation();
   const [deleteCategory, { isLoading: deleting }] = useDeleteCategoryAdminMutation();
 
-  // DB -> UI map
   const uiCategories: UiCategory[] = useMemo(
     () => (data ?? []).map((c) => ({ id: c.id, value: c.slug, label: c.name })),
     [data]
   );
 
-  const existingSlugs = useMemo(() => new Set(uiCategories.map((c) => c.value)), [uiCategories]);
+  const onCreate = () => nav("/admin/categories/new");
 
-  const startCreate = () => {
-    setEditing(null);
-    setOpen(true);
+  const onEdit = (row: UiCategory) => {
+    if (!row.id) return;
+    // Ürün paternindeki gibi initial state ile hızlı boyama
+    nav(`/admin/categories/${row.id}`, {
+      state: {
+        initialValue: {
+          id: row.id,
+          name: row.label,
+          slug: row.value,
+        },
+      },
+    });
   };
 
-  const startEdit = (cat: UiCategory) => {
-    setEditing(cat);
-    setOpen(true);
-  };
-
-  const onDelete = async (cat: UiCategory) => {
-    if (!cat.id) return toast.error("Kategori ID bulunamadı.");
+  const onDelete = async (row: UiCategory) => {
+    if (!row.id) return toast.error("Kategori ID bulunamadı.");
     try {
-      await deleteCategory(cat.id).unwrap();
+      await deleteCategory(row.id).unwrap();
       toast.success("Kategori silindi");
       refetch();
     } catch (e) {
@@ -77,35 +58,8 @@ export const TabsCategories: React.FC = () => {
     }
   };
 
-  const handleSave = async (payload: UiCategoryLite) => {
-    const label = payload.label.trim();
-    let value = payload.value.trim();
-    if (!label) return toast.error("Kategori adı (label) gerekli");
-    if (!value) value = slugify(label);
-
-    const slugTaken = existingSlugs.has(value) && (!editing || editing.value !== value);
-    if (slugTaken) return toast.error("Bu slug zaten kullanılıyor");
-
-    try {
-      if (editing?.id) {
-        await updateCategory({ id: editing.id, body: { name: label, slug: value } }).unwrap();
-        toast.success("Kategori güncellendi");
-      } else {
-        await createCategory({ name: label, slug: value }).unwrap();
-        toast.success("Yeni kategori eklendi");
-      }
-      setOpen(false);
-      refetch();
-    } catch (e) {
-      toast.error("Kaydetme sırasında hata oluştu");
-      console.error(e);
-    }
-  };
-
-  // ---- UI ----
   return (
     <>
-      {/* Başlık aksiyonları */}
       <div className="mb-3 flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
           {isLoading ? "Yükleniyor..." : `Toplam ${uiCategories.length} kategori`}
@@ -115,16 +69,14 @@ export const TabsCategories: React.FC = () => {
           <Button size="sm" variant="outline" onClick={() => refetch()}>
             Yenile
           </Button>
-          <Button size="sm" onClick={startCreate} disabled={creating || updating}>
+          <Button size="sm" onClick={onCreate}>
             <Plus className="mr-2 h-4 w-4" />
             Yeni Kategori
           </Button>
         </div>
       </div>
 
-      {/* Liste / tablo kabı */}
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-        {/* Tablo başlığı (md+) */}
         <div className="hidden grid-cols-12 items-center gap-4 border-b border-border bg-muted/50 px-4 py-3 text-[12px] uppercase tracking-wide text-muted-foreground md:grid">
           <div className="col-span-6">Kategori Adı</div>
           <div className="col-span-4">Slug</div>
@@ -137,11 +89,8 @@ export const TabsCategories: React.FC = () => {
               key={c.id ?? c.value}
               className="group px-4 py-3 hover:bg-muted/30 md:grid md:grid-cols-12 md:items-center md:gap-4"
             >
-              {/* Ad + mobil meta */}
               <div className="min-w-0 md:col-span-6">
                 <p className="truncate font-medium">{c.label}</p>
-
-                {/* Mobilde meta */}
                 <div className="mt-2 grid grid-cols-2 gap-y-2 text-sm md:hidden">
                   <span className="text-muted-foreground">Slug</span>
                   <span className="text-foreground/80">
@@ -150,14 +99,12 @@ export const TabsCategories: React.FC = () => {
                 </div>
               </div>
 
-              {/* Slug (md+) */}
               <div className="hidden text-sm text-foreground/80 md:col-span-4 md:block">
                 <Badge variant="secondary">{c.value}</Badge>
               </div>
 
-              {/* İşlemler */}
               <div className="mt-3 flex flex-wrap gap-2 md:col-span-2 md:mt-0 md:justify-self-end">
-                <Button variant="outline" size="sm" onClick={() => startEdit(c)} disabled={updating}>
+                <Button variant="outline" size="sm" onClick={() => onEdit(c)}>
                   <Edit className="mr-1 h-4 w-4" />
                   Düzenle
                 </Button>
@@ -176,16 +123,6 @@ export const TabsCategories: React.FC = () => {
           {isLoading && <div className="px-4 py-6 text-sm text-muted-foreground">Yükleniyor…</div>}
         </div>
       </div>
-
-      {/* Category Dialog (ayrı dosya) */}
-      <CategoryDialog
-        open={open}
-        onOpenChange={setOpen}
-        initialValue={editing ? { label: editing.label, value: editing.value } : null}
-        onSave={handleSave}
-        saving={creating || updating}
-        existingSlugs={existingSlugs}
-      />
     </>
   );
 };

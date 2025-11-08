@@ -1,5 +1,3 @@
-// src/modules/popups/router.ts
-
 import type { FastifyInstance } from "fastify";
 import { listPopups, getPopupByKey } from "./controller";
 

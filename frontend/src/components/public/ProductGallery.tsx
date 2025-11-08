@@ -1,11 +1,23 @@
-import { useState, useEffect, useMemo } from "react";
+// src/components/public/ProductGallery.tsx
+import { useEffect, useMemo, useState } from "react";
 import { ImageOptimized } from "./ImageOptimized";
 import { SkeletonLoader } from "./SkeletonLoader";
 import { Button } from "../ui/button";
-import { Badge } from "../ui/badge";
 import { Search, X } from "lucide-react";
-import { products, searchProducts, getProductsByCategory } from "../../data/products";
-import { useProducts } from "../../contexts/DataContext";
+
+// RTK public endpoints
+import {
+  useListProductsQuery
+} from "@/integrations/metahub/rtk/endpoints/products.endpoints";
+
+import {
+  type Product as ApiProduct,
+} from "@/integrations/metahub/db/types/products.rows";
+
+
+import {
+  useListCategoriesQuery,
+} from "@/integrations/metahub/rtk/endpoints/categories.endpoints";
 
 interface ProductGalleryProps {
   searchTerm: string;
@@ -15,172 +27,158 @@ interface ProductGalleryProps {
   refreshKey?: number;
 }
 
-export function ProductGallery({ searchTerm, showSearchResults, onClearSearch, onProductDetail, refreshKey }: ProductGalleryProps) {
-  const [selectedCategory, setSelectedCategory] = useState("mezar-modelleri");
+type UiProduct = {
+  id: string;
+  title: string;
+  productCode?: string | null;
+  price: number | string;
+  image: string;
+  description: string;
+  category_id: string;
+};
+
+const ALL_CATEGORY = "mezar-modelleri"; // “Hepsi” başlığı için sabit id gibi kullanacağız
+
+function toUiProduct(p: ApiProduct): UiProduct {
+  const primaryImage =
+    (Array.isArray(p.images) && p.images.length ? p.images[0] : null) ||
+    p.image_url ||
+    "";
+
+  return {
+    id: String(p.id),
+    title: String(p.title ?? ""),
+    productCode: p.product_code ?? null,
+    price: typeof p.price === "number" ? p.price : Number(p.price) || 0,
+    image: primaryImage,
+    description: p.description ?? "",
+    category_id: String(p.category_id ?? ""), // sayım/filtre için gerçek ID
+  };
+}
+
+export function ProductGallery({
+  searchTerm,
+  showSearchResults,
+  onClearSearch,
+  onProductDetail,
+  refreshKey,
+}: ProductGalleryProps) {
+  const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORY);
   const [visibleProducts, setVisibleProducts] = useState(12);
-  const [isLoading, setIsLoading] = useState(true);
+  const [softLoading, setSoftLoading] = useState(true);
 
-  // Context'ten ürün verilerini al
-  const { products: contextProducts } = useProducts();
+  // --- Kategorileri çek (aktif olanlar)
+  const {
+    data: categoriesRes,
+    isFetching: fetchingCats,
+    isError: catErr,
+  } = useListCategoriesQuery({ is_active: true, sort: "display_order", order: "asc", limit: 1000 });
 
-  // Helper function to map category names to keys - bu fonksiyonu yukarıya aldık
-  const getCategoryKey = (category: string): string => {
-    const categoryMap: { [key: string]: string } = {
-      // Admin panelinden gelen kategoriler (alt kategoriler aslında)
-      'Tek Kişilik Mermer Modeller': 'tek-kisilik-mermer',
-      'Tek Kişilik Granit Modeller': 'tek-kisilik-granit',
-      'İki Kişilik Mermer Modeller': 'iki-kisilik-mermer',
-      'İki Kişilik Granit Modeller': 'iki-kisilik-granit',
-      'Katlı Lahit Mezar Modelleri': 'lahit',
-      'Özel Yapım Mezar Modelleri': 'ozel-yapim',
-      'Sütunlu Mezar Modelleri': 'sutunlu',
-      'MERMER BAŞ TAŞI MODELLERİ': 'tek-kisilik-mermer',
-      'GRANİT BAŞ TAŞI MODELLERİ': 'tek-kisilik-granit',
-      'ÖZEL TASARIM BAŞ TAŞLARI': 'ozel-yapim',
-      'Mezar Şuluk Modelleri': 'ozel-yapim',
-      'Mezar Sütun Modelleri': 'sutunlu',
-      'Mezar Vazo Modelleri': 'ozel-yapim',
-      'ÇİÇEKLİK MODELLERİ': 'ozel-yapim',
-      'ABAJUR MODELLERİ': 'ozel-yapim',
-      'VAZO MODELLERİ': 'ozel-yapim',
-      'DOĞAL ÇİÇEK DÜZENLEMESİ': 'sutunlu',
-      'YAPAY ÇİÇEK DÜZENLEMESİ': 'sutunlu',
-      'SEZON ÇİÇEKLERİ': 'sutunlu',
-      'TOPRAK DOLDURMA HİZMETİ': 'lahit',
-      'ÇİMENLENDİRME HİZMETİ': 'lahit',
-      'PEYZAj DÜZENLEME': 'lahit',
-      // Eski statik kategoriler
-      'Mezar Modelleri': 'mezar-modelleri',
-      'Mezar Baş Taşı Modelleri': 'tek-kisilik-mermer',
-      'Mezar Aksesuarları': 'ozel-yapim',
-      'Mezar Çiçeklendirme': 'sutunlu',
-      'Mezar Toprak Doldurumu': 'lahit',
-      'tek-kisilik-mermer': 'tek-kisilik-mermer',
-      'tek-kisilik-granit': 'tek-kisilik-granit',
-      'iki-kisilik-mermer': 'iki-kisilik-mermer',
-      'iki-kisilik-granit': 'iki-kisilik-granit',
-      'lahit': 'lahit',
-      'ozel-yapim': 'ozel-yapim',
-      'sutunlu': 'sutunlu'
+  // --- Sayım & fallback için tüm ürünler (limit'i büyük tuttuk; BE default küçükse sayım eksilebilir)
+  const {
+    data: allRes,
+    isFetching: fetchingAll,
+    isError: allErr,
+  } = useListProductsQuery({ is_active: true, limit: 1000 });
+
+  // --- Ekranda gösterilecek liste için server-side parametreleri hazırla ---
+  const currentQueryParams = useMemo(() => {
+    const params: Parameters<typeof useListProductsQuery>[0] = {
+      is_active: true,
+      limit: 60,
     };
 
-    return categoryMap[category] || 'mezar-modelleri';
-  };
-
-  // Tüm ürünleri (static + dynamic) birleştir
-  const allProducts = useMemo(() => {
-    try {
-      console.log('📦 Combining products from Context:', contextProducts.length);
-
-      const convertedDynamicProducts = contextProducts.map(product => ({
-        id: product.id,
-        title: product.title || product.name,
-        productCode: product.productCode,
-        price: product.price,
-        image: product.image,
-        description: product.description || "",
-        category: getCategoryKey(product.category),
-        isActive: product.isActive !== undefined ? product.isActive : true
-      }));
-
-      // Combine static and dynamic products, filter active ones
-      const combinedProducts = [
-        ...products.map(p => ({ ...p, isActive: true })), // Static products are always active
-        ...convertedDynamicProducts.filter(p => p.isActive)
-      ];
-
-      console.log('✅ All products combined:', combinedProducts.length);
-      return combinedProducts;
-    } catch (error) {
-      console.error('❌ Error combining products:', error);
-      return products.map(p => ({ ...p, isActive: true }));
-    }
-  }, [contextProducts]);
-
-  // Loading state management
-  useEffect(() => {
-    setIsLoading(true);
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [contextProducts]);
-
-
-
-  // Search function for all products
-  const searchAllProducts = (term: string) => {
-    const searchTerm = term.toLowerCase();
-    return allProducts.filter(product =>
-      product.title?.toLowerCase().includes(searchTerm) ||
-      product.description?.toLowerCase().includes(searchTerm) ||
-      product.productCode?.toLowerCase().includes(searchTerm)
-    );
-  };
-
-  // Get products by category from all products
-  const getProductsByCategoryFromAll = (category: string) => {
-    if (category === "mezar-modelleri") {
-      return allProducts;
-    }
-    return allProducts.filter(product => product.category === category);
-  };
-
-  const categories = [
-    { id: "mezar-modelleri", label: "MEZAR MODELLERİ", count: allProducts.length, isHeader: true },
-    { id: "tek-kisilik-mermer", label: "Tek Kişilik Mermer Modeller", count: allProducts.filter(p => p.category === "tek-kisilik-mermer").length, isHeader: false },
-    { id: "tek-kisilik-granit", label: "Tek Kişilik Granit Modeller", count: allProducts.filter(p => p.category === "tek-kisilik-granit").length, isHeader: false },
-    { id: "iki-kisilik-mermer", label: "İki Kişilik Mermer Modeller", count: allProducts.filter(p => p.category === "iki-kisilik-mermer").length, isHeader: false },
-    { id: "iki-kisilik-granit", label: "İki Kişilik Granit Modeller", count: allProducts.filter(p => p.category === "iki-kisilik-granit").length, isHeader: false },
-    { id: "lahit", label: "Katlı Lahit Mezar Modelleri", count: allProducts.filter(p => p.category === "lahit").length, isHeader: false },
-    { id: "ozel-yapim", label: "Özel Yapım Mezar Modelleri", count: allProducts.filter(p => p.category === "ozel-yapim").length, isHeader: false },
-    { id: "sutunlu", label: "Sütunlu Mezar Modelleri", count: allProducts.filter(p => p.category === "sutunlu").length, isHeader: false }
-  ];
-
-  const headerCategory = categories.find(cat => cat.isHeader);
-  const regularCategories = categories.filter(cat => !cat.isHeader);
-
-  // Memoize filtered products for better performance
-  const filteredProducts = useMemo(() => {
     if (showSearchResults && searchTerm.trim()) {
-      return searchAllProducts(searchTerm);
+      params.q = searchTerm.trim();
     }
 
-    if (selectedCategory === "mezar-modelleri") {
-      return allProducts; // Tüm ürünleri göster
+    // “Hepsi” değilse seçili kategori ID’sini gönder
+    if (selectedCategory !== ALL_CATEGORY) {
+      params.category_id = selectedCategory;
     }
 
-    return getProductsByCategoryFromAll(selectedCategory);
-  }, [showSearchResults, searchTerm, selectedCategory, allProducts]);
+    return params;
+  }, [showSearchResults, searchTerm, selectedCategory]);
 
-  const displayedProducts = useMemo(() => {
-    return filteredProducts.slice(0, visibleProducts);
-  }, [filteredProducts, visibleProducts]);
+  // --- Ekranda kullanılacak veri (server-side filtreli/aramalı)
+  const {
+    data: listRes,
+    isFetching: fetchingList,
+    isError: listErr,
+  } = useListProductsQuery(currentQueryParams);
 
-  const loadMore = () => {
-    setVisibleProducts(prev => prev + 12);
-  };
+  // --- Yumuşak skeleton (UX) ---
+  useEffect(() => {
+    setSoftLoading(true);
+    const t = setTimeout(() => setSoftLoading(false), 300);
+    return () => clearTimeout(t);
+  }, [selectedCategory, searchTerm, showSearchResults, refreshKey]);
+
+  // Tüm ürünleri UI tipine çevir
+  const uiAllProducts: UiProduct[] = useMemo(() => {
+    const src = Array.isArray(allRes) ? allRes : [];
+    return src.map(toUiProduct);
+  }, [allRes]);
+
+  // Server’dan gelen (filtreli) listeyi UI tipine çevir
+  const uiListedProducts: UiProduct[] = useMemo(() => {
+    const serverArr = Array.isArray(listRes) ? listRes.map(toUiProduct) : [];
+
+    // Server tarafı zaten arama/kategori uyguladığı için doğrudan kullanıyoruz.
+    // (Her ihtimale karşı server boş dönerse client-side fallback’e kayabilirsiniz:
+    // if (!serverArr.length) {...} fakat burada şimdilik gerekmiyor.)
+    return serverArr;
+  }, [listRes]);
+
+  // Kategori seçeneklerini ve sayaçlarını hazırla
+  const categoryItems = useMemo(() => {
+    const cats = Array.isArray(categoriesRes) ? categoriesRes : [];
+
+    // Hepsi başlığı
+    const items: Array<{ id: string; label: string; count: number; isHeader?: boolean }> = [
+      {
+        id: ALL_CATEGORY,
+        label: "MEZAR MODELLERİ",
+        count: uiAllProducts.length,
+        isHeader: true,
+      },
+    ];
+
+    // Diğer kategoriler
+    for (const c of cats) {
+      const id = String(c.id);
+      const label = c.name ?? c.slug ?? id;
+      const count = uiAllProducts.filter((p) => p.category_id === id).length;
+      items.push({ id, label, count });
+    }
+
+    return items;
+  }, [categoriesRes, uiAllProducts]);
+
+  const isLoading = fetchingAll || fetchingList || fetchingCats || softLoading;
+
+  // görünür ürünler (paginate)
+  const displayedProducts = useMemo(
+    () => uiListedProducts.slice(0, visibleProducts),
+    [uiListedProducts, visibleProducts]
+  );
 
   useEffect(() => {
-    setIsLoading(true);
     setVisibleProducts(12);
+  }, [selectedCategory, searchTerm, showSearchResults]);
 
-    // Simulate loading delay for better UX
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 300);
+  const loadMore = () => setVisibleProducts((p) => p + 12);
 
-    return () => clearTimeout(timer);
-  }, [selectedCategory, searchTerm]);
-
-  const handleProductClick = (productId: number) => {
-    onProductDetail(productId);
+  const handleProductClick = (productId: string) => {
+    // public ProductDetailPage id numerik bekliyorsa Number(...)’a çevir
+    const n = Number(productId);
+    onProductDetail(Number.isFinite(n) ? n : 0);
   };
 
   return (
     <section className="py-16 bg-gray-50" id="products">
       <div className="container mx-auto px-4 max-w-7xl">
-        {/* Header - Only for search results */}
+        {/* Search Header */}
         {showSearchResults && (
           <div className="text-center mb-12">
             <div className="space-y-4">
@@ -199,117 +197,116 @@ export function ProductGallery({ searchTerm, showSearchResults, onClearSearch, o
                 </Button>
               </div>
               <p className="text-xl text-gray-600">
-                {filteredProducts.length} ürün bulundu
+                {uiListedProducts.length} ürün bulundu
               </p>
             </div>
           </div>
         )}
 
-        {/* Main Content - Sidebar Layout for non-search pages */}
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left Sidebar - Category List (only show when not searching) */}
+          {/* Sol menü – arama yokken göster */}
           {!showSearchResults && (
             <div className="lg:w-1/4">
               <div className="sticky top-24">
-                {/* Mobile Layout - 2 Column Grid */}
+                {/* Mobile grid */}
                 <div className="lg:hidden">
-                  {/* All Categories - 2 Column Grid */}
                   <div className="grid grid-cols-2 gap-2">
-                    {categories.map((category) => (
+                    {categoryItems.map((c) => (
                       <div
-                        key={category.id}
-                        onClick={() => setSelectedCategory(category.id)}
-                        className={`px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 text-sm ${category.isHeader
-                            ? (selectedCategory === category.id
+                        key={c.id}
+                        onClick={() => setSelectedCategory(c.id)}
+                        className={`px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 text-sm ${
+                          c.isHeader
+                            ? selectedCategory === c.id
                               ? "bg-teal-600 text-white"
-                              : "bg-teal-500 text-white hover:bg-teal-600")
-                            : (selectedCategory === category.id
-                              ? "bg-teal-100 text-teal-700"
-                              : "bg-white text-gray-700 hover:bg-gray-50")
-                          }`}
+                              : "bg-teal-500 text-white hover:bg-teal-600"
+                            : selectedCategory === c.id
+                            ? "bg-teal-100 text-teal-700"
+                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
                       >
-                        <div className="text-center">{category.label}</div>
+                        <div className="text-center">
+                          {c.label} <span className="ml-1 opacity-70">({c.count})</span>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Desktop Layout - Unified Table */}
+                {/* Desktop list */}
                 <div className="hidden lg:block">
                   <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-                    {categories.map((category, index) => {
-                      if (category.isHeader) {
-                        return (
-                          <div
-                            key={category.id}
-                            className="bg-teal-500 text-white px-6 py-4 cursor-pointer hover:bg-teal-600 transition-colors duration-200"
-                            onClick={() => setSelectedCategory(category.id)}
-                          >
-                            <h3 className="font-bold text-lg text-center">{category.label}</h3>
+                    {categoryItems.map((c) =>
+                      c.isHeader ? (
+                        <div
+                          key={c.id}
+                          className="bg-teal-500 text-white px-6 py-4 cursor-pointer hover:bg-teal-600 transition-colors duration-200"
+                          onClick={() => setSelectedCategory(c.id)}
+                        >
+                          <h3 className="font-bold text-lg text-center">
+                            {c.label} <span className="opacity-80">({c.count})</span>
+                          </h3>
+                        </div>
+                      ) : (
+                        <div
+                          key={c.id}
+                          onClick={() => setSelectedCategory(c.id)}
+                          className={`px-6 py-4 cursor-pointer transition-all duration-200 border-b border-gray-100 last:border-b-0 ${
+                            selectedCategory === c.id
+                              ? "bg-teal-50 text-teal-700 font-medium"
+                              : "bg-white text-gray-700 hover:bg-gray-50"
+                          }`}
+                        >
+                          <div className="text-sm flex justify-between">
+                            <span>{c.label}</span>
+                            <span className="text-gray-500">{c.count}</span>
                           </div>
-                        );
-                      } else {
-                        return (
-                          <div
-                            key={category.id}
-                            onClick={() => setSelectedCategory(category.id)}
-                            className={`px-6 py-4 cursor-pointer transition-all duration-200 border-b border-gray-100 last:border-b-0 ${selectedCategory === category.id
-                                ? "bg-teal-50 text-teal-700 font-medium"
-                                : "bg-white text-gray-700 hover:bg-gray-50"
-                              }`}
-                          >
-                            <div className="text-sm">{category.label}</div>
-                          </div>
-                        );
-                      }
-                    })}
+                        </div>
+                      )
+                    )}
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Right Content - Products Grid */}
+          {/* Ürün grid’i */}
           <div className={showSearchResults ? "w-full" : "lg:w-3/4"}>
-            {/* Loading State */}
             {isLoading ? (
               <SkeletonLoader type="grid" count={12} />
             ) : (
               <>
-                {/* Products Grid - 2 Columns Mobile, 3 Columns Desktop */}
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
-                  {displayedProducts.map((product, index) => (
+                  {displayedProducts.map((product) => (
                     <div
-                      key={`product-${product.id}-${index}`}
+                      key={product.id}
                       className="bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-lg hover:scale-105 transform transition-all duration-300 cursor-pointer"
                       onClick={() => handleProductClick(product.id)}
                     >
-                      {/* Image Container with Photo Badge */}
+                      {/* Görsel */}
                       <div className="relative aspect-[4/3] lg:aspect-[4/3] sm:aspect-[3/4] overflow-hidden bg-gray-100">
                         <ImageOptimized
                           src={product.image}
                           alt={product.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          priority={displayedProducts.findIndex(p => p.id === product.id) < 6} // Preload first 6 images
+                          priority={true}
                           sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                           quality={85}
                         />
                       </div>
 
-                      {/* Content */}
+                      {/* İçerik */}
                       <div className="p-4">
-                        {/* Product Title */}
                         <h3 className="text-base font-bold text-gray-800 mb-3 line-clamp-2 uppercase">
                           {product.title}
                         </h3>
 
-                        {/* Product Code and Price - Side by Side */}
                         <div className="flex items-center justify-between gap-2">
                           <span className="inline-block px-3 py-1 border-2 border-blue-500 text-blue-600 text-xs font-bold rounded">
-                            {product.productCode}
+                            {product.productCode ?? "KOD-YOK"}
                           </span>
                           <span className="text-lg font-bold text-gray-800">
-                            {product.price}
+                            {typeof product.price === "number" ? product.price : String(product.price)}
                           </span>
                         </div>
                       </div>
@@ -317,8 +314,7 @@ export function ProductGallery({ searchTerm, showSearchResults, onClearSearch, o
                   ))}
                 </div>
 
-                {/* Load More Button */}
-                {visibleProducts < filteredProducts.length && (
+                {visibleProducts < uiListedProducts.length && (
                   <div className="text-center">
                     <Button
                       onClick={loadMore}
@@ -326,13 +322,12 @@ export function ProductGallery({ searchTerm, showSearchResults, onClearSearch, o
                       size="lg"
                       className="px-8 py-3 border-teal-500 text-teal-600 hover:bg-teal-50"
                     >
-                      Daha Fazla Göster ({filteredProducts.length - visibleProducts} ürün daha)
+                      Daha Fazla Göster ({uiListedProducts.length - visibleProducts} ürün daha)
                     </Button>
                   </div>
                 )}
 
-                {/* No Results */}
-                {filteredProducts.length === 0 && (
+                {uiListedProducts.length === 0 && (
                   <div className="text-center py-12">
                     <div className="mb-6">
                       <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -341,17 +336,13 @@ export function ProductGallery({ searchTerm, showSearchResults, onClearSearch, o
                       </h3>
                       <p className="text-gray-600 max-w-md mx-auto">
                         {showSearchResults
-                          ? `"${searchTerm}" aramanızla eşleşen ürün bulunamadı. Farklı anahtar kelimeler deneyebilirsiniz.`
-                          : "Seçilen kategoride henüz ürün bulunmamaktadır. Diğer kategorileri kontrol edebilirsiniz."
-                        }
+                          ? `"${searchTerm}" ile eşleşen ürün bulunamadı.`
+                          : "Seçilen kategoride henüz ürün bulunmuyor."}
                       </p>
                     </div>
 
                     {showSearchResults && (
-                      <Button
-                        onClick={onClearSearch}
-                        className="bg-teal-500 hover:bg-teal-600 text-white"
-                      >
+                      <Button onClick={onClearSearch} className="bg-teal-500 hover:bg-teal-600 text-white">
                         Tüm Ürünleri Görüntüle
                       </Button>
                     )}
@@ -361,8 +352,6 @@ export function ProductGallery({ searchTerm, showSearchResults, onClearSearch, o
             )}
           </div>
         </div>
-
-
       </div>
     </section>
   );

@@ -1,4 +1,5 @@
 /** @type {import('tailwindcss').Config} */
+import { customPagesSafelist } from './src/data/twSafelist.customPages'
 export default {
   darkMode: "class",
 
@@ -16,6 +17,7 @@ export default {
   plugins: [],
   safelist: [
     "bg-teal-500","bg-teal-600","text-teal-600","text-teal-700",
-    "border-teal-500","ring-teal-500","animate-pulse","hidden"
+    "border-teal-500","ring-teal-500","animate-pulse","hidden",
+    ...customPagesSafelist
   ],
 };

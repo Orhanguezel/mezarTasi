@@ -1,3 +1,5 @@
+// src/modules/products/controller.ts
+
 import type { RouteHandler } from "fastify";
 import { randomUUID } from "crypto";
 import { db } from "@/db/client";

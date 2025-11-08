@@ -49,7 +49,7 @@ interface SlideData {
 
 ## Kullanılabilir Fonksiyonlar
 
-### `getActiveSlides()`
+### `useActiveSlidesRtk()`
 Sadece aktif olan slider'ları sıralı şekilde döner.
 
 ### `updateSlideData(id, updates)`

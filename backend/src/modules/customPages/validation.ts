@@ -49,3 +49,14 @@ export type UpsertCustomPageBody = z.infer<typeof upsertCustomPageBodySchema>;
 /** PATCH body (hepsi opsiyonel) */
 export const patchCustomPageBodySchema = upsertCustomPageBodySchema.partial();
 export type PatchCustomPageBody = z.infer<typeof patchCustomPageBodySchema>;
+
+/** Sadece featured image bağlamak için küçük schema */
+export const setFeaturedImageBodySchema = z.object({
+  /** Storage asset id — null ise bağ kaldır */
+  asset_id: z.string().length(36).nullable(),
+  /** FE yükleme cevabından gelen direkt URL — opsiyonel */
+  image_url: z.string().url().nullable().optional(),
+  /** Alt metin — opsiyonel */
+  alt: z.string().max(255).nullable().optional(),
+});
+export type SetFeaturedImageBody = z.infer<typeof setFeaturedImageBodySchema>;

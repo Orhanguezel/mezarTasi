@@ -1,3 +1,5 @@
+// src/modules/products/schema.ts
+
 import {
   mysqlTable,
   char,

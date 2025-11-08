@@ -86,6 +86,7 @@ export type UpsertSubCategoryBody = {
   // ⚠️ seo_* vb. BE'de yok → eklenmedi
 };
 
+
 const BASE = "/sub-categories";
 
 export const subCategoriesAdminApi = baseApi.injectEndpoints({
@@ -113,6 +114,7 @@ export const subCategoriesAdminApi = baseApi.injectEndpoints({
       providesTags: (_r, _e, id) => [{ type: "SubCategories", id }],
     }),
 
+    // 🔄 slug + optional category_id
     getSubCategoryAdminBySlug: b.query<SubCategory | null, { slug: string; category_id?: string }>({
       query: ({ slug, category_id }): FetchArgs | string => {
         const url = `${BASE}/by-slug/${encodeURIComponent(slug)}`;
@@ -208,6 +210,23 @@ export const subCategoriesAdminApi = baseApi.injectEndpoints({
         { type: "SubCategories", id: "LIST" },
       ],
     }),
+
+    // 🔥 Görsel set/kaldır (asset_id veya image_url)
+    setSubCategoryImageAdmin: b.mutation<
+      SubCategory,
+      { id: string; body: { asset_id?: string | null; image_url?: string | null } }
+    >({
+      query: ({ id, body }): FetchArgs => ({
+        url: `${BASE}/${id}/image`,
+        method: "PATCH",
+        body,
+      }),
+      transformResponse: (res: unknown): SubCategory => normalize(res as ApiSubCategory),
+      invalidatesTags: (_r, _e, arg) => [
+        { type: "SubCategories", id: arg.id },
+        { type: "SubCategories", id: "LIST" },
+      ],
+    }),
   }),
   overrideExisting: true,
 });
@@ -223,4 +242,5 @@ export const {
   useReorderSubCategoriesAdminMutation,
   useToggleSubActiveAdminMutation,
   useToggleSubFeaturedAdminMutation,
+  useSetSubCategoryImageAdminMutation,   // 🔥 export
 } = subCategoriesAdminApi;

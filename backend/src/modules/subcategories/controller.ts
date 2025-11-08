@@ -109,12 +109,29 @@ export const getSubCategoryById: RouteHandler<{ Params: { id: string } }> = asyn
 };
 
 /** GET /sub-categories/by-slug/:slug (public) — ?category_id=... ile daraltılabilir */
-export const getSubCategoryBySlug: RouteHandler<{ Params: { slug: string } }> = async (req, reply) => {
+export const getSubCategoryBySlug: RouteHandler<{
+  Params: { slug: string };
+  Querystring: { category_id?: string };
+}> = async (req, reply) => {
   const { slug } = req.params;
-  const rows = await db.select().from(subCategories).where(eq(subCategories.slug, slug)).limit(1);
+  const { category_id } = req.query ?? {};
+
+  const rows = category_id
+    ? await db
+        .select()
+        .from(subCategories)
+        .where(and(eq(subCategories.slug, slug), eq(subCategories.category_id, category_id)))
+        .limit(1)
+    : await db
+        .select()
+        .from(subCategories)
+        .where(eq(subCategories.slug, slug))
+        .limit(1);
+
   if (!rows.length) return reply.code(404).send({ error: { message: 'not_found' } });
   return reply.send(rows[0]);
 };
+
 
 /** Ortak payload yardımcıları (admin controller kullanıyor) */
 export function buildInsertPayload(input: SubCategoryCreateInput) {

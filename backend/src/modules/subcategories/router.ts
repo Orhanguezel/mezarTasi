@@ -1,3 +1,4 @@
+// router.ts
 import type { FastifyInstance } from 'fastify';
 import { requireAuth } from '@/common/middleware/auth';
 import { requireAdmin } from '@/common/middleware/roles';
@@ -17,6 +18,7 @@ import {
   adminReorderSubCategories,
   adminToggleSubActive,
   adminToggleSubFeatured,
+  adminSetSubCategoryImage,        // 🔥
 } from './admin.controller';
 
 export async function registerSubCategories(app: FastifyInstance) {
@@ -70,5 +72,12 @@ export async function registerSubCategories(app: FastifyInstance) {
     '/sub-categories/:id/featured',
     { preHandler: [requireAuth, requireAdmin] },
     adminToggleSubFeatured,
+  );
+
+  // 🔥 Görsel set/kaldır
+  app.patch<{ Params: { id: string }; Body: { asset_id?: string | null; image_url?: string | null } }>(
+    '/sub-categories/:id/image',
+    { preHandler: [requireAuth, requireAdmin] },
+    adminSetSubCategoryImage,
   );
 }

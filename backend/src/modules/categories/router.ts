@@ -8,7 +8,11 @@ import {
   getCategoryBySlug,
 } from './controller';
 
-import type { CategoryCreateInput, CategoryUpdateInput } from './validation';
+import type {
+  CategoryCreateInput,
+  CategoryUpdateInput,
+} from './validation';
+
 import {
   adminCreateCategory,
   adminPutCategory,
@@ -17,6 +21,7 @@ import {
   adminReorderCategories,
   adminToggleActive,
   adminToggleFeatured,
+  adminSetCategoryImage, // ✅ EKLENDİ
 } from './admin.controller';
 
 export async function registerCategories(app: FastifyInstance) {
@@ -66,5 +71,12 @@ export async function registerCategories(app: FastifyInstance) {
     '/categories/:id/featured',
     { preHandler: [requireAuth, requireAdmin] },
     adminToggleFeatured,
+  );
+
+  /** ✅ Yeni: Storage asset’den kategori görselini ayarla/kaldır */
+  app.patch<{ Params: { id: string }; Body: { asset_id?: string | null } }>(
+    '/categories/:id/image',
+    { preHandler: [requireAuth, requireAdmin] },
+    adminSetCategoryImage,
   );
 }

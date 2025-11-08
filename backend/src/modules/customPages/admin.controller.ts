@@ -8,6 +8,7 @@ import {
   updateCustomPage,
   deleteCustomPage,
   packContent,
+  setCustomPageFeaturedImage, // 👈 EKLENDİ
 } from "./repository";
 import {
   customPageListQuerySchema,
@@ -16,6 +17,7 @@ import {
   type CustomPageListQuery,
   type UpsertCustomPageBody,
   type PatchCustomPageBody,
+  setFeaturedImageBodySchema, // 👈 EKLENDİ
 } from "./validation";
 
 const toBool = (v: unknown): boolean =>
@@ -140,4 +142,19 @@ export const removePageAdmin: RouteHandler<{ Params: { id: string } }> = async (
   const affected = await deleteCustomPage(req.params.id);
   if (!affected) return reply.code(404).send({ error: { message: "not_found" } });
   return reply.code(204).send();
+};
+
+export const setFeaturedImageAdmin: RouteHandler<{ Params: { id: string } }> = async (req, reply) => {
+  const parsed = setFeaturedImageBodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return reply.code(400).send({ error: { message: "invalid_body", issues: parsed.error.issues } });
+  }
+  const body = parsed.data;
+  const row = await setCustomPageFeaturedImage(req.params.id, {
+    asset_id: body.asset_id,
+    image_url: body.image_url,
+    alt: body.alt,
+  });
+  if (!row) return reply.code(404).send({ error: { message: "not_found" } });
+  return reply.send(row);
 };

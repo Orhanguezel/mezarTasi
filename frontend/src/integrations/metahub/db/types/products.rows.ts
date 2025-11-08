@@ -97,6 +97,10 @@ export type ProductReviewRow = {
   updated_at: string;
 };
 
+
+
+
+
 // Uyum kolaylığı
 export type Product = ProductRow;
 export type Faq = ProductFaqRow;

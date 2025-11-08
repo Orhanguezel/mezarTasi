@@ -2,6 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";
 import { store } from "@/store";
+import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 
 import "@/styles/sidebar.css";
@@ -13,7 +14,9 @@ root.render(
   <React.StrictMode>
     <div data-app>
       <Provider store={store}>
-        <App />
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
       </Provider>
     </div>
   </React.StrictMode>

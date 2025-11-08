@@ -97,3 +97,14 @@ export const productSpecCreateSchema = z.object({
 export const productSpecUpdateSchema = productSpecCreateSchema.partial();
 export type ProductSpecCreateInput = z.infer<typeof productSpecCreateSchema>;
 export type ProductSpecUpdateInput = z.infer<typeof productSpecUpdateSchema>;
+
+/* ---------- NEW: Ürün resimleri set etme (storage uyumlu) ---------- */
+/** PUT /admin/products/:id/images body */
+export const productSetImagesSchema = z.object({
+  /** Kapak için storage_assets.id (opsiyonel) */
+  cover_id: z.string().uuid().optional(),
+  /** Galeri için storage_assets.id listesi (sıralı) */
+  image_ids: z.array(z.string().uuid()).min(1),
+});
+
+export type ProductSetImagesInput = z.infer<typeof productSetImagesSchema>;

@@ -2,8 +2,8 @@
 // FILE: src/integrations/metahub/rtk/endpoints/custom_pages.endpoints.ts
 // (public FE; slug ile get vs.)
 // =============================================================
-import { baseApi as baseApi_m3 } from "../baseApi";
-import type { CustomPageRow, CustomPageView } from "../../db/types/content";
+import { baseApi } from "../baseApi";
+import type { CustomPageView } from "../../db/types/customPages";
 
 const toBool = (x: unknown): boolean =>
   x === true || x === 1 || x === "1" || x === "true";
@@ -19,9 +19,9 @@ function extractHtml(rawField: unknown): string {
       ) {
         return (parsed as Record<string, unknown>).html as string;
       }
-      return rawField;
+      return rawField; // zaten düz HTML string
     } catch {
-      return rawField;
+      return rawField; // parse edilemeyen düz HTML
     }
   }
   if (
@@ -34,7 +34,7 @@ function extractHtml(rawField: unknown): string {
   return "";
 }
 
-/** raw→view */
+/** raw→view (exactOptionalPropertyTypes uyumlu) */
 const toView = (row: unknown): CustomPageView => {
   const r = (row ?? {}) as Record<string, unknown>;
   const raw = r["content_html"] ?? r["content"];
@@ -43,18 +43,39 @@ const toView = (row: unknown): CustomPageView => {
     id: String(r["id"] ?? ""),
     title: String(r["title"] ?? ""),
     slug: String(r["slug"] ?? ""),
-    content: extractHtml(raw),
+    content: extractHtml(raw), // <-- DÜZ HTML string
+
+    featured_image:
+      (typeof r["featured_image"] === "string"
+        ? (r["featured_image"] as string)
+        : null) ?? null,
+    featured_image_asset_id:
+      (typeof r["featured_image_asset_id"] === "string"
+        ? (r["featured_image_asset_id"] as string)
+        : null) ?? null,
+    featured_image_alt:
+      (typeof r["featured_image_alt"] === "string"
+        ? (r["featured_image_alt"] as string)
+        : null) ?? null,
+
     meta_title:
-      (typeof r["meta_title"] === "string" ? r["meta_title"] : null) ?? null,
+      (typeof r["meta_title"] === "string"
+        ? (r["meta_title"] as string)
+        : null) ?? null,
     meta_description:
-      (typeof r["meta_description"] === "string" ? r["meta_description"] : null) ?? null,
+      (typeof r["meta_description"] === "string"
+        ? (r["meta_description"] as string)
+        : null) ?? null,
     is_published: toBool(r["is_published"]),
-    created_at: typeof r["created_at"] === "string" ? (r["created_at"] as string) : undefined,
-    updated_at: typeof r["updated_at"] === "string" ? (r["updated_at"] as string) : undefined,
+
+    created_at:
+      typeof r["created_at"] === "string" ? (r["created_at"] as string) : "",
+    updated_at:
+      typeof r["updated_at"] === "string" ? (r["updated_at"] as string) : "",
   };
 };
 
-export const customPagesApi = baseApi_m3.injectEndpoints({
+export const customPagesApi = baseApi.injectEndpoints({
   endpoints: (b) => ({
     listCustomPages: b.query<
       CustomPageView[],
@@ -62,7 +83,7 @@ export const customPagesApi = baseApi_m3.injectEndpoints({
     >({
       query: (params) => ({ url: "/custom_pages", params }),
       transformResponse: (res: unknown): CustomPageView[] =>
-        Array.isArray(res) ? (res as CustomPageRow[]).map(toView) : [],
+        Array.isArray(res) ? (res as unknown[]).map(toView) : [],
       providesTags: (result) =>
         result
           ? [
@@ -70,10 +91,14 @@ export const customPagesApi = baseApi_m3.injectEndpoints({
               { type: "CustomPages" as const, id: "LIST" },
             ]
           : [{ type: "CustomPages" as const, id: "LIST" }],
+      keepUnusedDataFor: 60,
     }),
 
     getCustomPageBySlug: b.query<CustomPageView, { slug: string; locale?: string }>({
-      query: ({ slug, locale }) => ({ url: `/custom_pages/by-slug/${slug}`, params: { locale } }),
+      query: ({ slug, locale }) => ({
+        url: `/custom_pages/by-slug/${encodeURIComponent(slug)}`,
+        ...(locale ? { params: { locale } } : {}), // <-- locale yoksa params eklenmez
+      }),
       transformResponse: (res: unknown): CustomPageView => toView(res),
       providesTags: (_r, _e, { slug }) => [{ type: "CustomPage", id: `SLUG_${slug}` }],
     }),

@@ -1,0 +1,27 @@
+// -------------------------------------------------------------
+// FILE: src/integrations/metahub/rtk/endpoints/contacts.endpoints.ts
+// -------------------------------------------------------------
+import { baseApi } from "../baseApi";
+import type {
+  ContactView,
+  ContactCreateInput,
+  CreateContactPublicResponse,
+} from "@/integrations/metahub/db/types/contacts";
+
+export const contactsApi = baseApi.injectEndpoints({
+  endpoints: (b) => ({
+    createContact: b.mutation<CreateContactPublicResponse, ContactCreateInput>({
+      query: (body) => ({
+        url: "/contacts",
+        method: "POST",
+        body,
+        headers: { "x-skip-auth": "1" },
+      }),
+      invalidatesTags: [{ type: "Contacts" as const, id: "LIST" }],
+    }),
+  }),
+  overrideExisting: true,
+});
+
+export const { useCreateContactMutation } = contactsApi;
+export type { ContactView };

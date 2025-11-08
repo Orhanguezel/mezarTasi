@@ -1,34 +1,25 @@
-// =============================================================
-// FILE: src/components/admin/AdminPanel/Tabs/SubCategoriesTab.tsx
-// =============================================================
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
-import type { SubCategory } from "@/integrations/metahub/db/types/sub_categories.rows";
 import type { Category } from "@/integrations/metahub/db/types/categories.rows";
 
-import {
-  useListCategoriesAdminQuery,
-} from "@/integrations/metahub/rtk/endpoints/admin/categories_admin.endpoints";
+import { useListCategoriesAdminQuery } from "@/integrations/metahub/rtk/endpoints/admin/categories_admin.endpoints";
 
 import {
   useListSubCategoriesAdminQuery,
-  useCreateSubCategoryAdminMutation,
-  useUpdateSubCategoryAdminMutation,
   useDeleteSubCategoryAdminMutation,
 } from "@/integrations/metahub/rtk/endpoints/admin/sub_categories_admin.endpoints";
 
-import SubCategoryDialog, {
-  type UiSubCategoryLite,
-} from "@/components/admin/AdminPanel/Dialogs/SubCategoryDialog";
-
 export const TabsSubCategories: React.FC = () => {
-  // Kategoriler (select için)
+  const navigate = useNavigate();
+
+  // Kategoriler (select name gösterimi için)
   const { data: categories = [], isLoading: catLoading } = useListCategoriesAdminQuery(
     { sort: "name", order: "asc", limit: 200 },
     { refetchOnMountOrArgChange: true }
@@ -44,12 +35,7 @@ export const TabsSubCategories: React.FC = () => {
     { refetchOnMountOrArgChange: true }
   );
 
-  const [createSub, { isLoading: creating }] = useCreateSubCategoryAdminMutation();
-  const [updateSub, { isLoading: updating }] = useUpdateSubCategoryAdminMutation();
   const [deleteSub, { isLoading: deleting }] = useDeleteSubCategoryAdminMutation();
-
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<SubCategory | null>(null);
 
   const categoryById = useMemo(
     () => new Map(categories.map((c) => [c.id, c] as const)),
@@ -57,39 +43,36 @@ export const TabsSubCategories: React.FC = () => {
   );
 
   const startCreate = () => {
-    setEditing(null);
-    setOpen(true);
+    navigate("/admin/subcategories/new");
   };
 
-  const startEdit = (sc: SubCategory) => {
-    setEditing(sc);
-    setOpen(true);
+  const startEdit = (id: string) => {
+    const sc = subCategories.find((x) => x.id === id);
+    navigate(`/admin/subcategories/${id}`, {
+      state: sc
+        ? {
+            initialValue: {
+              id: sc.id,
+              category_id: sc.category_id,
+              name: sc.name,
+              slug: sc.slug,
+              description: sc.description ?? "",
+              image_url: sc.image_url ?? null,
+            },
+          }
+        : undefined,
+    });
   };
 
-  const onDelete = async (sc: SubCategory) => {
+  const onDelete = async (id: string) => {
     try {
-      await deleteSub(sc.id).unwrap();
+      await deleteSub(id).unwrap();
       toast.success("Alt kategori silindi");
     } catch (e: any) {
       const msg = e?.data?.error?.message || e?.error || "Silme işlemi başarısız";
       toast.error(msg);
     }
   };
-
-  // Dialog props
-  const catOptions = useMemo(
-    () => categories.map((c) => ({ id: c.id, name: c.name })),
-    [categories]
-  );
-
-  const existingSlugsByCat = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const sc of subCategories) {
-      if (!map.has(sc.category_id)) map.set(sc.category_id, new Set());
-      map.get(sc.category_id)!.add(sc.slug);
-    }
-    return map;
-  }, [subCategories]);
 
   return (
     <>
@@ -148,11 +131,11 @@ export const TabsSubCategories: React.FC = () => {
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2 md:col-span-2 md:mt-0 md:justify-self-end">
-                    <Button variant="outline" size="sm" onClick={() => startEdit(sc)}>
+                    <Button variant="outline" size="sm" onClick={() => startEdit(sc.id)}>
                       <Edit className="mr-1 h-4 w-4" />
                       Düzenle
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => onDelete(sc)} disabled={deleting}>
+                    <Button variant="outline" size="sm" onClick={() => onDelete(sc.id)} disabled={deleting}>
                       <Trash2 className="mr-1 h-4 w-4" />
                       Sil
                     </Button>
@@ -166,61 +149,6 @@ export const TabsSubCategories: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Dialog (ayrı component) */}
-      <SubCategoryDialog
-        open={open}
-        onOpenChange={(o) => {
-          setOpen(o);
-          if (!o) setEditing(null);
-        }}
-        initialValue={
-          editing
-            ? {
-                id: editing.id,
-                category_id: editing.category_id,
-                name: editing.name,
-                slug: editing.slug,
-              }
-            : null
-        }
-        categories={catOptions}
-        existingSlugsByCat={existingSlugsByCat}
-        saving={creating || updating}
-        onSave={async (payload: UiSubCategoryLite) => {
-          try {
-            if (payload.id) {
-              await updateSub({
-                id: payload.id,
-                body: {
-                  category_id: payload.category_id,
-                  name: payload.name,
-                  slug: payload.slug,
-                },
-              }).unwrap();
-              toast.success("Alt kategori güncellendi");
-            } else {
-              await createSub({
-                category_id: payload.category_id,
-                name: payload.name,
-                slug: payload.slug,
-              }).unwrap();
-              toast.success("Yeni alt kategori eklendi");
-            }
-          } catch (e: any) {
-            const code = e?.data?.error?.message;
-            if (code === "duplicate_slug_in_category") {
-              toast.error("Bu slug bu kategori içinde zaten kullanılıyor");
-            } else if (code === "invalid_category_id") {
-              toast.error("Geçersiz kategori");
-            } else if (code === "invalid_body") {
-              toast.error("Form verisi geçersiz");
-            } else {
-              toast.error(e?.error || "Kayıt başarısız");
-            }
-          }
-        }}
-      />
     </>
   );
 };

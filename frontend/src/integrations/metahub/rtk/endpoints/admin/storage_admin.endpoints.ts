@@ -10,7 +10,20 @@ import type {
   StorageListParams,
 } from "../../../db/types/storage";
 
-// ---------- utils (type-safe) ----------
+/* ================= ENV & URL helpers ================= */
+const API_ORIGIN =
+  (import.meta.env.VITE_PUBLIC_API_ORIGIN as string | undefined)?.replace(/\/+$/, "") || "";
+
+const toSafePath = (p: string) => encodeURIComponent(p).split("%2F").join("/");
+
+const buildPublicStorageUrl = (bucket?: string | null, path?: string | null) => {
+  if (!bucket || !path) return null;
+  return API_ORIGIN
+    ? `${API_ORIGIN}/storage/${encodeURIComponent(bucket)}/${toSafePath(path)}`
+    : `/storage/${encodeURIComponent(bucket)}/${toSafePath(path)}`;
+};
+
+/* ================= utils (type-safe) ================= */
 const toIso = (x: unknown): string => {
   if (x instanceof Date) return x.toISOString();
   if (typeof x === "number" || typeof x === "string") {
@@ -19,6 +32,7 @@ const toIso = (x: unknown): string => {
   }
   return new Date().toISOString();
 };
+
 const toNum = (x: unknown): number => {
   if (typeof x === "number" && Number.isFinite(x)) return x;
   if (typeof x === "string") {
@@ -29,6 +43,10 @@ const toNum = (x: unknown): number => {
   const n = Number((x as unknown) ?? 0);
   return Number.isFinite(n) ? n : 0;
 };
+
+const toStr = (x: unknown): string | null =>
+  x === undefined || x === null ? null : String(x);
+
 const tryParse = <T>(x: unknown): T => {
   if (typeof x === "string") {
     try { return JSON.parse(x) as T; } catch { /* ignore */ }
@@ -36,16 +54,130 @@ const tryParse = <T>(x: unknown): T => {
   return x as T;
 };
 
-const normalize = (a: ApiStorageAsset): StorageAsset => ({
-  ...a,
-  size: toNum(a.size),
-  width: a.width == null ? null : toNum(a.width),
-  height: a.height == null ? null : toNum(a.height),
-  metadata: a.metadata == null ? null : tryParse<StorageMeta>(a.metadata),
-  created_at: toIso(a.created_at),
-  updated_at: toIso(a.updated_at),
-});
+const trimLower = (s: unknown): string | null => {
+  const v = toStr(s);
+  return v ? v.trim().toLowerCase() : null;
+};
 
+/** Boş olmayan ilk string’i döndür ("" ve null/undefined atlanır) */
+const firstNonEmpty = (...vals: Array<string | null | undefined>): string | undefined => {
+  for (const v of vals) {
+    if (v !== undefined && v !== null && v !== "") return v;
+  }
+  return undefined;
+};
+
+/* ============== Normalizer ============== */
+const normalize = (raw: ApiStorageAsset | any): StorageAsset & {
+  preview_url?: string | null;
+  public_url?: string | null;
+} => {
+  const a: any =
+    raw && typeof raw === "object" && "data" in (raw as any) ? (raw as any).data : raw || {};
+
+  // id
+  const id =
+    firstNonEmpty(
+      toStr(a.id),
+      toStr(a.asset_id),
+      toStr(a.public_id),
+      toStr(a._id),
+      a.path && a.bucket ? `${a.bucket}:${a.path}` : null,
+    ) ?? "";
+
+  // path/bucket
+  const bucket = toStr(a.bucket) ?? "";
+  const path = toStr(a.path) ?? "";
+
+  // folder
+  const folder =
+    a.folder != null ? toStr(a.folder) :
+    path ? (path.split("/").slice(0, -1).join("/") || null) : null;
+
+  // name
+  const name =
+    firstNonEmpty(
+      toStr(a.name),
+      path ? path.split("/").pop() : null,
+      toStr(a.original_filename),
+      toStr(a.filename),
+      id,
+    ) ?? "asset";
+
+  // url (öncelik: secure_url > url > asset.url > file.url > /storage/{bucket}/{path})
+  const firstUrl =
+    firstNonEmpty(
+      toStr(a.secure_url),
+      toStr(a.url),
+      toStr(a.asset?.url),
+      toStr(a.file?.url),
+      buildPublicStorageUrl(bucket, path),
+    ) ?? null;
+
+  // mime
+  const mimeCandidate =
+    firstNonEmpty(
+      trimLower(a.mime),
+      trimLower(a.mimetype),
+      a.resource_type && a.format ? `image/${String(a.format).toLowerCase()}` : null,
+    );
+  const mime = (mimeCandidate ?? "application/octet-stream");
+
+  // boyutlar
+  const width = a.width == null ? null : toNum(a.width);
+  const height = a.height == null ? null : toNum(a.height);
+  const size = toNum(a.size);
+
+  // metadata
+  const metadata =
+    a.metadata == null
+      ? null
+      : typeof a.metadata === "string"
+      ? tryParse<StorageMeta>(a.metadata)
+      : (a.metadata as StorageMeta);
+
+  // tarihler
+  const created_at = toIso(a.created_at ?? a.createdAt ?? a.uploaded_at);
+  const updated_at = toIso(a.updated_at ?? a.updatedAt ?? a.modified_at ?? created_at);
+
+  // opsiyoneller
+  const hash = toStr(a.hash);
+  const etag = firstNonEmpty(toStr(a.etag), toStr(a.etag_id), toStr(a.etagId)) ?? null;
+
+  const normalized: StorageAsset & { preview_url?: string | null; public_url?: string | null } = {
+    id,
+    name,
+    bucket,
+    path,
+    folder,
+    mime,                    // <- her zaman string
+    size,
+    width,
+    height,
+    url: firstUrl,           // StorageAsset tipinde url?: string | null; sorun yok
+    metadata,
+    created_at,
+    updated_at,
+    // helpers
+    // (opsiyonel alanda null sakıncalı değil)
+    preview_url: firstUrl,
+    public_url: firstUrl,
+  };
+
+  // tipte olmayan ama eklediğimiz alanları varsa ekleyelim
+  if (hash) (normalized as any).hash = hash;
+  if (etag) (normalized as any).etag = etag;
+
+  return normalized;
+};
+
+const normalizeList = (res: unknown): StorageAsset[] => {
+  if (Array.isArray(res)) return (res as ApiStorageAsset[]).map(normalize);
+  const maybe = res as { data?: unknown };
+  return Array.isArray(maybe?.data) ? (maybe.data as ApiStorageAsset[]).map(normalize) : [];
+};
+
+/* ============== Params helpers ============== */
 const toParams = (p: StorageListParams) => ({
   q: p.q,
   bucket: p.bucket,
@@ -58,9 +190,12 @@ const toParams = (p: StorageListParams) => ({
 });
 
 const cleanParams = (obj: Record<string, unknown>) =>
-  Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined && v !== null)) as Record<string, string | number>;
+  Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined && v !== null)) as Record<
+    string,
+    string | number
+  >;
 
-// ---------- Blob guard ----------
+/* ============== Blob guard ============== */
 function dataUrlToBlob(dataUrl: string): Blob {
   const [meta, data] = dataUrl.split(",");
   const mime = /data:(.*?);base64/.exec(meta || "")?.[1] || "application/octet-stream";
@@ -113,11 +248,10 @@ function ensureBlob(f: unknown): { blob: Blob; filename: string } {
     return { blob: b, filename: "upload.bin" };
   }
 
-  // http(s) URL async ister → FE tarafında normalizeToFile hallediliyor.
   throw new Error("file_required");
 }
 
-// ---------- endpoints ----------
+/* ============== endpoints ============== */
 const BASE = "/admin/storage";
 
 export const storageAdminApi = baseApi.injectEndpoints({
@@ -128,11 +262,7 @@ export const storageAdminApi = baseApi.injectEndpoints({
         if (params) fa.params = cleanParams(toParams(params));
         return fa;
       },
-      transformResponse: (res: unknown): StorageAsset[] => {
-        if (Array.isArray(res)) return (res as ApiStorageAsset[]).map(normalize);
-        const maybe = res as { data?: unknown };
-        return Array.isArray(maybe?.data) ? (maybe.data as ApiStorageAsset[]).map(normalize) : [];
-      },
+      transformResponse: (res: unknown): StorageAsset[] => normalizeList(res),
       providesTags: (result) =>
         result
           ? [
@@ -150,29 +280,16 @@ export const storageAdminApi = baseApi.injectEndpoints({
 
     uploadStorageAssetAdmin: b.mutation<
       StorageAsset,
-      {
-        file: File | Blob | string | FileList | { file?: File | Blob } | EventLike;
-        bucket?: string;
-        folder?: string | null;
-        metadata?: StorageMeta;
-      }
+      { file: File | Blob | string | FileList | { file?: File | Blob } | EventLike; bucket?: string; folder?: string | null; metadata?: StorageMeta }
     >({
       query: ({ file, bucket, folder, metadata }) => {
         const form = new FormData();
-
-        // Blob/File garantile (+ Event, FileList, {file} destekli)
         const { blob, filename } = ensureBlob(file);
         form.append("file", blob, filename);
-
         if (bucket) form.append("bucket", bucket);
         if (folder != null) form.append("folder", folder);
         if (metadata) form.append("metadata", JSON.stringify(metadata));
-
-        const fa: FetchArgs = {
-          url: `${BASE}/assets`,
-          method: "POST",
-          body: form, // boundary otomatik
-        };
+        const fa: FetchArgs = { url: `${BASE}/assets`, method: "POST", body: form };
         return fa;
       },
       transformResponse: (res: unknown): StorageAsset => normalize(res as ApiStorageAsset),

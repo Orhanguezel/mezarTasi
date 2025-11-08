@@ -1,10 +1,30 @@
+// src/components/layout/AdminLayout.tsx
 "use client";
 
 import type { ReactNode } from "react";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import AdminSidebar from "./AdminSidebar";
 
-export type ActiveTab = "products" | "slider" | "keywords" | "campaigns";
+// ✅ Sekmeler genişletildi
+export type ActiveTab =
+  | "products"
+  | "sliders"
+  | "keywords"
+  | "campaigns"
+  | "recent_works" 
+  | "services"
+  | "accessories" 
+  | "categories"
+  | "subcategories"
+  | "pages"
+  | "sitesettings"
+  | "popups"
+  | "faqs"
+  | "announcements"
+  | "users"
+  | "contacts"
+  | "reviews"
+  | "settings";
 
 type AdminLayoutProps = {
   activeTab: ActiveTab;
@@ -26,7 +46,6 @@ export default function AdminLayout({
   children,
 }: AdminLayoutProps) {
   return (
-    // 🔴 EKSTRA <div> YOK — sınıflar doğrudan Provider’a veriliyor
     <SidebarProvider
       className={[
         "bg-white text-gray-900 antialiased",
@@ -44,14 +63,11 @@ export default function AdminLayout({
         {...(onNavigateLogin ? { onNavigateLogin } : {})}
       />
 
-      {/* SidebarInset: içerik + header + footer */}
       <SidebarInset className="min-h-dvh flex flex-col">
         {header}
-
         <main className="min-h-0 flex-1 overflow-y-auto">
           <div className="w-full px-4 py-6 sm:px-6">{children}</div>
         </main>
-
         {footer}
       </SidebarInset>
     </SidebarProvider>

@@ -10,7 +10,10 @@ import {
   productUpdateSchema,
   productFaqCreateSchema,
   productSpecCreateSchema,
+  productSetImagesSchema,
+  type ProductSetImagesInput,
 } from "./validation";
+import { storageAssets } from "@/modules/storage/schema";
 
 const now = () => new Date();
 
@@ -77,11 +80,18 @@ export const adminListProducts: RouteHandler = async (req, reply) => {
   const dir: "asc" | "desc" = q.order === "asc" ? "asc" : "desc";
   const orderExpr = dir === "asc" ? asc(colMap[sortKey]) : desc(colMap[sortKey]);
 
+  const countBase = db.select({ total: sql<number>`COUNT(*)` }).from(products);
+  const [{ total }] = await (whereExpr ? countBase.where(whereExpr) : countBase);
+
   const dataBase = db.select().from(products);
   const rows = await (whereExpr ? dataBase.where(whereExpr) : dataBase)
     .orderBy(orderExpr)
     .limit(limit)
     .offset(offset);
+
+  reply.header("x-total-count", String(Number(total || 0)));
+  reply.header("content-range", `*/${Number(total || 0)}`);
+  reply.header("access-control-expose-headers", "x-total-count, content-range");
 
   return reply.send(rows.map(normalizeProduct));
 };
@@ -279,4 +289,92 @@ export const adminListCategories: RouteHandler = async (_req, reply) => {
     .from(categories)
     .orderBy(asc(categories.name));
   return reply.send(rows);
+};
+
+/* ====== NEW: STORAGE İLE RESİM EŞLEME ====== */
+/** PUT /admin/products/:id/images
+ * Body: { cover_id?: string; image_ids: string[] }
+ * - image_ids sırası → products.images sırası
+ * - cover_id varsa → products.image_url = cover.url (cover_id ayrıca image_ids içinde olabilir)
+ */
+/** PUT /admin/products/:id/images
+ * Body: { cover_id?: string; image_ids: string[] }
+ * Davranış: MERGE — eski URL'ler korunur, yeni gelen asset ID'lerinden üretilen URL'ler sona eklenir.
+ */
+export const adminSetProductImages: RouteHandler = async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const parsed = productSetImagesSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return reply
+      .code(422)
+      .send({ error: { message: "validation_error", details: parsed.error.flatten() } });
+  }
+  const body: ProductSetImagesInput = parsed.data;
+
+  // Ürün var mı + mevcut görselleri al
+  const [prod] = await db.select().from(products).where(eq(products.id, id)).limit(1);
+  if (!prod) return reply.code(404).send({ error: { message: "product_not_found" } });
+
+  // Mevcut URL listesi (array değilse parse etmeyi dene)
+  let prevUrls: string[] = [];
+  if (Array.isArray((prod as any).images)) prevUrls = (prod as any).images as string[];
+  else if (typeof (prod as any).images === "string") {
+    try { prevUrls = JSON.parse((prod as any).images as unknown as string) || []; } catch { prevUrls = []; }
+  }
+
+  // ID → Storage row çevir (sıra korunacak)
+  const ids = Array.isArray(body.image_ids) ? body.image_ids.filter(Boolean) : [];
+  const rows = ids.length
+    ? await db
+        .select({
+          id: storageAssets.id,
+          url: storageAssets.url,
+          bucket: storageAssets.bucket,
+          path: storageAssets.path,
+        })
+        .from(storageAssets)
+        .where(inArray(storageAssets.id, ids))
+    : [];
+
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const toUrl = (r: { url: string | null; bucket: string; path: string }) =>
+    r.url || `/storage/${encodeURIComponent(r.bucket)}/${encodeURIComponent(r.path).replaceAll("%2F", "/")}`;
+
+  const newUrlsInOrder = ids
+    .map((i) => byId.get(i))
+    .filter(Boolean)
+    .map((r) => toUrl(r!));
+
+  // MERGE: önce mevcutlar, sonra yeniler (URL bazlı uniq)
+  const merged: string[] = [];
+  const pushUniq = (u: string) => {
+    if (!u) return;
+    if (!merged.includes(u)) merged.push(u);
+  };
+  prevUrls.forEach(pushUniq);
+  newUrlsInOrder.forEach(pushUniq);
+
+  // Kapak: cover_id varsa onu kullan, yoksa mevcut kapak korunur; o da yoksa ilk
+  const prevCover = (prod as any).image_url as string | null | undefined;
+  let coverUrl: string | null = null;
+
+  if (body.cover_id) {
+    const cv = byId.get(body.cover_id);
+    if (cv) coverUrl = toUrl(cv);
+  }
+  if (!coverUrl && prevCover && merged.includes(prevCover)) {
+    coverUrl = prevCover;
+  }
+  if (!coverUrl) coverUrl = merged[0] ?? null;
+
+  await (db.update(products) as any)
+    .set({
+      image_url: coverUrl,
+      images: merged as any, // JSON column
+      updated_at: now(),
+    })
+    .where(eq(products.id, id));
+
+  const [updated] = await db.select().from(products).where(eq(products.id, id)).limit(1);
+  return reply.send(normalizeProduct(updated));
 };

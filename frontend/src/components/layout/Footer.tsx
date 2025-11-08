@@ -1,19 +1,22 @@
 "use client";
 
 import { ChevronUp } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
 
 interface FooterProps {
   onNavigate?: (page: string) => void;
 }
 
 export function Footer({ onNavigate }: FooterProps) {
-  const handleNavigation = (page: string) => {
-    onNavigate?.(page);
+  const navigate = useNavigate();
+
+  const go = (path: string, pageKey?: string) => {
+    if (pageKey && onNavigate) onNavigate(pageKey);
+    navigate(path);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const scrollToTop = () =>
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
   return (
     <div className="relative">
@@ -50,12 +53,7 @@ export function Footer({ onNavigate }: FooterProps) {
                 Hizmetlerimiz
               </h4>
               <ul className="space-y-1 text-sm">
-                {[
-                  "Mezar Yapımı",
-                  "Mezar Onarımı",
-                  "Mezar Bakımı",
-                  "Çiçeklendirme",
-                ].map((t) => (
+                {["Mezar Yapımı","Mezar Onarımı","Mezar Bakımı","Çiçeklendirme"].map((t) => (
                   <li key={t}>
                     <span className="cursor-pointer font-medium transition-colors hover:text-teal-300">
                       {t}
@@ -74,7 +72,7 @@ export function Footer({ onNavigate }: FooterProps) {
                 <li>
                   <button
                     type="button"
-                    onClick={() => handleNavigation("home")}
+                    onClick={() => go("/", "home")}
                     className="text-left font-medium transition-colors hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
                   >
                     Anasayfa
@@ -83,7 +81,7 @@ export function Footer({ onNavigate }: FooterProps) {
                 <li>
                   <button
                     type="button"
-                    onClick={() => handleNavigation("about")}
+                    onClick={() => go("/about", "about")}
                     className="text-left font-medium transition-colors hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
                   >
                     Hakkımızda
@@ -92,7 +90,7 @@ export function Footer({ onNavigate }: FooterProps) {
                 <li>
                   <button
                     type="button"
-                    onClick={() => handleNavigation("pricing")}
+                    onClick={() => go("/pricing", "pricing")}
                     className="text-left font-medium transition-colors hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
                   >
                     Ürünlerimiz
@@ -101,7 +99,7 @@ export function Footer({ onNavigate }: FooterProps) {
                 <li>
                   <button
                     type="button"
-                    onClick={() => handleNavigation("contact")}
+                    onClick={() => go("/contact", "contact")}
                     className="text-left font-medium transition-colors hover:text-teal-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
                   >
                     İletişim
@@ -118,18 +116,18 @@ export function Footer({ onNavigate }: FooterProps) {
               <div className="space-y-2 text-sm">
                 <p className="flex items-center gap-2">
                   <span>📞</span>
-                  <a
-                    href="tel:05334838971"
-                    className="font-medium transition-colors hover:text-teal-300"
-                  >
+                  <a href="tel:05334838971" className="font-medium transition-colors hover:text-teal-300">
                     0533 483 89 71
                   </a>
                 </p>
                 <p className="flex items-center gap-2">
                   <span>📧</span>
-                  <span className="cursor-pointer font-medium transition-colors hover:text-teal-300">
+                  <a
+                    href="mailto:mezarisim.com@gmail.com"
+                    className="font-medium transition-colors hover:text-teal-300"
+                  >
                     mezarisim.com@gmail.com
-                  </span>
+                  </a>
                 </p>
                 <p className="flex items-start gap-2">
                   <span>📍</span>
@@ -157,10 +155,7 @@ export function Footer({ onNavigate }: FooterProps) {
                 "İstanbul Mezar Yapım",
                 "Mezar Taşı Fiyatları",
               ].map((k) => (
-                <p
-                  key={k}
-                  className="cursor-pointer font-medium transition-colors hover:text-teal-300"
-                >
+                <p key={k} className="cursor-pointer font-medium transition-colors hover:text-teal-300">
                   {k}
                 </p>
               ))}
@@ -170,19 +165,17 @@ export function Footer({ onNavigate }: FooterProps) {
           {/* Bottom bar */}
           <div className="mt-8 border-t border-teal-500/20 pt-6 text-center">
             <p className="text-sm font-medium text-white/90">
-              &copy; {new Date().getFullYear()} mezarisim.com Mezar Yapım. Tüm
-              hakları saklıdır.
+              &copy; {new Date().getFullYear()} mezarisim.com Mezar Yapım. Tüm hakları saklıdır.
             </p>
             <div className="mt-2 flex items-center justify-center gap-4">
               <p className="text-xs text-white/60">Version 1.0.0</p>
               <span className="text-white/30">•</span>
-              <button
-                type="button"
-                onClick={() => (window.location.href = "/adminkotrol")}
+              <Link
+                to="/adminkotrol"
                 className="text-xs text-white/70 underline underline-offset-2 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
               >
                 Yönetim
-              </button>
+              </Link>
             </div>
           </div>
         </div>
