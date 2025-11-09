@@ -17,6 +17,26 @@ ALLOW_DROP=true node dist/db/seed/index.js
 
 
 
+# BACKEND klasörüne geç
+cd /var/www/mezarTasi/backend
+
+# Production build’i zaten aldıysan tekrar şart değil, yoksa:
+bun install --no-save
+bun run build
+
+# PM2 ile BUN interpreter kullanarak başlat
+PORT=8083 pm2 start dist/index.js \
+  --name mezartasi-backend \
+  --cwd /var/www/mezarTasi/backend \
+  --interpreter "$(command -v bun)" \
+  --update-env
+
+pm2 save
+pm2 logs mezartasi-backend --lines 50
+
+
+
+
 mkdir -p dist/db/seed/sql
 cp -f src/db/seed/sql/*.sql dist/db/seed/sql/
 
