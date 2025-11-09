@@ -11,9 +11,22 @@ import type {
 import { metahubTags } from "./tags";
 import { tokenStore } from "@/integrations/metahub/core/token";
 
-/* ---------- Base URL resolve ---------- */
+/* ---------- URL helpers ---------- */
 function trimSlash(x: string) {
   return x.replace(/\/+$/, "");
+}
+function ensureLeadingSlash(x: string) {
+  return x.startsWith("/") ? x : `/${x}`;
+}
+function isAbsUrl(x: string) {
+  return /^https?:\/\//i.test(x);
+}
+function joinOriginAndBase(origin?: string, base?: string) {
+  if (!origin) return "";
+  const o = trimSlash(origin);
+  if (!base) return o;
+  const b = trimSlash(base);
+  return o + ensureLeadingSlash(b);
 }
 
 function guessDevBackend(): string {
@@ -21,26 +34,51 @@ function guessDevBackend(): string {
     const loc = typeof window !== "undefined" ? window.location : null;
     const host = loc?.hostname || "localhost";
     const proto = loc?.protocol || "http:";
-    return `${proto}//${host}:8081`;
+    return `${proto}//${host}:8083`;
   } catch {
-    return "http://localhost:8081";
+    return "http://localhost:8083";
   }
 }
 
+/* ---------- Base URL resolve ---------- */
 function resolveBaseUrl(): string {
-  // Öncelik env -> yoksa PROD: /api, DEV: 8081
-  const envUrl =
-    (import.meta.env as any).VITE_API_BASE ??
-    (import.meta.env as any).NEXT_PUBLIC_API_BASE ??
-    "";
-  if (typeof envUrl === "string" && envUrl.trim()) return trimSlash(envUrl.trim());
+  const env: any = import.meta.env || {};
+  const apiUrl = (env.VITE_API_URL ?? env.NEXT_PUBLIC_API_URL ?? "") as string;
+  const apiBase = (env.VITE_API_BASE ?? env.NEXT_PUBLIC_API_BASE ?? "") as string;
+  const publicOrigin = (env.VITE_PUBLIC_API_ORIGIN ?? env.NEXT_PUBLIC_PUBLIC_API_ORIGIN ?? "") as string;
+
+  // 1) Tam URL öncelikli (BE kökteyse ideal)
+  if (typeof apiUrl === "string" && apiUrl.trim() && isAbsUrl(apiUrl)) {
+    return trimSlash(apiUrl.trim());
+  }
+
+  // 2) Origin + Base birlikte verildiyse birleştir
+  if (publicOrigin && apiBase) {
+    return joinOriginAndBase(publicOrigin, apiBase);
+  }
+
+  // 3) Sadece base verilmişse
+  if (apiBase && apiBase.trim()) {
+    const val = apiBase.trim();
+    if (isAbsUrl(val)) return trimSlash(val);
+    // path base
+    return ensureLeadingSlash(trimSlash(val));
+  }
+
+  // 4) Dev → 8083, Prod → /api
   if ((import.meta as any).env?.DEV) return guessDevBackend();
   return "/api";
 }
 
-const BASE_URL = resolveBaseUrl();
+export const BASE_URL = resolveBaseUrl();
 
-/* ---------- helpers & guards ---------- */
+const DEBUG_API = String((import.meta.env as any)?.VITE_DEBUG_API ?? "") === "1";
+if (DEBUG_API) {
+  // eslint-disable-next-line no-console
+  console.info("[metahub] BASE_URL =", BASE_URL);
+}
+
+/* ---------- guards ---------- */
 type AnyArgs = string | FetchArgs;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -72,7 +110,7 @@ const AUTH_SKIP_REAUTH = new Set<string>([
 
 function extractPath(u: string): string {
   try {
-    if (/^https?:\/\//i.test(u)) {
+    if (isAbsUrl(u)) {
       const url = new URL(u);
       return url.pathname.replace(/\/+$/, "");
     }
@@ -85,11 +123,11 @@ function extractPath(u: string): string {
 /** Göreli url'leri '/foo' formatına normalize et */
 function normalizeUrlArg(arg: AnyArgs): AnyArgs {
   if (typeof arg === "string") {
-    if (/^https?:\/\//i.test(arg) || arg.startsWith("/")) return arg;
+    if (isAbsUrl(arg) || arg.startsWith("/")) return arg;
     return `/${arg}`;
   }
   const url = arg.url ?? "";
-  if (url && !/^https?:\/\//i.test(url) && !url.startsWith("/")) {
+  if (url && !isAbsUrl(url) && !url.startsWith("/")) {
     return { ...arg, url: `/${url}` };
   }
   return arg;
@@ -238,4 +276,4 @@ export const baseApi = createApi({
   tagTypes: metahubTags,
 });
 
-export { rawBaseQuery, BASE_URL };
+export { rawBaseQuery };

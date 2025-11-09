@@ -115,11 +115,14 @@ export function QualityPolicyPage({ onNavigate, locale = "tr" }: QualityPolicyPa
               {/* Sağ sidebar */}
               <div className="lg:w-1/3">
                 <div className="sticky top-8">
-                  <ImageWithFallback
-                    src={qualityImage}
-                    alt="Kaliteli beyaz mermer mezar yapımı örneği - A+ malzeme işçilik kalitesi"
-                    className="w-full h-64 object-cover rounded-xl shadow-lg"
-                  />
+                  <div className="w-full h-48 md:h-64 bg-white rounded-lg shadow-lg overflow-hidden flex items-center justify-center">
+  <img
+    src="/mezartasi.png"            // public/mezartasi.png
+    alt="Mezartaşı – marka görseli"
+    className="max-w-full max-h-full object-contain"
+    loading="lazy"
+  />
+</div>
 
                   <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-lg mt-6">
                     <h3 className="text-lg mb-4 text-gray-800 flex items-center">
