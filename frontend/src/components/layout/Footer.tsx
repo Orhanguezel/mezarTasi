@@ -33,7 +33,7 @@ export function Footer({ onNavigate }: FooterProps) {
       </div>
 
       {/* Main footer */}
-      <footer className="bg-[#0B1220] text-white/90">
+      <footer className="bg-[#009688] text-white/90">
         <div className="mx-auto max-w-screen-2xl px-4 py-8 md:py-10">
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-5">
             {/* Brand */}
@@ -140,7 +140,7 @@ export function Footer({ onNavigate }: FooterProps) {
           </div>
 
           {/* Keywords */}
-          <div className="mt-8 border-t border-teal-500/20 pt-6">
+          <div className="mt-8 border-t border-white/20 pt-6">
             <h4 className="mb-3 text-base font-semibold text-white md:text-lg">
               Anahtar Kelimeler
             </h4>
@@ -163,7 +163,7 @@ export function Footer({ onNavigate }: FooterProps) {
           </div>
 
           {/* Bottom bar */}
-          <div className="mt-8 border-t border-teal-500/20 pt-6 text-center">
+          <div className="mt-8 border-t border-white/20 pt-6 text-center">
             <p className="text-sm font-medium text-white/90">
               &copy; {new Date().getFullYear()} mezarisim.com Mezar Yapım. Tüm hakları saklıdır.
             </p>

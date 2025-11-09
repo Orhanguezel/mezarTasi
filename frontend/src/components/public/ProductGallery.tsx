@@ -115,20 +115,27 @@ function toUiService(s: ServiceView): UiCard {
   };
 }
 
-/** slug/name’i normalize et (TR karakter + boşluk/punktuasyon temizliği) */
+/** slug/name normalize (TR harfleri + boşluk/punktuasyon temizliği) */
 function normKey(s: string) {
-  return (s || "")
-    .toLowerCase()
-    .replaceAll("ı", "i")
-    .replaceAll("İ", "i")
-    .replaceAll("ğ", "g")
-    .replaceAll("ş", "s")
-    .replaceAll("ç", "c")
-    .replaceAll("ö", "o")
-    .replaceAll("ü", "u")
-    .replace(/[^\w]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  const lower = (s || "")
+    // Türkçe küçük harfe çevir (İ → i sorunsuz)
+    .toLocaleLowerCase("tr-TR")
+    // Bazı ortamlarda 'İ' -> 'i\u0307' (birleşik nokta) olur, onu temizle
+    .replace(/\u0307/g, "");
+
+  const trFixed = lower
+    .replace(/[ğ]/g, "g")
+    .replace(/[ş]/g, "s")
+    .replace(/[ç]/g, "c")
+    .replace(/[ö]/g, "o")
+    .replace(/[ü]/g, "u")
+    .replace(/[ı]/g, "i");
+
+  return trFixed
+    .replace(/[^\w]+/g, "-")  // harf/rakam/altçizgi dışını tire yap
+    .replace(/^-+|-+$/g, ""); // baş/son tırnakları sil
 }
+
 
 /** özel bloklarla çakışabilecek kategori anahtarları */
 const RESERVED_KEYS = new Set<string>([

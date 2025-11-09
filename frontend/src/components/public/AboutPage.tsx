@@ -86,6 +86,7 @@ export function AboutPage({ onNavigate }: AboutPageProps) {
                     className="prose prose-teal max-w-none text-gray-700 leading-relaxed text-sm md:text-base"
                     dangerouslySetInnerHTML={{ __html: htmlContent }}
                   />
+                  
 
                   {/* Popüler linkler (statik fallback içeriği) */}
                   <div className="mt-6 md:mt-8 pt-6 border-t border-gray-200">
@@ -119,11 +120,16 @@ export function AboutPage({ onNavigate }: AboutPageProps) {
               {/* Sağ */}
               <div className="lg:w-1/3">
                 <div className="lg:sticky lg:top-8">
-                  <ImageWithFallback
-                    src={aboutSideImage}
-                    alt="Beyaz mermer mezar yapımı - Kaliteli mezar inşaatı örneği"
-                    className="w-full h-48 md:h-64 object-cover rounded-lg shadow-lg"
-                  />
+                  {/* Sağ üstteki boş çerçeve içine logo */}
+<div className="w-full h-48 md:h-64 bg-white rounded-lg shadow-lg overflow-hidden flex items-center justify-center">
+  <img
+    src="/mezartasi.png"            // public/mezartasi.png
+    alt="Mezartaşı – marka görseli"
+    className="max-w-full max-h-full object-contain"
+    loading="lazy"
+  />
+</div>
+
 
                   <div className="bg-teal-50 p-4 md:p-6 rounded-lg mt-6">
                     <h3 className="text-base md:text-lg mb-4 text-teal-700">

@@ -1,6 +1,8 @@
 // =============================================================
 // FILE: src/components/public/SoilFillingPage.tsx
 // =============================================================
+"use client";
+
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
@@ -25,7 +27,8 @@ interface SoilFillingPageProps {
   onNavigate: (page: string) => void;
 }
 
-type SoilCat = "dolgu" | "bakim" | "genel" | "ozel";
+/** DB: category ∈ {"temel","ozel","restorasyon"} */
+type SoilCat = "temel" | "ozel" | "restorasyon";
 type UiCat = "tümü" | SoilCat;
 
 interface SoilService {
@@ -98,16 +101,57 @@ function normalizeListPayload<T = any>(res: unknown): T[] {
   return (o.rows || o.data || o.items || o.result || o.list || []) as T[];
 }
 
-/** Yalnızca toprak/dolgu (soil) hizmetlerini kabul et */
+/** Sadece soil olanları kabul et */
 function isSoil(s: any): boolean {
   const type = String(s?.type ?? "").toLowerCase();
   if (type === "soil") return true;
   if (type === "gardening") return false;
 
-  const text = `${s?.category ?? ""} ${s?.slug ?? ""} ${s?.name ?? ""} ${s?.description ?? ""}`.toLowerCase();
-  return /(soil|toprak|dolgu|doldurma)/.test(text);
+  const text = `${s?.category ?? ""} ${s?.slug ?? ""} ${s?.name ?? ""} ${s?.description ?? ""}`
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/\p{Diacritic}/gu, "");
+
+  return /(toprak|soil|dolgu|dolum|doldur|restorasyon|yenileme)/.test(text);
 }
 
+/** DB->UI kategori normalizasyonu */
+function normalizeSoilCategory(input?: string): SoilCat {
+  const s = (input || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim();
+
+  // TEMEL (standart dolgu/dolum, hizli, genis alan vs.)
+  if (
+    s === "temel" ||
+    /(dolgu|dolum|doldur|standart|hizli|genis)/.test(s)
+  ) {
+    return "temel";
+  }
+
+  // OZEL (karisim/drenaj/premium)
+  if (
+    s === "ozel" ||
+    /(karisim|karisimi|drenaj|premium|bitki)/.test(s)
+  ) {
+    return "ozel";
+  }
+
+  // RESTORASYON (yenileme/tamir/onarma)
+  if (
+    s === "restorasyon" ||
+    /(yenileme|tamir|onar|restorasyon)/.test(s)
+  ) {
+    return "restorasyon";
+  }
+
+  // Varsayılan: temel
+  return "temel";
+}
+
+/** DB row -> UI model */
 function toSoilModel(s: ServiceView): SoilService {
   const baseKeyStr = String(
     (s as any).uuid ??
@@ -127,11 +171,7 @@ function toSoilModel(s: ServiceView): SoilService {
   }
   if (!priceText || !String(priceText).trim()) priceText = "Fiyat İçin Arayınız";
 
-  const rawCat = String((s as any).category ?? "genel").trim().toLowerCase();
-  const normalizedCat: SoilCat =
-    rawCat === "dolgu" || rawCat === "bakım" || rawCat === "bakim" || rawCat === "ozel" || rawCat === "özel"
-      ? (rawCat === "bakım" ? "bakim" : rawCat === "özel" ? "ozel" : (rawCat as SoilCat))
-      : "genel";
+  const normalizedCat = normalizeSoilCategory((s as any).category);
 
   return {
     id: hashToNumericKey(baseKeyStr),
@@ -143,7 +183,7 @@ function toSoilModel(s: ServiceView): SoilService {
     price: priceText,
     image: pickImageUrl(s),
     description: (s as any).description || "",
-    featured: Boolean((s as any).is_featured ?? (s as any).featured),
+    featured: Boolean((s as any).is_active && ((s as any).featured ?? (s as any).is_featured)),
     area: (s as any).area || undefined,
     duration: (s as any).duration || undefined,
     season: (s as any).season || undefined,
@@ -152,11 +192,11 @@ function toSoilModel(s: ServiceView): SoilService {
   };
 }
 
+/* Görünen başlıklar */
 const CATEGORY_LABELS: Record<SoilCat, string> = {
-  dolgu: "Toprak Dolgu",
-  bakim: "Toprak Bakımı",
-  genel: "Genel",
-  ozel: "Özel Uygulama",
+  temel: "Temel Toprak Dolum",
+  ozel: "Özel Toprak Karışım",
+  restorasyon: "Restorasyon",
 };
 
 /* =========================== Component =========================== */
@@ -190,7 +230,7 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
   const nextSlide = () => setCurrentSlide((p) => (p + 1) % slides.length);
   const prevSlide = () => setCurrentSlide((p) => (p - 1 + slides.length) % slides.length);
 
-  // Services (PUBLIC) — sadece whitelist paramları
+  // Services (PUBLIC)
   const {
     data: servicesRes,
     isLoading,
@@ -210,7 +250,7 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
 
   // Kategori sayıları
   const countsByCategory = useMemo(() => {
-    const m: Record<SoilCat, number> = { dolgu: 0, bakim: 0, genel: 0, ozel: 0 };
+    const m: Record<SoilCat, number> = { temel: 0, ozel: 0, restorasyon: 0 };
     for (const s of allServices) m[s.category] = (m[s.category] || 0) + 1;
     return m;
   }, [allServices]);
@@ -218,10 +258,9 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
   const uiCategories = useMemo(
     () => [
       { id: "tümü" as const, name: "Tüm Hizmetler", count: allServices.length },
-      { id: "dolgu" as const, name: CATEGORY_LABELS.dolgu, count: countsByCategory.dolgu },
-      { id: "bakim" as const, name: CATEGORY_LABELS.bakim, count: countsByCategory.bakim },
+      { id: "temel" as const, name: CATEGORY_LABELS.temel, count: countsByCategory.temel },
       { id: "ozel" as const, name: CATEGORY_LABELS.ozel, count: countsByCategory.ozel },
-      { id: "genel" as const, name: CATEGORY_LABELS.genel, count: countsByCategory.genel },
+      { id: "restorasyon" as const, name: CATEGORY_LABELS.restorasyon, count: countsByCategory.restorasyon },
     ],
     [allServices.length, countsByCategory]
   );
@@ -369,12 +408,14 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-12">
-              <h2 className="text-3xl text-gray-800 mb-4">
+              <h2 className="text-3xl text-gray-800 mb-2">
                 {selectedCategory === "tümü"
-                  ? "Tüm Toprak Hizmetleri"
+                  ? "Tüm Toprak Doldurumu Hizmetleri"
                   : uiCategories.find((x) => x.id === selectedCategory)?.name}
               </h2>
-              <p className="text-gray-600">Mezar toprağı dolgu, yenileme ve bakım hizmetleri</p>
+              <p className="text-gray-600">
+                Profesyonel ekipman ve kaliteli malzemelerle toprak doldurumu hizmeti
+              </p>
             </div>
 
             {isError && (
@@ -506,7 +547,7 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
       {/* Detail Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent
-          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          className="max-w-2xl  bg-gray-50 max-h-[90vh] overflow-y-auto"
           aria-describedby={selectedService ? `soil-desc-${selectedService.id}` : "modal-content"}
         >
           {selectedService && (

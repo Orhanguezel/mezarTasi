@@ -34,9 +34,10 @@ ON DUPLICATE KEY UPDATE name=VALUES(name);
 -- mezar-bas-tasi-modelleri
 INSERT INTO sub_categories (id, category_id, name, slug, description, image_url, icon, is_active, is_featured, display_order)
 VALUES
-  ('cccc0001-3333-4333-8333-cccccccc0001', 'aaaa0002-1111-4111-8111-aaaaaaaa0002', 'Mermer Baş Taşı', 'mermer-bas-tasi', NULL, NULL, NULL, 1, 0, 10),
-  ('cccc0002-3333-4333-8333-cccccccc0002', 'aaaa0002-1111-4111-8111-aaaaaaaa0002', 'Granit Baş Taşı', 'granit-bas-tasi', NULL, NULL, NULL, 1, 0, 20),
-  ('cccc0003-3333-4333-8333-cccccccc0003', 'aaaa0002-1111-4111-8111-aaaaaaaa0002', 'Sütunlu Baş Taşı','sutunlu-bas-tasi', NULL, NULL, NULL, 1, 0, 30)
+  ('cccc0001-3333-4333-8333-cccccccc0001', 'aaaa0002-1111-4111-8111-aaaaaaaa0002', 'Mermer Baş Taşı',            'mermer-bas-tasi',            NULL, NULL, NULL, 1, 0, 10),
+  ('cccc0002-3333-4333-8333-cccccccc0002', 'aaaa0002-1111-4111-8111-aaaaaaaa0002', 'Granit Baş Taşı',            'granit-bas-tasi',            NULL, NULL, NULL, 1, 0, 20),
+  ('cccc0003-3333-4333-8333-cccccccc0003', 'aaaa0002-1111-4111-8111-aaaaaaaa0002', 'Sütunlu Baş Taşı',           'sutunlu-bas-tasi',           NULL, NULL, NULL, 1, 0, 30),
+  ('cccc0004-3333-4333-8333-cccccccc0004', 'aaaa0002-1111-4111-8111-aaaaaaaa0002', 'Özel Tasarım Baş Taşları',   'ozel-tasarim-bas-taslari',   NULL, NULL, NULL, 1, 0, 40)
 ON DUPLICATE KEY UPDATE name=VALUES(name);
 
 -- mezar-aksesuarlari

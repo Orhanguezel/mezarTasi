@@ -133,11 +133,11 @@ function toGardeningModel(s: ServiceView): GardeningService {
   }
   if (!priceText || !String(priceText).trim()) priceText = "Fiyat İçin Arayınız";
 
-  const rawCat = String((s as any).category ?? "genel").trim().toLowerCase();
+  const rawCat = String((s as any).category).trim().toLowerCase();
   const normalizedCat: GardenCat =
     rawCat === "mevsimlik" || rawCat === "surekli" || rawCat === "özel" || rawCat === "ozel"
       ? (rawCat === "özel" ? "ozel" : (rawCat as GardenCat))
-      : "genel";
+      : "ozel";
 
   return {
     id: hashToNumericKey(baseKeyStr),
@@ -164,7 +164,7 @@ const CATEGORY_LABELS: Record<GardenCat, string> = {
   mevsimlik: "Mevsimlik Çiçek",
   surekli: "Sürekli Bitki",
   ozel: "Özel Peyzaj",
-  genel: "Genel",
+  genel: "Genel Bakım",
 };
 
 /* =========================== component =========================== */
@@ -208,7 +208,6 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
     refetch: refetchServices,
   } = useListServicesPublicQuery({
     limit: 200,
-    type: "soil",
     orderBy: "display_order",
     order: "asc",
   });
@@ -233,7 +232,6 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
       { id: "mevsimlik" as const, name: CATEGORY_LABELS.mevsimlik, count: countsByCategory.mevsimlik },
       { id: "surekli" as const, name: CATEGORY_LABELS.surekli, count: countsByCategory.surekli },
       { id: "ozel" as const, name: CATEGORY_LABELS.ozel, count: countsByCategory.ozel },
-      { id: "genel" as const, name: CATEGORY_LABELS.genel, count: countsByCategory.genel },
     ],
     [allServices.length, countsByCategory]
   );
@@ -520,7 +518,7 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
       {/* Detail Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent
-          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          className="max-w-2xl  bg-gray-50 max-h-[90vh] overflow-y-auto"
           aria-describedby={selectedService ? `service-description-${selectedService.id}` : "modal-content"}
         >
           {selectedService && (

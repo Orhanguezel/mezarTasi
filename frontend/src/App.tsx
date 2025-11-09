@@ -129,45 +129,6 @@ function resolveAnnouncementId(a: any): string | undefined {
   return undefined;
 }
 
-/** Home sayfasında kullanılacak Aktif Kampanyalar şeridi (App içinde lokal) */
-function HomeActiveCampaignsRow(props: { onOpen: (id: string) => void }) {
-  const { data: campaigns = [] } = useListSimpleCampaignsQuery(undefined, {
-    refetchOnMountOrArgChange: 30,
-  });
-  const items = (campaigns as SimpleCampaignView[]).filter((c) => !!c.is_active);
-  if (!items.length) return null;
-
-  return (
-    <div className="container mx-auto px-4 py-6">
-      <h3 className="text-xl text-emerald-800 mb-3">Aktif Kampanyalar</h3>
-      <div className="flex gap-4 overflow-x-auto pb-2">
-        {items.map((x) => (
-          <button
-            key={`home-camp-${x.id}`}
-            className="shrink-0 w-64 text-left bg-white rounded-xl border border-emerald-100 hover:shadow transition"
-            onClick={() => props.onOpen(String(x.id))}
-          >
-            <img
-              src={
-                (x as any).images?.[0]?.image_effective_url ||
-                (x as any).images?.[0]?.image_url ||
-                x.image_effective_url ||
-                x.image_url ||
-                "https://images.unsplash.com/photo-1556740749-887f6717d7e4?w=800&h=500&fit=crop"
-              }
-              alt={x.title}
-              className="w-full h-32 object-cover rounded-t-xl"
-            />
-            <div className="p-3">
-              <div className="text-[10px] text-emerald-700 font-semibold mb-1">Kampanya</div>
-              <div className="text-sm text-slate-800 line-clamp-2">{x.title}</div>
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /** İlgili aktif kampanyalar şeridi (detay modalı içinde kullanılıyor) */
 function RelatedActiveCampaigns(props: { currentId: string; onOpen: (id: string) => void }) {
@@ -225,7 +186,6 @@ function HomeComposition(props: {
   return (
     <>
       <HeroSection onNavigate={() => { }} />
-      <HomeActiveCampaignsRow onOpen={(id) => props.openCampaigns(id)} />
       <ProductGallery
         searchTerm={props.searchTerm}
         showSearchResults={props.showSearchResults}
