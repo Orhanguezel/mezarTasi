@@ -45,8 +45,8 @@
     "src/**/*",
     "src/vite-env.d.ts",
     "vite.config.ts",
-    "tailwind.config.js",
-    "postcss.config.js",
+    "tailwind.config.cjs",
+    "postcss.config.cjs",
     "**/*.ts",
     "**/*.tsx"
   ],
