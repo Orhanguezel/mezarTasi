@@ -4,33 +4,38 @@
 
 /** ───── Custom Pages (RAW + VIEW) ───── */
 
-// Row (BE’den gelen ham)
+// BE ham satır (JOIN’siz/ JOIN’li dönebilir)
 export type CustomPageRow = {
   id: string;
   title: string;
   slug: string;
   content: string | { html: string };
 
-  featured_image: string | null;
-  featured_image_asset_id: string | null;
-  featured_image_alt: string | null;
+  // ✅ Görsel alanları (BE ile birebir)
+  image_url: string | null;
+  storage_asset_id: string | null;
+  alt: string | null;
 
   meta_title: string | null;
   meta_description: string | null;
   is_published: boolean | 0 | 1 | "0" | "1" | "true" | "false";
   created_at?: string;
   updated_at?: string;
+
+  /** JOIN’li cevaplarda bulunabilir */
+  image_effective_url?: string | null;
 };
 
-// View (FE’nin kullandığı normalize görünüm)
+// FE normalize görünüm
 export type CustomPageView = {
   id: string;
   title: string;
   slug: string;
   content: string; // düz HTML
 
-  featured_image: string | null;
-  featured_image_alt: string | null;
+  image_url: string | null;
+  image_effective_url: string | null;
+  alt: string | null;
 
   meta_title: string | null;
   meta_description: string | null;
@@ -39,20 +44,22 @@ export type CustomPageView = {
   updated_at?: string;
 };
 
-
-/** create/update body (FE) — düz HTML gönderilir (BE {"html": "..."} yapar) */
+/** create body (FE → BE) — düz HTML verin */
 export type UpsertCustomPageBody = {
   title: string;
   slug: string;
-  content: string; // düz HTML (JSON'a çevirmeyin!)
+  content: string; // düz HTML
 
-  /** Görsel alanları */
-  featured_image?: string | null;
-  featured_image_asset_id?: string | null;
-  featured_image_alt?: string | null;
+  // ✅ Görsel alanları (opsiyonel)
+  image_url?: string | null;
+  storage_asset_id?: string | null;
+  alt?: string | null;
 
   meta_title?: string | null;
   meta_description?: string | null;
   is_published?: boolean;
-  locale?: string | null;
+  locale?: string | null; // BE yok sayar
 };
+
+/** PATCH (partial) */
+export type PatchCustomPageBody = Partial<UpsertCustomPageBody>;

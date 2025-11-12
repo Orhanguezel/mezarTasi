@@ -1,6 +1,12 @@
+// =============================================================
+// FILE: src/modules/recent-works/repository.ts
+// =============================================================
 import { db } from "@/db/client";
-import { recentWorks, type RecentWorkRow, type NewRecentWorkRow } from "./schema";
+import { recentWorks, type NewRecentWorkRow } from "./schema";
+import { storageAssets } from "@/modules/storage/schema";
 import { and, asc, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
+import type { RecentWorkView } from "./schema";
+import { env } from "@/core/env";
 
 /** Sadece güvenilir sıralama kolonları */
 type Sortable = "created_at" | "updated_at" | "display_order";
@@ -15,7 +21,7 @@ export type ListParams = {
   q?: string;
   category?: string;
   material?: string;
-  year?: string;     // "2024" gibi
+  year?: string;     // "2024"
   keyword?: string;  // seo_keywords JSON-string içinde arama
   is_active?: boolean | 0 | 1 | "0" | "1" | "true" | "false";
 };
@@ -47,7 +53,22 @@ const parseSeo = (s?: string | null): string[] => {
   try { return s ? (JSON.parse(s) as string[]) : []; } catch { return []; }
 };
 
-export function rowToView(r: RecentWorkRow) {
+/** Provider URL varsa onu, yoksa /storage/:bucket/:path üretir */
+function publicUrlOf(bucket?: string | null, path?: string | null, providerUrl?: string | null) {
+  if (providerUrl) return providerUrl;
+  if (!bucket || !path) return null;
+
+  const enc = (p: string) => p.split("/").map(encodeURIComponent).join("/");
+  const cdnBase = (env.CDN_PUBLIC_BASE || "").replace(/\/+$/, "");
+  if (cdnBase) return `${cdnBase}/${encodeURIComponent(bucket)}/${enc(path)}`;
+
+  const apiBase = (env.PUBLIC_API_BASE || "").replace(/\/+$/, "");
+  return `${apiBase || ""}/storage/${encodeURIComponent(bucket)}/${enc(path)}`;
+}
+
+function mapToView(row: any): RecentWorkView {
+  const r = row.rw ?? row; // select alias
+  const eff = publicUrlOf(row.asset_bucket, row.asset_path, row.asset_url0) ?? r.image_url ?? null;
   return {
     id: r.id,
     title: r.title,
@@ -57,11 +78,10 @@ export function rowToView(r: RecentWorkRow) {
     image_url: r.image_url ?? null,
     storage_asset_id: r.storage_asset_id ?? null,
     alt: r.alt ?? null,
-    // Basit effective URL (gerekirse storage join ile genişletilir)
-    image_effective_url: r.image_url ?? null,
+    image_effective_url: eff,
 
     category: r.category,
-    seo_keywords: parseSeo((r as any).seo_keywords),
+    seo_keywords: parseSeo(r.seo_keywords),
 
     date: r.date,
     location: r.location,
@@ -70,7 +90,7 @@ export function rowToView(r: RecentWorkRow) {
 
     details: r.details,
 
-    is_active: r.is_active === 1,
+    is_active: !!r.is_active,
     display_order: r.display_order,
 
     created_at: r.created_at as any,
@@ -78,7 +98,7 @@ export function rowToView(r: RecentWorkRow) {
   };
 }
 
-/** list */
+/** list (JOIN + effective url) */
 export async function listRecentWorks(params: ListParams) {
   const filters: SQL[] = [];
 
@@ -94,7 +114,6 @@ export async function listRecentWorks(params: ListParams) {
   }
 
   if (params.keyword?.trim()) {
-    // seo_keywords JSON-string içinde LIKE
     const s = `%${params.keyword.trim()}%`;
     filters.push(like(recentWorks.seo_keywords, s));
   }
@@ -121,24 +140,56 @@ export async function listRecentWorks(params: ListParams) {
   const skip = params.offset && params.offset >= 0 ? params.offset : 0;
 
   const [items, cnt] = await Promise.all([
-    db.select().from(recentWorks).where(whereExpr).orderBy(orderBy).limit(take).offset(skip),
+    db
+      .select({
+        rw: recentWorks,
+        asset_bucket: storageAssets.bucket,
+        asset_path: storageAssets.path,
+        asset_url0: storageAssets.url,
+      })
+      .from(recentWorks)
+      .leftJoin(storageAssets, eq(recentWorks.storage_asset_id, storageAssets.id))
+      .where(whereExpr)
+      .orderBy(orderBy)
+      .limit(take)
+      .offset(skip),
     db.select({ c: sql<number>`COUNT(1)` }).from(recentWorks).where(whereExpr),
   ]);
 
   const total = cnt[0]?.c ?? 0;
-  return { items: items.map(rowToView), total };
+  return { items: items.map(mapToView), total };
 }
 
-/** get by id */
+/** get by id (JOIN) */
 export async function getRecentWorkById(id: string) {
-  const rows = await db.select().from(recentWorks).where(eq(recentWorks.id, id)).limit(1);
-  return rows[0] ? rowToView(rows[0]) : null;
+  const rows = await db
+    .select({
+      rw: recentWorks,
+      asset_bucket: storageAssets.bucket,
+      asset_path: storageAssets.path,
+      asset_url0: storageAssets.url,
+    })
+    .from(recentWorks)
+    .leftJoin(storageAssets, eq(recentWorks.storage_asset_id, storageAssets.id))
+    .where(eq(recentWorks.id, id))
+    .limit(1);
+  return rows[0] ? mapToView(rows[0]) : null;
 }
 
-/** get by slug */
+/** get by slug (JOIN) */
 export async function getRecentWorkBySlug(slug: string) {
-  const rows = await db.select().from(recentWorks).where(eq(recentWorks.slug, slug)).limit(1);
-  return rows[0] ? rowToView(rows[0]) : null;
+  const rows = await db
+    .select({
+      rw: recentWorks,
+      asset_bucket: storageAssets.bucket,
+      asset_path: storageAssets.path,
+      asset_url0: storageAssets.url,
+    })
+    .from(recentWorks)
+    .leftJoin(storageAssets, eq(recentWorks.storage_asset_id, storageAssets.id))
+    .where(eq(recentWorks.slug, slug))
+    .limit(1);
+  return rows[0] ? mapToView(rows[0]) : null;
 }
 
 /** create */
@@ -156,42 +207,90 @@ export async function updateRecentWork(id: string, patch: Partial<NewRecentWorkR
   return getRecentWorkById(id);
 }
 
-/* ===== Tek görsel attach/detach ===== */
+/** ✅ SET IMAGE (tek uç – storage ile birebir patern) */
+export async function repoSetRecentWorkImage(
+  id: string,
+  body: { asset_id?: string | null; image_url?: string | null; alt?: string | null }
+) {
+  // Clear
+  if (body.asset_id === null || (body.image_url === null && body.asset_id === undefined)) {
+    await db.update(recentWorks)
+      .set({ image_url: null, storage_asset_id: null, alt: body.alt ?? null, updated_at: new Date() })
+      .where(eq(recentWorks.id, id));
+    return getRecentWorkById(id);
+  }
 
+  // Set via image_url (direct)
+  if (typeof body.image_url === "string") {
+    await db.update(recentWorks)
+      .set({
+        image_url: body.image_url,
+        storage_asset_id: null,
+        alt: body.alt ?? null,
+        updated_at: new Date(),
+      })
+      .where(eq(recentWorks.id, id));
+    return getRecentWorkById(id);
+  }
+
+  // Set via asset_id
+  if (typeof body.asset_id === "string" && body.asset_id.trim()) {
+    const [asset] = await db
+      .select({ bucket: storageAssets.bucket, path: storageAssets.path, url: storageAssets.url })
+      .from(storageAssets)
+      .where(eq(storageAssets.id, body.asset_id))
+      .limit(1);
+
+    if (!asset) return null;
+
+    const url = publicUrlOf(asset.bucket, asset.path, asset.url ?? null);
+
+    await db.update(recentWorks)
+      .set({
+        image_url: url,
+        storage_asset_id: body.asset_id,
+        alt: body.alt ?? null,
+        updated_at: new Date(),
+      })
+      .where(eq(recentWorks.id, id));
+
+    return getRecentWorkById(id);
+  }
+
+  // only alt update
+  if (body.alt !== undefined) {
+    await db.update(recentWorks)
+      .set({ alt: body.alt, updated_at: new Date() })
+      .where(eq(recentWorks.id, id));
+    return getRecentWorkById(id);
+  }
+
+  return getRecentWorkById(id);
+}
+
+/* ===== Geriye dönük uyum (eski attach/detach uçlarını kullanan FE için) ===== */
 export async function attachRecentWorkImage(id: string, opts: {
   storage_asset_id?: string;
   image_url?: string;
   alt?: string | null;
 }) {
-  const update: Partial<NewRecentWorkRow> = {
-    image_url: opts.image_url ?? null,
-    storage_asset_id: opts.storage_asset_id ?? null,
-  };
-  if (typeof opts.alt !== "undefined") update.alt = opts.alt;
-
-  await db.update(recentWorks)
-    .set({ ...update, updated_at: new Date() })
-    .where(eq(recentWorks.id, id));
-
-  return getRecentWorkById(id);
+  return repoSetRecentWorkImage(id, {
+    asset_id: opts.storage_asset_id,
+    image_url: opts.image_url,
+    alt: opts.alt ?? null,
+  });
 }
 
 export async function detachRecentWorkImage(id: string) {
-  await db.update(recentWorks)
-    .set({ image_url: null, storage_asset_id: null, alt: null, updated_at: new Date() })
-    .where(eq(recentWorks.id, id));
-  return getRecentWorkById(id);
+  return repoSetRecentWorkImage(id, { asset_id: null, image_url: null, alt: null });
 }
 
-/** delete (hard) – kaç satır etkilendiğini döndürür */
+/** delete (hard) */
 export async function deleteRecentWork(id: string) {
   const res = await db.delete(recentWorks).where(eq(recentWorks.id, id)).execute();
-
-  // MySQL OkPacket uyumluluğu
   const affected =
     typeof (res as unknown as { affectedRows?: number }).affectedRows === "number"
       ? (res as unknown as { affectedRows: number }).affectedRows
       : 0;
-
   return affected;
 }

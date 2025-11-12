@@ -2,7 +2,12 @@
 // FILE: src/integrations/metahub/rtk/endpoints/admin/custom_pages_admin.endpoints.ts
 // =============================================================
 import { baseApi } from "../../baseApi";
-import type { CustomPageRow, CustomPageView } from "@/integrations/metahub/db/types/customPages";
+import type {
+  CustomPageRow,
+  CustomPageView,
+  UpsertCustomPageBody,
+  PatchCustomPageBody,
+} from "@/integrations/metahub/db/types/customPages";
 
 const toBool = (x: unknown): boolean =>
   x === true || x === 1 || x === "1" || x === "true";
@@ -10,17 +15,17 @@ const toBool = (x: unknown): boolean =>
 function extractHtml(rawField: unknown): string {
   if (typeof rawField === "string") {
     try {
-      const parsed = JSON.parse(rawField) as unknown;
-      if (parsed && typeof parsed === "object" && typeof (parsed as Record<string, unknown>).html === "string") {
-        return (parsed as Record<string, unknown>).html as string;
+      const parsed = JSON.parse(rawField) as any;
+      if (parsed && typeof parsed === "object" && typeof parsed.html === "string") {
+        return parsed.html as string;
       }
       return rawField;
     } catch {
       return rawField;
     }
   }
-  if (rawField && typeof rawField === "object" && typeof (rawField as Record<string, unknown>).html === "string") {
-    return (rawField as Record<string, unknown>).html as string;
+  if (rawField && typeof rawField === "object" && typeof (rawField as any).html === "string") {
+    return (rawField as any).html as string;
   }
   return "";
 }
@@ -28,18 +33,18 @@ function extractHtml(rawField: unknown): string {
 /** row→view */
 const toView = (row: unknown): CustomPageView => {
   const r = (row ?? {}) as Record<string, unknown>;
-  const raw = r["content_html"] ?? r["content"];
-
   const base: Omit<CustomPageView, "created_at" | "updated_at"> = {
     id: String(r["id"] ?? ""),
     title: String(r["title"] ?? ""),
     slug: String(r["slug"] ?? ""),
-    content: extractHtml(raw),
+    content: extractHtml(r["content"]),
 
-    featured_image:
-      (typeof r["featured_image"] === "string" ? (r["featured_image"] as string) : null) ?? null,
-    featured_image_alt:
-      (typeof r["featured_image_alt"] === "string" ? (r["featured_image_alt"] as string) : null) ?? null,
+    image_url: (typeof r["image_url"] === "string" ? (r["image_url"] as string) : null) ?? null,
+    image_effective_url:
+      (typeof r["image_effective_url"] === "string"
+        ? (r["image_effective_url"] as string)
+        : null) ?? null,
+    alt: (typeof r["alt"] === "string" ? (r["alt"] as string) : null) ?? null,
 
     meta_title: (typeof r["meta_title"] === "string" ? (r["meta_title"] as string) : null) ?? null,
     meta_description:
@@ -54,22 +59,7 @@ const toView = (row: unknown): CustomPageView => {
   };
 };
 
-/** create/update body (FE) */
-export type UpsertCustomPageBody = {
-  title: string;
-  slug: string;
-  content: string; // HTML
-  meta_title?: string | null;
-  meta_description?: string | null;
-  is_published?: boolean;
-  locale?: string | null;
-
-  // 👇 Görsel alanları (opsiyonel — istersen PATCH /featured-image ile ayrı set edebilirsin)
-  featured_image?: string | null;
-  featured_image_alt?: string | null;
-  featured_image_asset_id?: string | null;
-};
-
+/** Body’yi BE şemasına çevirir (create) */
 const toApiBody = (b: UpsertCustomPageBody) => {
   const title = (b.title ?? "").trim();
   const slug = (b.slug ?? "").trim();
@@ -79,28 +69,57 @@ const toApiBody = (b: UpsertCustomPageBody) => {
   return {
     title,
     slug,
-    // BE content bekliyor (JSON-string): {"html": "..."}
+    // BE string bekliyor: JSON.stringify({ html })
     content: JSON.stringify({ html }),
 
-    meta_title: b.meta_title ?? null,
-    meta_description: b.meta_description ?? null,
+    // Görsel alanları
+    image_url: typeof b.image_url !== "undefined" ? b.image_url : undefined,
+    storage_asset_id:
+      typeof b.storage_asset_id !== "undefined" ? b.storage_asset_id : undefined,
+    alt: typeof b.alt !== "undefined" ? b.alt : undefined,
+
+    meta_title: typeof b.meta_title !== "undefined" ? b.meta_title : undefined,
+    meta_description:
+      typeof b.meta_description !== "undefined" ? b.meta_description : undefined,
     is_published,
 
-    // Görsel alanları (opsiyonel)
-    featured_image: typeof b.featured_image !== "undefined" ? b.featured_image : undefined,
-    featured_image_alt: typeof b.featured_image_alt !== "undefined" ? b.featured_image_alt : undefined,
-    featured_image_asset_id: typeof b.featured_image_asset_id !== "undefined" ? b.featured_image_asset_id : undefined,
-
-    locale: b.locale ?? null,
+    locale: typeof b.locale !== "undefined" ? b.locale : undefined,
   };
+};
+
+/** Partial PATCH çevirici – SADECE verilen alanları yollar */
+const toApiPatchBody = (b: PatchCustomPageBody) => {
+  const out: Record<string, unknown> = {};
+
+  if (typeof b.title !== "undefined") out.title = (b.title ?? "").trim();
+  if (typeof b.slug !== "undefined") out.slug = (b.slug ?? "").trim();
+  if (typeof b.content !== "undefined") {
+    out.content = JSON.stringify({ html: b.content ?? "" });
+  }
+
+  if (typeof b.image_url !== "undefined") out.image_url = b.image_url;
+  if (typeof b.storage_asset_id !== "undefined") out.storage_asset_id = b.storage_asset_id;
+  if (typeof b.alt !== "undefined") out.alt = b.alt;
+
+  if (typeof b.meta_title !== "undefined") out.meta_title = b.meta_title;
+  if (typeof b.meta_description !== "undefined") out.meta_description = b.meta_description;
+  if (typeof b.is_published !== "undefined") out.is_published = toBool(b.is_published);
+  if (typeof b.locale !== "undefined") out.locale = b.locale;
+
+  return out;
 };
 
 const BASE = "/admin/custom_pages";
 
 export const customPagesAdminApi = baseApi.injectEndpoints({
   endpoints: (b) => ({
-    listCustomPagesAdmin: b.query<CustomPageView[], { locale?: string; limit?: number; offset?: number } | void>({
-      query: () => ({ url: `${BASE}` }),
+    listCustomPagesAdmin: b.query<
+      CustomPageView[],
+      { limit?: number; offset?: number; q?: string; slug?: string; sort?: "created_at" | "updated_at"; orderDir?: "asc" | "desc"; is_published?: boolean } | void
+    >({
+      query: (params) => (params
+        ? { url: `${BASE}`, params }
+        : { url: `${BASE}` }),
       transformResponse: (res: unknown): CustomPageView[] =>
         Array.isArray(res) ? (res as CustomPageRow[]).map(toView) : [],
       providesTags: (result) =>
@@ -124,8 +143,9 @@ export const customPagesAdminApi = baseApi.injectEndpoints({
       invalidatesTags: [{ type: "CustomPages", id: "LIST" }],
     }),
 
-    updateCustomPageAdmin: b.mutation<CustomPageView, { id: string; body: UpsertCustomPageBody }>({
-      query: ({ id, body }) => ({ url: `${BASE}/${id}`, method: "PATCH", body: toApiBody(body) }),
+    // ✅ PATCH (partial) — TS2739 hatasını çözer
+    updateCustomPageAdmin: b.mutation<CustomPageView, { id: string; body: PatchCustomPageBody }>({
+      query: ({ id, body }) => ({ url: `${BASE}/${id}`, method: "PATCH", body: toApiPatchBody(body) }),
       transformResponse: (res: unknown): CustomPageView => toView(res),
       invalidatesTags: (_r, _e, arg) => [
         { type: "CustomPages", id: arg.id },
@@ -142,13 +162,13 @@ export const customPagesAdminApi = baseApi.injectEndpoints({
       ],
     }),
 
-    /** 👇 Sadece featured image’i bağla/kaldır (asset_id + opsiyonel url/alt) */
-    setCustomPageFeaturedImageAdmin: b.mutation<
+    /** ✅ Görsel set/kaldır (asset_id + opsiyonel url/alt) */
+    setCustomPageImageAdmin: b.mutation<
       CustomPageView,
-      { id: string; body: { asset_id: string | null; image_url?: string | null; alt?: string | null } }
+      { id: string; body: { asset_id?: string | null; image_url?: string | null; alt?: string | null } }
     >({
       query: ({ id, body }) => ({
-        url: `${BASE}/${id}/featured-image`,
+        url: `${BASE}/${id}/image`,
         method: "PATCH",
         body,
       }),
@@ -166,7 +186,7 @@ export const {
   useListCustomPagesAdminQuery,
   useGetCustomPageAdminByIdQuery,
   useCreateCustomPageAdminMutation,
-  useUpdateCustomPageAdminMutation,
+  useUpdateCustomPageAdminMutation,     // PATCH (partial)
   useDeleteCustomPageAdminMutation,
-  useSetCustomPageFeaturedImageAdminMutation, // 👈 export
+  useSetCustomPageImageAdminMutation,   // 👈 isim standardı
 } = customPagesAdminApi;

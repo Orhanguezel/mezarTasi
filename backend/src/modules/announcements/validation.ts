@@ -1,5 +1,6 @@
-// src/modules/announcements/validation.ts
-
+// =============================================================
+// FILE: src/modules/announcements/validation.ts
+// =============================================================
 import { z } from "zod";
 
 export const boolLike = z.union([
@@ -29,6 +30,7 @@ export const announcementListQuerySchema = z.object({
 });
 export type AnnouncementListQuery = z.infer<typeof announcementListQuerySchema>;
 
+/** CREATE / UPSERT body */
 export const upsertAnnouncementBodySchema = z.object({
   title: z.string().min(1).max(255).trim(),
   description: z.string().min(1).max(500).trim(),
@@ -51,6 +53,11 @@ export const upsertAnnouncementBodySchema = z.object({
   button_text: z.string().max(64).nullable().optional(),
   button_color: z.string().max(64).nullable().optional(),
 
+  /** ✅ Görsel alanları (storage patern) */
+  image_url: z.string().url().nullable().optional(),
+  storage_asset_id: z.string().uuid().nullable().optional(),
+  alt: z.string().max(255).nullable().optional(),
+
   is_active: boolLike.optional().default(true),
   is_published: boolLike.optional().default(true),
   display_order: z.coerce.number().int().min(1).optional(),
@@ -63,6 +70,7 @@ export const upsertAnnouncementBodySchema = z.object({
 });
 export type UpsertAnnouncementBody = z.infer<typeof upsertAnnouncementBodySchema>;
 
+/** PATCH body (hepsi opsiyonel) */
 export const patchAnnouncementBodySchema = upsertAnnouncementBodySchema.partial();
 export type PatchAnnouncementBody = z.infer<typeof patchAnnouncementBodySchema>;
 
@@ -70,3 +78,12 @@ export const reorderBodySchema = z.object({
   ids: z.array(z.string().uuid()).min(1),
 });
 export type ReorderBody = z.infer<typeof reorderBodySchema>;
+
+/** ✅ Tek uç: SET IMAGE (storage ile birebir) */
+export const setAnnouncementImageBodySchema = z.object({
+  /** Temizlemek için null verilebilir */
+  storage_asset_id: z.string().uuid().nullable().optional(),
+  image_url: z.string().url().nullable().optional(),
+  alt: z.string().max(255).nullable().optional(),
+}).strict();
+export type SetAnnouncementImageBody = z.infer<typeof setAnnouncementImageBodySchema>;

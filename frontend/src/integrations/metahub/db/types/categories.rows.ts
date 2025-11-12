@@ -10,6 +10,7 @@ export type Category = {
   slug: string;
   description: string | null;
   image_url: string | null;
+  alt: string | null;
   icon: string | null;
   is_active: DbBool;
   is_featured: DbBool;
@@ -25,8 +26,8 @@ export type CategoryForm = {
   slug: string;
   description?: string;
   image_url?: string | null;
+  alt?: string | null;
   is_active: boolean;
   is_featured: boolean;
   display_order: number;
 };
-

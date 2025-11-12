@@ -1,5 +1,6 @@
-// src/modules/announcements/controller.ts
-
+// =============================================================
+// FILE: src/modules/announcements/controller.ts (PUBLIC)
+// =============================================================
 import type { RouteHandler } from "fastify";
 import { announcementListQuerySchema, toBool } from "./validation";
 import { listAnnouncements, getAnnouncement, unpackContent } from "./repository";
@@ -27,7 +28,6 @@ export const listAnnouncementsPublic: RouteHandler = async (req, reply) => {
   try {
     const { items, total } = await listAnnouncements(params);
     reply.header("x-total-count", String(total ?? 0));
-    // content'i HTML stringe çevirerek dönder
     const mapped = items.map((r) => ({ ...r, content: unpackContent(r.content) }));
     return reply.send(mapped);
   } catch (err) {

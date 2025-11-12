@@ -80,6 +80,9 @@ export const metahubTags = [
   "Contacts","Contact",
   "Accessory","Accessories",
   "Slider" ,"Sliders",
+  "Subcategories",
+  "Storage","SliderPublic",
+  "Pages" ,"Page",
 
 ] as const;
 

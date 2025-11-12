@@ -21,27 +21,25 @@ export default function AdminHeader({
 }: AdminHeaderProps) {
   return (
     <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-      {/* relative: ortalama için absolute center kullanıyoruz */}
       <div className="relative flex h-14 w-full items-center px-4 sm:px-6">
-        {/* Sol: Sidebar tetikleyici */}
         <SidebarTrigger className="text-gray-700 transition-colors hover:text-gray-900" />
 
-        {/* Sağ: Aksiyonlar */}
         <div className="ml-auto flex items-center gap-2">
           <input
-            ref={importInputRef}
-            type="file"
-            accept="application/json"
-            className="hidden"
-            onChange={(e) => onImportFile(e.target.files?.[0])}
-          />
+  ref={importInputRef}
+  type="file"
+  accept=".sql,.gz,text/plain,application/sql,application/x-gzip"
+  className="hidden"
+  onChange={(e) => onImportFile(e.target.files?.[0])}
+/>
+
 
           <Button size="sm" variant="outline" className="whitespace-nowrap" onClick={onExport}>
-            JSON Dışa Aktar
+            SQL Dışa Aktar
           </Button>
 
           <Button size="sm" variant="outline" className="whitespace-nowrap" onClick={onImportClick}>
-            JSON İçe Aktar
+            SQL İçe Aktar
           </Button>
 
           <Button

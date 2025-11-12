@@ -1,19 +1,18 @@
+// =============================================================
+// FILE: src/components/admin/AdminPanel/form/SubCategoryFormPage.tsx
+// =============================================================
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import * as React from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
 
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-
-import {
-  useListCategoriesAdminQuery,
-} from "@/integrations/metahub/rtk/endpoints/admin/categories_admin.endpoints";
+import { Save, ArrowLeft } from "lucide-react";
 
 import {
   useGetSubCategoryAdminByIdQuery,
@@ -22,421 +21,360 @@ import {
   useSetSubCategoryImageAdminMutation,
 } from "@/integrations/metahub/rtk/endpoints/admin/sub_categories_admin.endpoints";
 
-import { useUploadStorageAssetAdminMutation } from "@/integrations/metahub/rtk/endpoints/admin/storage_admin.endpoints";
+import {
+  useListCategoriesAdminQuery,
+  type ListParams as CatListParams,
+} from "@/integrations/metahub/rtk/endpoints/admin/categories_admin.endpoints";
 
-type UiSubCategory = {
-  id?: string;
-  category_id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  image_url?: string | null;
+import { useCreateAssetAdminMutation } from "@/integrations/metahub/rtk/endpoints/admin/storage_admin.endpoints";
 
-  is_active: boolean;
-  is_featured: boolean;
-  display_order: number;
-};
+import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
+import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";
 
-const slugify = (v: string) =>
-  v.toString().trim().toLowerCase()
-    .replace(/[^a-z0-9ğüşöçı\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-
-// replaceAll kullanmadan güvenli %2F -> /
-const unescapePath = (s: string) => s.replace(/%2F/gi, "/");
-
-const pickAssetId = (res: any): string | undefined => {
-  if (typeof res?.id === "string" && res.id) return res.id;
-  if (typeof res?.asset_id === "string" && res.asset_id) return res.asset_id;
-  if (typeof res?.public_id === "string" && res.public_id) return res.public_id;
-  if (typeof res?.data?.id === "string" && res.data.id) return res.data.id;
-  if (typeof res?._id === "string" && res._id) return res._id;
-  return undefined;
-};
-
-const pickAssetUrl = (res: any): string | undefined => {
-  if (typeof res?.url === "string" && res.url) return res.url;
-  if (typeof res?.secure_url === "string" && res.secure_url) return res.secure_url;
-  if (res?.path && res?.bucket) {
-    const origin = (import.meta.env.VITE_PUBLIC_API_ORIGIN ?? "").toString().replace(/\/$/, "");
-    const bucket = encodeURIComponent(res.bucket);
-    const path = unescapePath(encodeURIComponent(res.path));
-    return `${origin}/storage/${bucket}/${path}`;
-  }
-  return undefined;
-};
-
-// Global DnD guard → dosya bırakınca sayfadan çıkmayı engelle
-function useGlobalFileDropGuard() {
-  useEffect(() => {
-    const guard = (e: DragEvent) => {
-      if (!e.dataTransfer) return;
-      const hasFiles = Array.from(e.dataTransfer.types || []).includes("Files");
-      if (hasFiles) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-    window.addEventListener("dragover", guard, true);
-    window.addEventListener("drop", guard, true);
-    return () => {
-      window.removeEventListener("dragover", guard, true);
-      window.removeEventListener("drop", guard, true);
-    };
-  }, []);
-}
+// slugify (tr)
+const slugifyTr = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ı/g, "i")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "")
+    .substring(0, 120);
 
 export default function SubCategoryFormPage() {
-  const nav = useNavigate();
-  const { id } = useParams<{ id?: string }>();
-  const location = useLocation();
-  useGlobalFileDropGuard();
+  const { id } = useParams() as { id?: string };
+  const isNew = !id || id === "new";
+  const navigate = useNavigate();
 
-  const isEdit = Boolean(id);
+  // kategori listesi (dropdown)
+  const catParams: CatListParams = { sort: "display_order", order: "asc", limit: 200 };
+  const { data: cats } = useListCategoriesAdminQuery(catParams as any);
 
-  // Kategoriler (select için)
-  const { data: categories = [] } = useListCategoriesAdminQuery(
-    { sort: "name", order: "asc", limit: 200 },
-    { refetchOnMountOrArgChange: true }
-  );
-
-  // Eğer listeden state ile geldiysek anında boyamak için
-  const initialFromState = (location.state as any)?.initialValue as
-    | { id?: string; category_id?: string; name?: string; slug?: string; description?: string; image_url?: string | null }
-    | undefined;
-
-  const { data: serverRow, isFetching } = useGetSubCategoryAdminByIdQuery(id!, {
-    skip: !isEdit,
-    refetchOnMountOrArgChange: true,
+  const { data: existing, isFetching: loadingExisting } = useGetSubCategoryAdminByIdQuery(String(id ?? ""), {
+    skip: isNew,
   });
 
-  const [createSub, { isLoading: creating }] = useCreateSubCategoryAdminMutation();
-  const [updateSub, { isLoading: updating }] = useUpdateSubCategoryAdminMutation();
-  const [setSubImage, { isLoading: settingImage }] = useSetSubCategoryImageAdminMutation();
-  const [uploadAsset, { isLoading: uploading }] = useUploadStorageAssetAdminMutation();
+  // form state
+  const [categoryId, setCategoryId] = React.useState("");
+  const [name, setName] = React.useState("");
+  const [slug, setSlug] = React.useState("");
+  const [autoSlug, setAutoSlug] = React.useState(true);
 
-  // Son yüklenen asset id (yeni kayıtta bağlamak için)
-  const lastAssetIdRef = useRef<string | null>(null);
+  const [description, setDescription] = React.useState("");
+  const [icon, setIcon] = React.useState("");
 
-  // İlk kategori id’si
-  const firstCatId = useMemo(() => categories[0]?.id ?? "", [categories]);
+  const [isActive, setIsActive] = React.useState(true);
+  const [isFeatured, setIsFeatured] = React.useState(false);
+  const [displayOrder, setDisplayOrder] = React.useState<number>(0);
 
-  // exactOptionalPropertyTypes’a uygun initial
-  const makeInitial = (): UiSubCategory => {
-    const base: UiSubCategory = {
-      category_id: initialFromState?.category_id ?? firstCatId,
-      name: initialFromState?.name ?? "",
-      slug: initialFromState?.slug ?? "",
-      description: initialFromState?.description ?? "",
-      image_url: initialFromState?.image_url ?? null,
-      is_active: true,
-      is_featured: false,
-      display_order: 0,
-    };
-    if (id) return { ...base, id };
-    return base;
-  };
+  // image state (external + storage)
+  const [imageUrl, setImageUrl] = React.useState<string>("");
+  const [alt, setAlt] = React.useState<string>("");
+  const [coverId, setCoverId] = React.useState<string | undefined>(undefined);
+  const [stagedCoverId, setStagedCoverId] = React.useState<string | undefined>(undefined);
 
-  const [form, setForm] = useState<UiSubCategory>(makeInitial);
+  // mutations
+  const [createOne, { isLoading: creating }] = useCreateSubCategoryAdminMutation();
+  const [updateOne, { isLoading: updating }] = useUpdateSubCategoryAdminMutation();
+  const [setCover, { isLoading: savingImg }] = useSetSubCategoryImageAdminMutation();
+  const [uploadOne] = useCreateAssetAdminMutation();
 
-  // Kategoriler geldiyse ve boşsa category_id’yi doldur
-  useEffect(() => {
-    if (!isEdit && !form.category_id && firstCatId) {
-      setForm((p) => ({ ...p, category_id: firstCatId }));
+  const saving = creating || updating;
+
+  // hydrate
+  React.useEffect(() => {
+    if (!isNew && existing) {
+      setCategoryId(String((existing as any).category_id ?? ""));
+      setName(existing.name ?? "");
+      setSlug(existing.slug ?? "");
+      setDescription(existing.description ?? "");
+      setIcon((existing as any).icon ?? "");
+      setIsActive(!!existing.is_active);
+      setIsFeatured(!!existing.is_featured);
+      setDisplayOrder(Number(existing.display_order ?? 0));
+      setImageUrl(existing.image_url ?? "");
+      setAlt((existing as any).alt ?? "");
+      // Not: BE'den storage_asset_id gelmiyor olabilir → coverId undefined kalır (preview dış URL'den)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [firstCatId]);
+  }, [existing, isNew]);
 
-  // Sunucudan alt kategori gelince forma yükle
-  useEffect(() => {
-    if (!serverRow) return;
-    setForm((prev) => {
-      const base: UiSubCategory = {
-        category_id: prev.category_id || serverRow.category_id || firstCatId,
-        name: prev.name || serverRow.name || "",
-        slug: prev.slug || serverRow.slug || "",
-        description: prev.description ?? (serverRow.description ?? "") ?? "",
-        image_url: serverRow.image_url ?? null,
-        is_active: !!serverRow.is_active,
-        is_featured: !!serverRow.is_featured,
-        display_order: Number(serverRow.display_order ?? 0),
-      };
-      return id ? { ...base, id } : base;
-    });
-  }, [serverRow, id, firstCatId]);
+  React.useEffect(() => {
+    if (autoSlug) setSlug(slugifyTr(name));
+  }, [name, autoSlug]);
 
-  // Dosya input
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const onBack = () =>
+    window.history.length ? window.history.back() : navigate("/admin/sub-categories");
 
-  const onUpload = async (files: File[]) => {
-    if (!files.length) return;
-    const file = files[0];
-    if (!file || !file.type.startsWith("image/")) {
-      toast.error("Lütfen bir resim seçin");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Maksimum 10MB");
-      return;
-    }
-
-    try {
-      const folder = isEdit ? `sub-categories/${id}` : `sub-categories/tmp`;
-      const res: any = await uploadAsset({ file, bucket: "sub-categories", folder }).unwrap();
-      const url = pickAssetUrl(res);
-      const assetId = pickAssetId(res);
-      if (!url) {
-        toast.error("Yüklenen görsel için URL alınamadı");
-        return;
-      }
-      // UI önizleme
-      setForm((p) => ({ ...p, image_url: url }));
-      lastAssetIdRef.current = assetId ?? null;
-
-      // Kayıt mevcutsa BE tarafına anında bağla
-      if (isEdit && assetId) {
-        await setSubImage({ id: id!, body: { asset_id: assetId } }).unwrap();
-      }
-
-      toast.success("Görsel yüklendi");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    } catch (e: any) {
-      toast.error(e?.data?.error?.message ?? "Yükleme başarısız");
-    }
-  };
-
-  const removeImage = async () => {
-    try {
-      setForm((p) => ({ ...p, image_url: null }));
-      lastAssetIdRef.current = null;
-      if (isEdit) {
-        await setSubImage({ id: id!, body: { asset_id: null } }).unwrap();
-      }
-      toast.success("Görsel kaldırıldı");
-    } catch (e: any) {
-      toast.error(e?.data?.error?.message ?? "Kaldırma başarısız");
-    }
-  };
-
-  const saving = creating || updating || uploading || settingImage || isFetching;
-
-  const save = async () => {
-    const category_id = String(form.category_id || "").trim();
-    const name = form.name.trim();
-    let slug = form.slug.trim();
-    if (!category_id) return toast.error("Lütfen bir üst kategori seçin");
-    if (!name) return toast.error("Alt kategori adı gerekli");
-    if (!slug) slug = slugify(name);
-
-    const body = {
-      category_id,
+  // CREATE body (UpsertSubCategoryBody → slug zorunlu)
+  // exactOptionalPropertyTypes: undefined göndermemek için null veya hiç göndermeme
+  const buildCreatePayload = () => {
+    const body: any = {
+      category_id: categoryId,
       name,
       slug,
-      description: form.description?.trim() || null,
-      image_url: form.image_url ?? null,
-      is_active: !!form.is_active,
-      is_featured: !!form.is_featured,
-      display_order: Number(form.display_order || 0),
-    } as const;
+      description: description || null,
+      image_url: imageUrl || null,
+      icon: icon || null,
+      is_active: isActive,
+      is_featured: isFeatured,
+      display_order: Number(displayOrder) || 0,
+    };
+    return body;
+  };
 
+  // UPDATE body (PUT → upsert şekli)
+  const buildUpdatePayload = () => {
+    const body: any = {
+      category_id: categoryId,
+      name,
+      slug,
+      description: description || null,
+      image_url: imageUrl || null,
+      icon: icon || null,
+      is_active: isActive,
+      is_featured: isFeatured,
+      display_order: Number(displayOrder) || 0,
+    };
+    return body;
+  };
+
+  const doCreate = async () => {
+    if (!categoryId || !name || !slug) {
+      toast.error("Kategori, ad ve slug zorunlu");
+      return;
+    }
     try {
-      if (isEdit) {
-        await updateSub({ id: id!, body }).unwrap();
-        toast.success("Alt kategori güncellendi");
-        // Görsel setleme edit akışında zaten onUpload’ta yapıldı.
-      } else {
-        const created = await createSub(body).unwrap();
-        toast.success("Yeni alt kategori oluşturuldu");
-        // Eğer az önce upload ettiysek ve assetId varsa şimdi bağla
-        if (lastAssetIdRef.current) {
-          try {
-            await setSubImage({
-              id: created.id,
-              body: { asset_id: lastAssetIdRef.current },
-            }).unwrap();
-          } catch {
-            /* sessiz bırak */
-          }
+      const created = await createOne(buildCreatePayload()).unwrap();
+      const newId = String(created.id);
+
+      // Storage kapak seçilmişse ilişkilendir (alt dahil)
+      const assocId = coverId ?? stagedCoverId;
+      if (assocId) {
+        try {
+          await setCover({ id: newId, body: { asset_id: assocId, alt: alt || null } }).unwrap();
+          toast.success("Görsel ilişkilendirildi");
+        } catch (e: any) {
+          toast.error(e?.data?.message || "Görsel ilişkilendirilemedi");
         }
       }
-      // Listeye geri dön (geldiğin yere)
-      nav(-1);
+
+      toast.success("Alt kategori oluşturuldu");
+      navigate("/admin/subcategories");
     } catch (e: any) {
-      const code = e?.data?.error?.message;
-      if (code === "duplicate_slug_in_category") {
-        toast.error("Bu slug bu kategori içinde zaten kullanılıyor");
-      } else if (code === "invalid_category_id") {
-        toast.error("Geçersiz kategori");
-      } else if (code === "invalid_body") {
-        toast.error("Form verisi geçersiz");
-      } else {
-        toast.error(e?.error || "Kaydetme başarısız");
-      }
+      toast.error(e?.data?.message || "Oluşturma başarısız");
     }
   };
 
-  // Dropzone highlight opsiyonel
-  const [dragOver, setDragOver] = useState(false);
+  const doUpdate = async () => {
+    if (isNew || !id) return;
+    if (!categoryId || !name || !slug) {
+      toast.error("Kategori, ad ve slug zorunlu");
+      return;
+    }
+    try {
+      await updateOne({ id: String(id), body: buildUpdatePayload() }).unwrap();
+      toast.success("Alt kategori güncellendi");
+      navigate("/admin/subcategories");
+    } catch (e: any) {
+      toast.error(e?.data?.message || "Güncelleme başarısız");
+    }
+  };
+
+  /** Dosya yükle + storage id ata + mevcut kayıtta anında set */
+  const uploadCover = async (file: File): Promise<void> => {
+    try {
+      const res = await uploadOne({
+        file,
+        bucket: "sub_categories",
+        folder: `sub_categories/${id || Date.now()}/cover`,
+      }).unwrap();
+
+      const newCoverId = (res as any)?.id as string | undefined;
+      if (!newCoverId) {
+        toast.error("Yükleme cevabı beklenen formatta değil");
+        return;
+      }
+
+      setCoverId(newCoverId);
+      setStagedCoverId(newCoverId);
+
+      if (!isNew && id) {
+        await setCover({ id: String(id), body: { asset_id: newCoverId, alt: alt || null } }).unwrap();
+        toast.success("Kapak resmi güncellendi");
+      } else {
+        toast.success("Kapak yüklendi (kayıt sonrası ilişkilendirilecek)");
+      }
+    } catch (e: any) {
+      toast.error(e?.data?.message || "Kapak yüklenemedi");
+    }
+  };
+
+  /** Sadece ALT bilgisi */
+  const saveAltOnly = async () => {
+    if (isNew || !id) return;
+    try {
+      await setCover({ id: String(id), body: { alt: alt || null } }).unwrap();
+      toast.success("Alt metin güncellendi");
+    } catch (e: any) {
+      toast.error(e?.data?.message || "Alt metin güncellenemedi");
+    }
+  };
+
+  /** Storage kapak kaldır */
+  const removeCover = async () => {
+    if (isNew) {
+      setCoverId(undefined);
+      setStagedCoverId(undefined);
+      toast.info("Görsel yerelden kaldırıldı (kayıt yok).");
+      return;
+    }
+    if (!id) return;
+    try {
+      await setCover({ id: String(id), body: { asset_id: null, alt: alt || null } }).unwrap();
+      setCoverId(undefined);
+      setStagedCoverId(undefined);
+      toast.success("Görsel kaldırıldı");
+    } catch (e: any) {
+      toast.error(e?.data?.message || "Görsel kaldırılamadı");
+    }
+  };
+
+  if (!isNew && loadingExisting) {
+    return <div className="p-4 text-sm text-gray-500">Yükleniyor…</div>;
+  }
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-6 bg-white">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{isEdit ? "Alt Kategori Düzenle" : "Yeni Alt Kategori"}</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => nav(-1)} disabled={saving}>Geri</Button>
-          <Button onClick={save} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
-            {isEdit ? "Güncelle" : "Oluştur"}
+    <div className="mx-auto max-w-5xl space-y-6">
+      {/* Header actions */}
+      <div className="flex items-center justify-between">
+        <Button variant="secondary" onClick={() => (window.history.length ? window.history.back() : navigate("/admin/sub-categories"))} className="gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Geri
+        </Button>
+        {isNew ? (
+          <Button onClick={doCreate} disabled={saving} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+            <Save className="h-4 w-4" />
+            Oluştur
           </Button>
-        </div>
+        ) : (
+          <Button onClick={doUpdate} disabled={saving} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+            <Save className="h-4 w-4" />
+            Kaydet
+          </Button>
+        )}
       </div>
 
-      <div className="rounded-xl border bg-card p-5 shadow-sm">
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="scat-category">Üst Kategori *</Label>
+      {/* Temel Bilgiler */}
+      <Section title="Temel Bilgiler">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Kategori</Label>
             <select
-              id="scat-category"
-              className="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm shadow-sm focus:border-teal-500 focus:outline-none"
-              value={form.category_id}
-              onChange={(e) => setForm((p) => ({ ...p, category_id: e.target.value }))}
+              className="h-10 w-full rounded border px-2"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
             >
-              <option value="" disabled>Seçiniz…</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+              <option value="">Seçiniz…</option>
+              {(cats ?? []).map((c: any) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.name ?? c.slug ?? c.id}
+                </option>
               ))}
             </select>
           </div>
 
-          <div>
-            <Label htmlFor="scat-order">Sıra</Label>
-            <Input
-              id="scat-order"
-              type="number"
-              inputMode="numeric"
-              className="mt-1"
-              value={form.display_order}
-              onChange={(e) => setForm((p) => ({ ...p, display_order: Number(e.target.value || 0) }))}
-            />
+          <div className="space-y-2">
+            <Label>Ad</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Alt kategori adı" />
           </div>
 
-          <div className="sm:col-span-2">
-            <Label htmlFor="scat-name">Alt Kategori Adı *</Label>
-            <Input
-              id="scat-name"
-              className="mt-1"
-              value={form.name}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, name: e.target.value, slug: p.slug || slugify(e.target.value) }))
-              }
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="scat-slug">Slug *</Label>
-            <Input
-              id="scat-slug"
-              className="mt-1"
-              value={form.slug}
-              onChange={(e) => setForm((p) => ({ ...p, slug: slugify(e.target.value) }))}
-            />
-          </div>
-
-          <div className="flex items-end gap-3">
-            <Switch
-              id="scat-active"
-              checked={!!form.is_active}
-              onCheckedChange={(v) => setForm((p) => ({ ...p, is_active: v }))}
-            />
-            <Label htmlFor="scat-active" className="text-sm text-muted-foreground">Aktif</Label>
-          </div>
-
-          <div className="flex items-end gap-3">
-            <Switch
-              id="scat-featured"
-              checked={!!form.is_featured}
-              onCheckedChange={(v) => setForm((p) => ({ ...p, is_featured: v }))}
-            />
-            <Label htmlFor="scat-featured" className="text-sm text-muted-foreground">Öne Çıkar</Label>
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <Label htmlFor="scat-desc">Açıklama</Label>
-          <Textarea
-            id="scat-desc"
-            className="mt-1 min-h-[110px]"
-            value={form.description ?? ""}
-            onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-          />
-        </div>
-
-        {/* Görsel alanı */}
-        <div className="mt-6">
-          <Label>Alt Kategori Görseli</Label>
-
-          {/* Dropzone: default navigasyonu engelle */}
-          <div
-            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault(); e.stopPropagation(); setDragOver(false);
-              const files = Array.from(e.dataTransfer?.files ?? []) as File[];
-              void onUpload(files);
-            }}
-            className={[
-              "mt-2 rounded-lg border border-dashed p-4 text-center text-sm transition",
-              dragOver ? "border-teal-500 bg-teal-50/70 text-teal-700" : "border-gray-300 bg-gray-50/80 text-gray-600 hover:bg-gray-50"
-            ].join(" ")}
-            role="button"
-            tabIndex={0}
-            onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click(); }}
-          >
-            Dosya seç veya görseli bu alana bırak
-            <input
-              ref={fileInputRef}
-              id="scat-image"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => void onUpload(Array.from(e.target.files ?? []))}
-            />
-          </div>
-          {uploading && <p className="mt-2 text-xs text-muted-foreground">Yükleniyor…</p>}
-
-          {form.image_url && (
-            <div className="mt-3 rounded-lg border bg-white p-4">
-              <p className="mb-3 text-sm font-medium text-gray-700">Kapak Görseli</p>
-              <div className="relative max-w-sm">
-                <div className="aspect-video overflow-hidden rounded-md border bg-muted">
-                  <img src={form.image_url} alt="" className="h-full w-full object-cover" />
-                </div>
-
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="icon"
-                  aria-label="Görseli sil"
-                  title="Sil"
-                  onClick={removeImage}
-                  className="absolute right-2 top-2 h-8 w-8 rounded-full p-0 shadow-lg ring-2 ring-white hover:scale-105 transition"
-                  disabled={uploading || settingImage}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Label>Slug</Label>
+              <label className="flex items-center gap-2 text-xs text-gray-500">
+                <Switch
+                  checked={autoSlug}
+                  onCheckedChange={setAutoSlug}
+                  className="data-[state=checked]:bg-indigo-600"
+                />
+                otomatik
+              </label>
             </div>
-          )}
-        </div>
+            <Input
+              value={slug}
+              onChange={(e) => {
+                setSlug(e.target.value);
+                setAutoSlug(false);
+              }}
+              placeholder="alt-kategori-slug"
+            />
+          </div>
 
-        <div className="mt-8 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => nav(-1)} disabled={saving}>Vazgeç</Button>
-          <Button onClick={save} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
-            {isEdit ? "Güncelle" : "Oluştur"}
-          </Button>
+          <div className="space-y-2">
+            <Label>Aktif</Label>
+            <div className="flex h-10 items-center">
+              <Switch
+                checked={isActive}
+                onCheckedChange={setIsActive}
+                className="data-[state=checked]:bg-emerald-600"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Anasayfa</Label>
+            <div className="flex h-10 items-center">
+              <Switch
+                checked={isFeatured}
+                onCheckedChange={setIsFeatured}
+                className="data-[state=checked]:bg-amber-500"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Sıra</Label>
+            <Input
+              inputMode="numeric"
+              value={String(displayOrder)}
+              onChange={(e) => setDisplayOrder(Number(e.target.value) || 0)}
+              placeholder="0"
+            />
+          </div>
+
+          <div className="sm:col-span-2 space-y-2">
+            <Label>Açıklama</Label>
+            <Textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+
+          <div className="sm:col-span-2 space-y-2">
+            <Label>İkon (opsiyonel)</Label>
+            <Input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="Örn: lucide:star veya sınıf adı / URL" />
+          </div>
         </div>
-      </div>
-    </main>
+      </Section>
+
+      {/* KAPAK GÖRSELİ */}
+      <CoverImageSection
+        title="Kapak Görseli"
+        coverId={coverId}
+        stagedCoverId={stagedCoverId}
+        imageUrl={imageUrl}
+        alt={alt}
+        saving={savingImg}
+        onPickFile={uploadCover}
+        onRemove={removeCover}
+        onUrlChange={setImageUrl}
+        onAltChange={setAlt}
+        onSaveAlt={!isNew && !!id ? saveAltOnly : undefined}
+        accept="image/*"
+      />
+    </div>
   );
 }

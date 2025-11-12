@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/accessories/router.ts (PUBLIC)
+// =============================================================
 import type { FastifyInstance } from "fastify";
 import { listPublicAccessories, getPublicAccessory } from "./controller";
 

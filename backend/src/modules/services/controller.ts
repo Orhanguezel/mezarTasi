@@ -1,5 +1,6 @@
-// src/modules/services/controller.public.ts (veya controller.ts içinde public bölüm)
-
+// =============================================================
+// FILE: src/modules/services/controller.ts (PUBLIC)
+// =============================================================
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { servicePublicListQuerySchema } from "./validation";
 import {
@@ -13,8 +14,7 @@ export async function listServicesPublic(req: FastifyRequest, reply: FastifyRepl
   try {
     const raw = (req as any).query || {};
     const q = servicePublicListQuerySchema.parse(raw);
-    // slider patern: sadece aktifleri döndür
-    const data = await repoListServicesPublic(q);
+    const data = await repoListServicesPublic(q); // sadece aktifler
     return reply.send(data);
   } catch (err: any) {
     if (err?.issues) {
@@ -29,7 +29,6 @@ export async function listServicesPublic(req: FastifyRequest, reply: FastifyRepl
 export async function getServicePublic(req: FastifyRequest, reply: FastifyReply) {
   const { id } = (req.params as any) || {};
   const row = await repoGetServiceById(String(id || ""));
-  // repo booleans 0/1 → truthy check yeterli
   if (!row || !row.svc?.is_active) return reply.code(404).send({ error: "Not found" });
   return reply.send(row);
 }

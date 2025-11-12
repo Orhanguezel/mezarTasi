@@ -4,7 +4,6 @@
 // =============================================================
 import { ImageWithFallback } from "../figma/ImageWithFallback";
 import backgroundImage from "figma:asset/49bae4cd4b172781dc5d9ea5d642274ea5ea27b6.png";
-import aboutSideImage from "figma:asset/86ac622a937f78742905aa1b265687cf5a66c70f.png";
 
 // Statik fallback veriler
 import { getAboutPageData } from "../../data/pageContent";

@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/recent-works/validation.ts
+// =============================================================
 import { z } from "zod";
 
 export const boolLike = z.union([
@@ -25,18 +28,17 @@ export const recentWorkListQuerySchema = z.object({
 });
 export type RecentWorkListQuery = z.infer<typeof recentWorkListQuerySchema>;
 
-/** CREATE / UPSERT body (tek görsel + storage) */
+/** CREATE / UPSERT (tek görsel + storage hizalı) */
 export const upsertRecentWorkBodySchema = z.object({
   title: z.string().min(1).max(255).trim(),
   slug: z.string().min(1).max(255)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "slug sadece küçük harf, rakam ve tire içermelidir")
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
     .trim(),
 
   description: z.string().min(1).max(500),
   category: z.string().min(1).max(255).trim(),
   seoKeywords: z.array(z.string()).default([]),
 
-  // tek görsel alanları opsiyonel (create/update ile birlikte gelebilir)
   image_url: z.string().url().optional().nullable(),
   storage_asset_id: z.string().uuid().optional().nullable(),
   alt: z.string().max(255).optional().nullable(),
@@ -55,22 +57,24 @@ export const upsertRecentWorkBodySchema = z.object({
 
   is_active: boolLike.optional().default(true),
   display_order: z.coerce.number().int().min(0).optional(),
-
-  locale: z.string().max(10).nullable().optional(), // yoksayılacak
+  locale: z.string().max(10).nullable().optional(),
 });
 export type UpsertRecentWorkBody = z.infer<typeof upsertRecentWorkBodySchema>;
 
-/** PATCH body (opsiyonel alanların tümü) */
+/** PATCH body */
 export const patchRecentWorkBodySchema = upsertRecentWorkBodySchema.partial();
 export type PatchRecentWorkBody = z.infer<typeof patchRecentWorkBodySchema>;
 
-/* ===== Görsel uçları (tek görsel attach/detach) ===== */
-export const attachRecentWorkImageBodySchema = z.object({
-  storage_asset_id: z.string().uuid().optional(),
-  image_url: z.string().url().optional(),
+/** ✅ SET IMAGE (storage ile birebir sözleşme) */
+export const setRecentWorkImageBodySchema = z.object({
+  /** asset_id verilir → storage’tan public URL üret ve kaydet */
+  asset_id: z.string().uuid().nullable().optional(),
+  /** alternatif olarak direkt URL verilebilir (asset_id olmadan) */
+  image_url: z.string().url().nullable().optional(),
+  /** alt yazısı isteğe bağlı */
   alt: z.string().max(255).nullable().optional(),
 }).refine(
-  (b) => (b.storage_asset_id ? !b.image_url : !!b.image_url),
-  { message: "Sadece bir alan doldurun: storage_asset_id veya image_url." }
+  (v) => (v.asset_id !== undefined) || (v.image_url !== undefined) || (v.alt !== undefined),
+  { message: "En az bir alan gönderilmelidir: asset_id, image_url veya alt." }
 );
-export type AttachRecentWorkImageBody = z.infer<typeof attachRecentWorkImageBodySchema>;
+export type SetRecentWorkImageBody = z.infer<typeof setRecentWorkImageBodySchema>;

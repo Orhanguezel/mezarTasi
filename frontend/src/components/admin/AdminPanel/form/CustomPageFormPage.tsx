@@ -1,608 +1,368 @@
+// =============================================================
+// FILE: src/components/admin/AdminPanel/form/CustomPageFormPage.tsx
+// =============================================================
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
-import { useNavigate, useParams, useLocation } from "react-router-dom";
+import * as React from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Trash2, ImagePlus, Upload, Download, Eye, Code, PencilLine } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Save, ArrowLeft } from "lucide-react";
 
 import {
   useGetCustomPageAdminByIdQuery,
   useCreateCustomPageAdminMutation,
   useUpdateCustomPageAdminMutation,
-  useSetCustomPageFeaturedImageAdminMutation,
+  useSetCustomPageImageAdminMutation,
 } from "@/integrations/metahub/rtk/endpoints/admin/custom_pages_admin.endpoints";
-import type { UpsertCustomPageBody } from "@/integrations/metahub/db/types/customPages";
-import { useUploadStorageAssetAdminMutation } from "@/integrations/metahub/rtk/endpoints/admin/storage_admin.endpoints";
 
-const ReactQuill = lazy(() => import("react-quill"));
+import { useCreateAssetAdminMutation } from "@/integrations/metahub/rtk/endpoints/admin/storage_admin.endpoints";
+
+import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
+import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";
+
+import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
-/* ================= Types & Utils ================= */
-type FormState = {
-  title: string;
-  slug: string;
-  content: string;
-  meta_title: string;
-  meta_description: string;
-  is_published: boolean;
-  featured_image: string | null;
-  featured_image_asset_id: string | null; // ★ eklendi
-  featured_image_alt: string;
-};
-
-const slugify = (v: string) =>
-  v.toString().trim().toLowerCase()
-    .replace(/^[\/]+/, "")
-    .replace(/[^a-z0-9ğüşöçı\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-
-const pickUrlAndId = (res: any) => {
-  const url =
-    res?.url ||
-    res?.public_url ||
-    res?.data?.url ||
-    res?.asset?.url ||
-    res?.file?.url ||
-    (res?.path && res?.bucket
-      ? `${(import.meta.env.VITE_PUBLIC_API_ORIGIN ?? "").toString().replace(/\/$/, "")}/storage/${encodeURIComponent(res.bucket)}/${encodeURIComponent(res.path).replace(/%2F/g, "/")}`
-      : null);
-
-  const id =
-    res?.asset_id ||
-    res?.id ||
-    res?.data?.id ||
-    res?.asset?.id ||
-    res?.file?.id ||
-    null;
-
-  return { url, id } as { url: string | null; id: string | null };
-};
-
-function extractHtmlFromAny(raw: unknown): string {
-  if (typeof raw === "string") {
-    try {
-      const parsed = JSON.parse(raw) as any;
-      if (parsed && typeof parsed === "object" && typeof parsed.html === "string") {
-        return parsed.html as string;
-      }
-      return raw;
-    } catch { return raw; }
-  }
-  if (raw && typeof raw === "object" && typeof (raw as any).html === "string") {
-    return (raw as any).html as string;
-  }
-  return String(raw ?? "");
-}
-
-/* ========== küçük yardımcılar ========== */
-const validateImageFile = (file: File, maxMB = 10) => {
-  const okByMime = !!file.type && file.type.startsWith("image/");
-  const okByExt = /\.(png|jpe?g|webp|gif|svg)$/i.test(file.name || "");
-  if (!okByMime && !okByExt) { toast.error("Lütfen bir görsel seçin"); return false; }
-  if (file.size > maxMB * 1024 * 1024) { toast.error(`Maksimum ${maxMB}MB`); return false; }
-  return true;
-};
+const slugifyTr = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s")
+    .replace(/ı/g, "i").replace(/ö/g, "o").replace(/ç/g, "c")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "")
+    .substring(0, 120);
 
 export default function CustomPageFormPage() {
-  const nav = useNavigate();
-  const { id } = useParams<{ id?: string }>();
-  const isEdit = Boolean(id);
-  const location = useLocation();
+  const { id } = useParams() as { id?: string };
+  const isNew = !id || id === "new";
+  const navigate = useNavigate();
 
-  // 0) Global sürükle-bırak navigasyonunu engelle
-  useEffect(() => {
-    const prevent = (e: DragEvent | Event) => { e.preventDefault(); e.stopPropagation(); };
-    window.addEventListener("dragover", prevent, { passive: false });
-    window.addEventListener("drop", prevent,   { passive: false });
-    return () => {
-      window.removeEventListener("dragover", prevent as any);
-      window.removeEventListener("drop", prevent as any);
-    };
-  }, []);
-
-  const initialFromState = (location.state as any)?.initialValue as
-    | Partial<FormState> & { id?: string }
-    | undefined;
-
-  const { data: serverRow } = useGetCustomPageAdminByIdQuery(id!, {
-    skip: !isEdit,
-    refetchOnMountOrArgChange: true,
+  const { data: existing, isFetching: loadingExisting } = useGetCustomPageAdminByIdQuery(String(id ?? ""), {
+    skip: isNew,
   });
 
-  const [createPage, { isLoading: creating }] = useCreateCustomPageAdminMutation();
-  const [updatePage, { isLoading: updating }] = useUpdateCustomPageAdminMutation();
-  const [setFeatured, { isLoading: settingImage }] = useSetCustomPageFeaturedImageAdminMutation();
-  const [uploadAsset, { isLoading: uploading }] = useUploadStorageAssetAdminMutation();
+  // --- form state
+  const [title, setTitle] = React.useState("");
+  const [slug, setSlug] = React.useState("");
+  const [autoSlug, setAutoSlug] = React.useState(true);
 
-  const [form, setForm] = useState<FormState>({
-    title: initialFromState?.title ?? "",
-    slug: initialFromState?.slug ?? "",
-    content: initialFromState?.content ?? "",
-    meta_title: initialFromState?.meta_title ?? "",
-    meta_description: initialFromState?.meta_description ?? "",
-    is_published: initialFromState?.is_published ?? true,
-    featured_image: initialFromState?.featured_image ?? null,
-    featured_image_asset_id: null,
-    featured_image_alt: initialFromState?.featured_image_alt ?? "",
-  });
+  const [content, setContent] = React.useState("");
+  const [metaTitle, setMetaTitle] = React.useState("");
+  const [metaDesc, setMetaDesc] = React.useState("");
+  const [isPublished, setIsPublished] = React.useState(false);
 
-  // create akışında upload’tan dönen id/url’ü saklamak için
-  const pendingAssetRef = useRef<{ asset_id: string; url: string } | null>(null);
+  // image state
+  const [imageUrl, setImageUrl] = React.useState<string>("");
+  const [alt, setAlt] = React.useState<string>("");
+  const [coverId, setCoverId] = React.useState<string | undefined>(undefined);
+  const [stagedCoverId, setStagedCoverId] = React.useState<string | undefined>(undefined);
 
-  useEffect(() => {
-    if (!serverRow) return;
-    setForm((p) => ({
-      ...p,
-      title: p.title || serverRow.title || "",
-      slug: p.slug || serverRow.slug || "",
-      content: extractHtmlFromAny(serverRow.content),
-      meta_title: serverRow.meta_title ?? "",
-      meta_description: serverRow.meta_description ?? "",
-      is_published: !!serverRow.is_published,
-      featured_image: (serverRow as any).featured_image ?? null,
-      featured_image_asset_id: (serverRow as any).featured_image_asset_id ?? null,
-      featured_image_alt: (serverRow as any).featured_image_alt ?? "",
-    }));
-  }, [serverRow]);
+  // mutations
+  const [createOne, { isLoading: creating }] = useCreateCustomPageAdminMutation();
+  const [updateOne, { isLoading: updating }] = useUpdateCustomPageAdminMutation();
+  const [setCover, { isLoading: savingImg }] = useSetCustomPageImageAdminMutation();
+  const [uploadOne] = useCreateAssetAdminMutation();
 
-  // Quill
-  const quillRef = useRef<any>(null);
-  const htmlFileInputRef = useRef<HTMLInputElement>(null);
-  const quillImageInputRef = useRef<HTMLInputElement>(null);
-  const coverInputRef = useRef<HTMLInputElement>(null);
+  const saving = creating || updating;
 
-  // Quill toolbar (çalışan örnekle aynı mantık)
-  const quillModules = useMemo(
-    () => ({
-      toolbar: {
-        container: [
-          [{ header: [1, 2, 3, 4, false] }],
-          ["bold", "italic", "underline", "strike"],
-          [{ color: [] }, { background: [] }],
-          [{ align: [] }],
-          [{ list: "ordered" }, { list: "bullet" }],
-          ["blockquote", "code-block"],
-          ["link", "image"],
-          ["clean"],
-        ],
-        handlers: {
-          image: () => {
-            if (quillImageInputRef.current) quillImageInputRef.current.value = "";
-            quillImageInputRef.current?.click();
-          },
-        },
-      },
-      clipboard: { matchVisual: false },
-    }),
-    []
-  );
+  // --- hydrate
+  React.useEffect(() => {
+    if (!isNew && existing) {
+      setTitle(existing.title ?? "");
+      setSlug(existing.slug ?? "");
+      setContent(existing.content ?? "");
+      setMetaTitle(existing.meta_title ?? "");
+      setMetaDesc(existing.meta_description ?? "");
+      setIsPublished(!!existing.is_published);
 
-  const quillFormats = [
-    "header","bold","italic","underline","strike","color","background",
-    "align","list","bullet","blockquote","code-block","link","image",
-  ];
+      setImageUrl(existing.image_effective_url ?? existing.image_url ?? "");
+      setAlt(existing.alt ?? "");
 
-  // Storage helper (çalışan örnekle aynı imza: bucket göndermiyoruz)
-  const uploadToStorage = async (file: File, folder = "pages") => {
-    const res: any = await uploadAsset({ file, folder }).unwrap();
-    const { url, id } = pickUrlAndId(res);
-    if (!url) throw new Error("upload_failed_no_url");
-    return { url, id };
-  };
+      setCoverId(undefined);
+      setStagedCoverId(undefined);
+    }
+  }, [existing, isNew]);
 
-  const saving = creating || updating || uploading || settingImage;
+  React.useEffect(() => {
+    if (autoSlug) setSlug(slugifyTr(title));
+  }, [title, autoSlug]);
 
-  /* ---------- Kapak görseli yükleme (URL + id state’e) ---------- */
-  const handleCoverFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!validateImageFile(file, 10)) { if (coverInputRef.current) coverInputRef.current.value = ""; return; }
-    try {
-      const { url, id } = await uploadToStorage(file, isEdit ? `pages/${id}` : "pages/tmp");
-      setForm((s) => ({
-        ...s,
-        featured_image: url,
-        featured_image_asset_id: (id as string) || s.featured_image_asset_id,
-      }));
-      if (isEdit && id && url) {
-        await setFeatured({ id: id!, body: { asset_id: id, image_url: url } }).unwrap();
-      } else if (id && url) {
-        pendingAssetRef.current = { asset_id: id, url };
+  const onBack = () =>
+    window.history.length ? window.history.back() : navigate("/admin/pages");
+
+  // ✅ Navigasyonu deterministik yapan helper (microtask + hard fallback)
+  const gotoAdminRoot = React.useCallback(() => {
+    const to = "/admin";
+    // 1) microtask: SPA navigate
+    (typeof queueMicrotask === "function"
+      ? queueMicrotask
+      : (fn: () => void) => Promise.resolve().then(fn))(() => {
+      try {
+        navigate(to, { replace: true });
+      } catch {}
+    });
+    // 2) macrotask fallback: nadiren router stuck olursa tam sayfa geçiş
+    setTimeout(() => {
+      try {
+        if (window.location.pathname !== to) {
+          window.location.assign(to);
+        }
+      } catch {
+        // no-op
       }
-      toast.success("Kapak görseli yüklendi");
-    } catch (err: any) {
-      toast.error(err?.data?.error?.message ?? "Kapak görseli yüklenemedi");
-    } finally {
-      if (coverInputRef.current) coverInputRef.current.value = "";
+    }, 0);
+  }, [navigate]);
+
+  // --- payload builders
+  const buildCreatePayload = () => ({
+    title,
+    slug,
+    content,
+    meta_title: metaTitle || null,
+    meta_description: metaDesc || null,
+    is_published: isPublished,
+  });
+
+  const buildUpdatePayload = () => ({
+    title,
+    slug,
+    content,
+    meta_title: metaTitle || null,
+    meta_description: metaDesc || null,
+    is_published: isPublished,
+  });
+
+  // --- actions
+  const doCreate = async () => {
+    if (!title || !slug || !content) {
+      toast.error("Başlık, slug ve içerik zorunlu");
+      return;
+    }
+    try {
+      const created = await createOne(buildCreatePayload()).unwrap();
+      const newId = String(created.id);
+
+      // Opsiyonel: kapak
+      const assocId = coverId ?? stagedCoverId;
+      try {
+        if (assocId) {
+          await setCover({ id: newId, body: { asset_id: assocId, alt: alt || null } }).unwrap();
+        } else if (imageUrl) {
+          await setCover({ id: newId, body: { asset_id: null, image_url: imageUrl, alt: alt || null } }).unwrap();
+        }
+      } catch (e: any) {
+        toast.error(e?.data?.message || "Görsel ilişkilendirilemedi");
+      }
+
+      toast.success("Sayfa oluşturuldu");
+      gotoAdminRoot(); // ✅
+      return;
+    } catch (e: any) {
+      toast.error(e?.data?.message || "Oluşturma başarısız");
     }
   };
 
-  const removeImage = async (): Promise<void> => {
+  const doUpdate = async () => {
+    if (isNew || !id) return;
+    if (!title || !slug || !content) {
+      toast.error("Başlık, slug ve içerik zorunlu");
+      return;
+    }
     try {
-      setForm((p) => ({ ...p, featured_image: null, featured_image_asset_id: null }));
-      pendingAssetRef.current = null;
-      if (isEdit) {
-        await setFeatured({ id: id!, body: { asset_id: null } }).unwrap();
+      await updateOne({ id: String(id), body: buildUpdatePayload() }).unwrap();
+
+      const assocId = coverId ?? stagedCoverId;
+      if (assocId) {
+        await setCover({ id: String(id), body: { asset_id: assocId, alt: alt || null } }).unwrap();
+      } else if (imageUrl) {
+        await setCover({ id: String(id), body: { asset_id: null, image_url: imageUrl, alt: alt || null } }).unwrap();
       }
+
+      toast.success("Sayfa güncellendi");
+      gotoAdminRoot(); // ✅
+      return;
+    } catch (e: any) {
+      toast.error(e?.data?.message || "Güncelleme başarısız");
+    }
+  };
+
+  // --- upload & image helpers
+  const uploadCover = async (file: File): Promise<void> => {
+    try {
+      const res = await uploadOne({
+        file,
+        bucket: "custom_pages",
+        folder: `custom_pages/${id || Date.now()}/cover`,
+      }).unwrap();
+
+      const newCoverId = (res as any)?.id as string | undefined;
+      if (!newCoverId) {
+        toast.error("Yükleme cevabı beklenen formatta değil");
+        return;
+      }
+
+      setCoverId(newCoverId);
+      setStagedCoverId(newCoverId);
+
+      if (!isNew && id) {
+        await setCover({ id: String(id), body: { asset_id: newCoverId, alt: alt || null } }).unwrap();
+        toast.success("Kapak resmi güncellendi");
+      } else {
+        toast.success("Kapak yüklendi (kayıt sonrası ilişkilendirilecek)");
+      }
+    } catch (e: any) {
+      toast.error(e?.data?.message || "Kapak yüklenemedi");
+    }
+  };
+
+  const saveAltOnly = async () => {
+    if (isNew || !id) return;
+    try {
+      await setCover({ id: String(id), body: { alt: alt || null } }).unwrap();
+      toast.success("Alt metin güncellendi");
+    } catch (e: any) {
+      toast.error(e?.data?.message || "Alt metin güncellenemedi");
+    }
+  };
+
+  const removeCover = async () => {
+    if (isNew) {
+      setCoverId(undefined);
+      setStagedCoverId(undefined);
+      setImageUrl("");
+      toast.info("Görsel yerelden kaldırıldı (kayıt yok).");
+      return;
+    }
+    if (!id) return;
+    try {
+      await setCover({ id: String(id), body: { asset_id: null, image_url: null, alt: alt || null } }).unwrap();
+      setCoverId(undefined);
+      setStagedCoverId(undefined);
+      setImageUrl("");
       toast.success("Görsel kaldırıldı");
     } catch (e: any) {
-      toast.error(e?.data?.error?.message ?? "Kaldırma başarısız");
+      toast.error(e?.data?.message || "Görsel kaldırılamadı");
     }
   };
 
-  /* ---------- Quill içine görsel yükle & embed (URL) ---------- */
-  const handleQuillImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!validateImageFile(file, 5)) { if (quillImageInputRef.current) quillImageInputRef.current.value = ""; return; }
-    try {
-      const { url } = await uploadToStorage(file, "pages/content");
-      const quill = quillRef.current?.getEditor?.();
-      if (quill) {
-        quill.focus();
-        const range = quill.getSelection(true);
-        const index = range ? range.index : quill.getLength();
-        quill.insertEmbed(index, "image", url, "user");
-        quill.setSelection(index + 1, 0);
-      } else {
-        // Fallback: HTML içine ekle
-        setForm((p) => ({ ...p, content: (p.content || "") + `<p><img src="${url}" alt="" /></p>` }));
-      }
-      toast.success("Görsel eklendi");
-    } catch (err: any) {
-      toast.error(err?.data?.error?.message ?? "Görsel yüklenemedi");
-    } finally {
-      if (quillImageInputRef.current) quillImageInputRef.current.value = "";
-    }
-  };
-
-  const normalizedSlug = useMemo(
-    () => slugify(form.slug || form.title),
-    [form.slug, form.title]
-  );
-
-  /* ---------- Kaydet ---------- */
-  const save = async (): Promise<void> => {
-    if (!form.title.trim()) { toast.error("Başlık gerekli"); return; }
-    const normalized = slugify(form.slug || form.title);
-    if (!normalized.trim()) { toast.error("Slug gerekli"); return; }
-
-    const body: UpsertCustomPageBody = {
-      title: form.title.trim(),
-      slug: normalized,
-      content: form.content ?? "",
-      is_published: !!form.is_published,
-      meta_title: form.meta_title ? form.meta_title : null,
-      meta_description: form.meta_description ? form.meta_description : null,
-      // create akışında kapak bilgilerini body’ye gönder
-      ...( !isEdit && pendingAssetRef.current
-        ? { featured_image: pendingAssetRef.current.url, featured_image_asset_id: pendingAssetRef.current.asset_id }
-        : {} ),
-    };
-
-    try {
-      if (isEdit) {
-        await updatePage({ id: id!, body }).unwrap();
-        toast.success("Sayfa güncellendi");
-      } else {
-        await createPage(body).unwrap();
-        toast.success("Yeni sayfa eklendi");
-      }
-      nav("/admin/pages");
-    } catch (e: any) {
-      const code = e?.data?.error?.message;
-      if (code === "slug_already_exists") { toast.error("Bu slug zaten kullanılıyor"); return; }
-      toast.error(e?.data?.error?.message || e?.error || "Kaydetme başarısız");
-    }
-  };
-
-  /* ---------- HTML içe/dışa aktar ---------- */
-  const onImportHtmlFile = (file: File): void => {
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const raw = (ev.target?.result as string) || "";
-      setForm((p) => ({ ...p, content: extractHtmlFromAny(raw) }));
-      toast.success("HTML içeriği içe aktarıldı");
-    };
-    reader.readAsText(file, "utf-8");
-  };
-
-  const exportHtml = (): void => {
-    const blob = new Blob([form.content || ""], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const name = (normalizedSlug || "sayfa") + ".html";
-    a.href = url; a.download = name; a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const metaTitleCount = form.meta_title.trim().length;
-  const metaDescCount = form.meta_description.trim().length;
-  const cntClass = (ok: boolean) => (ok ? "text-emerald-600" : "text-amber-600");
+  if (!isNew && loadingExisting) {
+    return <div className="p-4 text-sm text-gray-500">Yükleniyor…</div>;
+  }
 
   return (
-    <main
-      className="mx-auto max-w-5xl px-4 py-6 bg-white"
-      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); }}
-    >
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{isEdit ? "Sayfa Düzenle" : "Yeni Sayfa"}</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => nav(-1)} disabled={saving}>Geri</Button>
-          <Button onClick={save} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
-            {isEdit ? "Güncelle" : "Oluştur"}
-          </Button>
-        </div>
-      </div>
-
-      <div className="rounded-xl border bg-card p-5 shadow-sm">
-        {/* Başlık / Slug */}
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div>
-            <Label>Başlık *</Label>
-            <Input
-              className="mt-1"
-              value={form.title}
-              onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
-              placeholder="Örn: Hakkımızda"
-            />
-          </div>
-          <div>
-            <Label>Slug *</Label>
-            <Input
-              className="mt-1"
-              value={form.slug}
-              onChange={(e) => setForm((p) => ({ ...p, slug: e.target.value }))}
-              placeholder="hakkimizda"
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Son değer: <code>/{normalizedSlug}</code>
-            </p>
-          </div>
-        </div>
-
-        {/* SEO */}
-        <div className="mt-6 grid gap-6 sm:grid-cols-2">
-          <div>
-            <div className="flex items-center justify-between">
-              <Label>Meta Title</Label>
-              <span className={`text-[11px] ${cntClass(metaTitleCount <= 60)}`}>
-                {metaTitleCount}/60
-              </span>
-            </div>
-            <Input
-              className="mt-1"
-              value={form.meta_title}
-              onChange={(e) => setForm((p) => ({ ...p, meta_title: e.target.value }))}
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between">
-              <Label>Meta Description</Label>
-              <span className={`text-[11px] ${cntClass(metaDescCount <= 160)}`}>
-                {metaDescCount}/160
-              </span>
-            </div>
-            <Input
-              className="mt-1"
-              value={form.meta_description}
-              onChange={(e) => setForm((p) => ({ ...p, meta_description: e.target.value }))}
-            />
-          </div>
-        </div>
-
-        {/* Yayın */}
-        <div className="mt-6 flex items-center gap-3">
-          <Switch
-            checked={form.is_published}
-            onCheckedChange={(v) => setForm((p) => ({ ...p, is_published: v }))}
-            id="pg-active"
-          />
-          <Label htmlFor="pg-active" className="text-sm text-muted-foreground">Aktif</Label>
-        </div>
-
-        {/* Kapak Görseli (çalışan örneğe benzer) */}
-        <div className="mt-8">
-          <Label>Kapak Görseli</Label>
-
-          {!form.featured_image ? (
-            <div className="grid gap-3 sm:grid-cols-2 mt-2">
-              <div className="space-y-2">
-                <Input
-                  placeholder="https://... (opsiyonel)"
-                  value={form.featured_image || ""}
-                  onChange={(e) =>
-                    setForm((s) => ({ ...s, featured_image: e.target.value || null }))
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  URL girebilir veya aşağıdan dosya yükleyebilirsiniz.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <input
-                  ref={coverInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleCoverFileChange}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  disabled={uploading}
-                  onClick={() => {
-                    if (coverInputRef.current) coverInputRef.current.value = "";
-                    coverInputRef.current?.click();
-                  }}
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  {uploading ? "Yükleniyor..." : "Dosyadan Yükle"}
-                </Button>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    placeholder="Asset ID (opsiyonel)"
-                    value={form.featured_image_asset_id || ""}
-                    onChange={(e) =>
-                      setForm((s) => ({ ...s, featured_image_asset_id: e.target.value || null }))
-                    }
-                  />
-                  <Input
-                    placeholder="Alt metin (opsiyonel)"
-                    value={form.featured_image_alt}
-                    onChange={(e) =>
-                      setForm((s) => ({ ...s, featured_image_alt: e.target.value }))
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-3 rounded-lg border bg-white p-4">
-              <p className="mb-3 text-sm font-medium text-gray-700">Kapak Görseli</p>
-              <div className="relative max-w-sm">
-                <div className="aspect-video overflow-hidden rounded-md border bg-muted">
-                  <img
-                    src={form.featured_image}
-                    alt={form.featured_image_alt || ""}
-                    className="h-full w-full object-cover"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = "https://placehold.co/800x450?text=Image"; }}
-                  />
-                </div>
-
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="icon"
-                  aria-label="Görseli sil"
-                  title="Sil"
-                  onClick={removeImage}
-                  className="absolute right-2 top-2 h-8 w-8 rounded-full p-0 shadow-lg ring-2 ring-white hover:scale-105 transition"
-                  disabled={uploading || settingImage}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="mt-3 grid grid-cols-2 gap-2 max-w-sm">
-                <Input
-                  placeholder="Asset ID (opsiyonel)"
-                  value={form.featured_image_asset_id || ""}
-                  onChange={(e) =>
-                    setForm((s) => ({ ...s, featured_image_asset_id: e.target.value || null }))
-                  }
-                />
-                <Input
-                  placeholder="Alt metin (opsiyonel)"
-                  value={form.featured_image_alt}
-                  onChange={(e) => setForm((s) => ({ ...s, featured_image_alt: e.target.value }))}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Editör Aksiyonları */}
-        <div className="mt-8 flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => htmlFileInputRef.current?.click()}>
-            <Upload className="mr-2 h-4 w-4" /> HTML İçe Aktar
-          </Button>
-          <input
-            ref={htmlFileInputRef}
-            type="file" accept=".html,.htm,.txt" className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onImportHtmlFile(f);
-              e.currentTarget.value = "";
-            }}
-          />
-          <Button type="button" variant="outline" size="sm" onClick={exportHtml}>
-            <Download className="mr-2 h-4 w-4" /> HTML Dışa Aktar
-          </Button>
-
-          <div className="mx-2 h-5 w-px bg-gray-200" />
-
-          {/* Quill için gizli file input */}
-          <input
-            ref={quillImageInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleQuillImageFileChange}
-          />
-
+    <div className="mx-auto max-w-5xl space-y-6">
+      {/* Header actions */}
+      <div className="flex items-center justify-between">
+        <Button type="button" variant="secondary" onClick={onBack} className="gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Geri
+        </Button>
+        {isNew ? (
           <Button
             type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (quillImageInputRef.current) quillImageInputRef.current.value = "";
-              quillImageInputRef.current?.click();
-            }}
+            onClick={doCreate}
+            disabled={saving}
+            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
           >
-            <ImagePlus className="mr-2 h-4 w-4" /> Editöre Görsel
+            <Save className="h-4 w-4" />
+            Oluştur
           </Button>
-        </div>
+        ) : (
+          <Button
+            type="button"
+            onClick={doUpdate}
+            disabled={saving}
+            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Save className="h-4 w-4" />
+            Kaydet
+          </Button>
+        )}
+      </div>
 
-        {/* Editor / Preview / HTML */}
-        <Tabs defaultValue="edit" className="mt-3">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="edit" className="flex items-center gap-2">
-              <PencilLine className="h-4 w-4" /> Editör
-            </TabsTrigger>
-            <TabsTrigger value="preview" className="flex items-center gap-2">
-              <Eye className="h-4 w-4" /> Önizleme
-            </TabsTrigger>
-            <TabsTrigger value="html" className="flex items-center gap-2">
-              <Code className="h-4 w-4" /> HTML
-            </TabsTrigger>
-          </TabsList>
+      {/* Temel Bilgiler */}
+      <Section title="Temel Bilgiler">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Başlık</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Sayfa başlığı" />
+          </div>
 
-          <TabsContent value="edit" className="mt-3">
-            <div className="rounded-lg border border-gray-200 bg-white">
-              <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Editör yükleniyor…</div>}>
-                <ReactQuill
-                  ref={quillRef as any}
-                  value={form.content}
-                  onChange={(html: string) => setForm((p) => ({ ...p, content: html }))}
-                  modules={quillModules}
-                  formats={quillFormats}
-                  theme="snow"
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Label>Slug</Label>
+              <label className="flex items-center gap-2 text-xs text-gray-500">
+                <Switch
+                  checked={autoSlug}
+                  onCheckedChange={setAutoSlug}
+                  className="data-[state=checked]:bg-indigo-600"
                 />
-              </Suspense>
+                otomatik
+              </label>
             </div>
-          </TabsContent>
+            <Input
+              value={slug}
+              onChange={(e) => {
+                setSlug(e.target.value);
+                setAutoSlug(false);
+              }}
+              placeholder="sayfa-slug"
+            />
+          </div>
 
-          <TabsContent value="preview" className="mt-3">
-            <div className="prose max-w-none rounded-lg border border-gray-200 bg-white p-4">
-              <div
-                dangerouslySetInnerHTML={{
-                  __html: form.content || "<p><em>Önizleme için içerik girin…</em></p>",
-                }}
+          <div className="space-y-2">
+            <Label>Yayında</Label>
+            <div className="flex h-10 items-center">
+              <Switch
+                checked={isPublished}
+                onCheckedChange={setIsPublished}
+                className="data-[state=checked]:bg-emerald-600"
               />
             </div>
-          </TabsContent>
+          </div>
 
-          <TabsContent value="html" className="mt-3">
-            <Textarea
-              className="min-h-[260px]"
-              value={form.content}
-              onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))}
-              spellCheck={false}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">Bu alanda doğrudan HTML düzenleyebilirsiniz.</p>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </main>
+          <div className="space-y-2">
+            <Label>Meta Title</Label>
+            <Input value={metaTitle} onChange={(e) => setMetaTitle(e.target.value)} placeholder="Opsiyonel" />
+          </div>
+
+          <div className="sm:col-span-2 space-y-2">
+            <Label>Meta Description</Label>
+            <Textarea rows={3} value={metaDesc} onChange={(e) => setMetaDesc(e.target.value)} placeholder="Opsiyonel" />
+          </div>
+        </div>
+      </Section>
+
+      {/* İçerik */}
+      <Section title="İçerik (HTML)">
+        <div className="space-y-2">
+          <ReactQuill theme="snow" value={content} onChange={setContent} />
+        </div>
+      </Section>
+
+      {/* Kapak */}
+      <CoverImageSection
+        title="Kapak Görseli"
+        coverId={coverId}
+        stagedCoverId={stagedCoverId}
+        imageUrl={imageUrl}
+        alt={alt}
+        saving={savingImg}
+        onPickFile={uploadCover}
+        onRemove={removeCover}
+        onUrlChange={setImageUrl}
+        onAltChange={setAlt}
+        onSaveAlt={!isNew && !!id ? saveAltOnly : undefined}
+        accept="image/*"
+      />
+    </div>
   );
 }

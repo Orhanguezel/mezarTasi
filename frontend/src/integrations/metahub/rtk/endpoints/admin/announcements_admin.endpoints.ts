@@ -6,18 +6,13 @@ import type { AnnouncementRow, AnnouncementView } from "../../../db/types/announ
 
 const toBool = (x: any) => x === true || x === 1 || x === "1" || x === "true";
 
-// BE (admin) tarafı content'i HTML string olarak DÖNER.
-// Yine de geriye dönük bir güvenlik için JSON gelirse html'i çekiyoruz.
+// BE çoğunlukla content’i DÜZ HTML döner. Nadiren {"html": "..."} gelebilir → html’i çek.
 function extractHtmlAdmin(content?: unknown): string {
   if (typeof content === "string") {
-    // çoğunlukla düz HTML
     try {
-      // nadiren {"html": "..."} gelirse
       const maybe = JSON.parse(content);
       if (maybe && typeof (maybe as any).html === "string") return (maybe as any).html;
-    } catch {
-      // düz HTML ise parse hata verir → olduğu gibi kullan
-    }
+    } catch {}
     return content;
   }
   if (content && typeof content === "object" && typeof (content as any).html === "string") {
@@ -44,9 +39,6 @@ export type AdminAnnouncementsListQuery = Partial<{
   order: "asc" | "desc";
 }>;
 
-// Admin create/update için BE'nin beklediği gövde:
-//   content: string (HTML)
-// Diğer alanlar opsiyonel patch olabilir.
 export type AnnouncementAdminUpsertInput = Partial<
   Pick<
     AnnouncementRow,
@@ -70,11 +62,16 @@ export type AnnouncementAdminUpsertInput = Partial<
     | "meta_description"
   >
 > & {
-  content?: string; // DÜZ HTML (BE böyle istiyor)
+  content?: string;
   is_active?: boolean | 0 | 1 | "0" | "1" | "true" | "false";
   is_published?: boolean | 0 | 1 | "0" | "1" | "true" | "false";
   published_at?: string | null;
   expires_at?: string | null;
+
+  // ✅ Görsel alanları (isimler birebir)
+  image_url?: string | null;
+  storage_asset_id?: string | null;
+  alt?: string | null;
 };
 
 export const adminAnnouncementsApi = baseApi.injectEndpoints({
@@ -84,6 +81,7 @@ export const adminAnnouncementsApi = baseApi.injectEndpoints({
       transformResponse: (res: unknown): AnnouncementView[] =>
         Array.isArray(res) ? (res as AnnouncementRow[]).map(toView) : [],
       providesTags: () => [{ type: "Announcements" as const, id: "ADMIN_LIST" }],
+      keepUnusedDataFor: 60,
     }),
 
     getAnnouncementAdminById: b.query<AnnouncementView, string>({
@@ -93,25 +91,13 @@ export const adminAnnouncementsApi = baseApi.injectEndpoints({
     }),
 
     createAnnouncementAdmin: b.mutation<AnnouncementView, AnnouncementAdminUpsertInput>({
-      // BE doğrudan { ...fields, content: "<p>...</p>" } bekler
-      query: (payload) => ({
-        url: "/admin/announcements",
-        method: "POST",
-        body: payload,
-      }),
+      query: (payload) => ({ url: "/admin/announcements", method: "POST", body: payload }),
       transformResponse: (res: unknown): AnnouncementView => toView(res as AnnouncementRow),
       invalidatesTags: [{ type: "Announcements" as const, id: "ADMIN_LIST" }],
     }),
 
-    updateAnnouncementAdmin: b.mutation<
-      AnnouncementView,
-      { id: string; patch: AnnouncementAdminUpsertInput }
-    >({
-      query: ({ id, patch }) => ({
-        url: `/admin/announcements/${id}`,
-        method: "PATCH",
-        body: patch,
-      }),
+    updateAnnouncementAdmin: b.mutation<AnnouncementView, { id: string; patch: AnnouncementAdminUpsertInput }>({
+      query: ({ id, patch }) => ({ url: `/admin/announcements/${id}`, method: "PATCH", body: patch }),
       transformResponse: (res: unknown): AnnouncementView => toView(res as AnnouncementRow),
       invalidatesTags: (r, e, args) => [
         { type: "Announcements" as const, id: "ADMIN_LIST" },
@@ -130,6 +116,23 @@ export const adminAnnouncementsApi = baseApi.injectEndpoints({
       transformResponse: () => ({ ok: true }),
       invalidatesTags: [{ type: "Announcements" as const, id: "ADMIN_LIST" }],
     }),
+
+    // ✅ SINGLE IMAGE SET (storage pattern)
+    setAnnouncementImageAdmin: b.mutation<
+      AnnouncementView,
+      { id: string; body: { storage_asset_id?: string | null; image_url?: string | null; alt?: string | null } }
+    >({
+      query: ({ id, body }) => ({
+        url: `/admin/announcements/${id}/image`,
+        method: "PATCH",
+        body,
+      }),
+      transformResponse: (res: unknown): AnnouncementView => toView(res as AnnouncementRow),
+      invalidatesTags: (r, e, arg) => [
+        { type: "Announcements" as const, id: "ADMIN_LIST" },
+        { type: "Announcement" as const, id: arg.id },
+      ],
+    }),
   }),
   overrideExisting: true,
 });
@@ -141,4 +144,5 @@ export const {
   useUpdateAnnouncementAdminMutation,
   useDeleteAnnouncementAdminMutation,
   useReorderAnnouncementsAdminMutation,
+  useSetAnnouncementImageAdminMutation, // 👈
 } = adminAnnouncementsApi;

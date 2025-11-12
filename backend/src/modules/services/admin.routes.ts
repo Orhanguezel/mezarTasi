@@ -1,15 +1,16 @@
-// src/modules/services/admin.routes.ts
+// =============================================================
+// FILE: src/modules/services/admin.routes.ts   (ADMIN ROUTES)
+// =============================================================
 import type { FastifyInstance } from "fastify";
-import { z } from "zod";
+import { requireAuth } from "@/common/middleware/auth";
+import { requireAdmin } from "@/common/middleware/roles";
 
-import {
-  serviceAdminListQuerySchema,
-  serviceCreateSchema,
-  serviceUpdateSchema,
-  serviceReorderSchema,
-  serviceSetStatusSchema,
-  serviceAttachImageSchema,
-} from "./validation.js";
+import type {
+  ServiceAdminListQuery,
+  ServiceCreateBody,
+  ServiceUpdateBody,
+  ServiceSetImageBody,
+} from "./validation";
 
 import {
   adminListServices,
@@ -19,75 +20,65 @@ import {
   adminDeleteService,
   adminReorderServices,
   adminSetServiceStatus,
-  adminAttachServiceImage,
-  adminDetachServiceImage,
-} from "./admin.controller.js";
+  adminSetServiceImage,
+} from "./admin.controller";
 
-// Tipler (controller ile aynı şemalardan derive)
-type AdminListQuery = z.infer<typeof serviceAdminListQuerySchema>;
-type CreateBody = z.infer<typeof serviceCreateSchema>;
-type UpdateBody = z.infer<typeof serviceUpdateSchema>;
-type ReorderBody = z.infer<typeof serviceReorderSchema>;
-type SetStatusBody = z.infer<typeof serviceSetStatusSchema>;
-type AttachImageBody = z.infer<typeof serviceAttachImageSchema>;
-type IdParams = { id: string };
+export async function registerServicesAdmin(app: FastifyInstance) {
+  const BASE = "/services";
 
-// Bu router muhtemelen /admin prefix’iyle register ediliyor.
-// O yüzden BASE = "/services" bırakıyoruz → gerçek path: /admin/services
-const BASE = "/services";
-
-export async function registerServicesAdmin(fastify: FastifyInstance) {
   // LIST
-  fastify.get<{ Querystring: AdminListQuery }>(
+  app.get<{ Querystring: ServiceAdminListQuery }>(
     `${BASE}`,
+    { preHandler: [requireAuth, requireAdmin] },
     adminListServices
   );
 
   // GET BY ID
-  fastify.get<{ Params: IdParams }>(
+  app.get<{ Params: { id: string } }>(
     `${BASE}/:id`,
+    { preHandler: [requireAuth, requireAdmin] },
     adminGetService
   );
 
   // CREATE
-  fastify.post<{ Body: CreateBody }>(
+  app.post<{ Body: ServiceCreateBody }>(
     `${BASE}`,
+    { preHandler: [requireAuth, requireAdmin] },
     adminCreateService
   );
 
   // UPDATE
-  fastify.patch<{ Params: IdParams; Body: UpdateBody }>(
+  app.patch<{ Params: { id: string }; Body: ServiceUpdateBody }>(
     `${BASE}/:id`,
+    { preHandler: [requireAuth, requireAdmin] },
     adminUpdateService
   );
 
   // DELETE
-  fastify.delete<{ Params: IdParams }>(
+  app.delete<{ Params: { id: string } }>(
     `${BASE}/:id`,
+    { preHandler: [requireAuth, requireAdmin] },
     adminDeleteService
   );
 
   // REORDER
-  fastify.post<{ Body: ReorderBody }>(
+  app.post<{ Body: { ids: string[] } }>(
     `${BASE}/reorder`,
+    { preHandler: [requireAuth, requireAdmin] },
     adminReorderServices
   );
 
   // SET STATUS
-  fastify.post<{ Params: IdParams; Body: SetStatusBody }>(
+  app.post<{ Params: { id: string }; Body: { is_active: boolean } }>(
     `${BASE}/:id/status`,
+    { preHandler: [requireAuth, requireAdmin] },
     adminSetServiceStatus
   );
 
-  // ATTACH IMAGE
-  fastify.post<{ Params: IdParams; Body: AttachImageBody }>(
-    `${BASE}/:id/attach-image`,
-    adminAttachServiceImage
-  );
-
-  // DETACH IMAGE
-  fastify.post<{ Params: IdParams }>(
-    `${BASE}/:id/detach-image`,
-    adminDetachServiceImage
+  // ✅ SET IMAGE (storage ile birebir sözleşme)
+  app.patch<{ Params: { id: string }; Body: ServiceSetImageBody }>(
+    `${BASE}/:id/image`,
+    { preHandler: [requireAuth, requireAdmin] },
+    adminSetServiceImage
   );
 }

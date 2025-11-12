@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/customPages/router.ts  (PUBLIC ROUTES)
+// =============================================================
 import type { FastifyInstance } from "fastify";
 import { listPages, getPage, getPageBySlug } from "./controller";
 

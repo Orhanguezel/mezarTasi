@@ -8,7 +8,7 @@ import { useEffect, useMemo } from "react";
 import {
   useListSlidesPublicQuery,
   useGetSlidePublicQuery,
-} from "@/integrations/metahub/rtk/endpoints/slider.endpoints";
+} from "@/integrations/metahub/rtk/endpoints/slider_public.endpoints";
 import type {
   SliderPublic,
   SliderListParams,
@@ -41,10 +41,10 @@ const toSlideData = (s: SliderPublic | any): SlideData => {
   const description = String(s?.description ?? "");
   const image = String(
     s?.image ??
-      s?.image_effective_url ??
-      s?.asset_url ??
-      s?.image_url ??
-      PLACEHOLDER_IMG
+    s?.image_effective_url ??
+    s?.asset_url ??
+    s?.image_url ??
+    PLACEHOLDER_IMG
   );
   const buttonText = String(s?.buttonText ?? "İncele");
   const buttonLink = String(s?.buttonLink ?? "contact");

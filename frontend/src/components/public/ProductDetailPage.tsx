@@ -9,14 +9,25 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "..
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { ArrowLeft, Star, ChevronLeft, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   useGetProductQuery,
   useListProductsQuery,
+  useListProductFaqsQuery,
+  useListProductSpecsQuery,
+  useListProductReviewsQuery,
 } from "@/integrations/metahub/rtk/endpoints/products.endpoints";
+
+import { useListSiteSettingsQuery } from "@/integrations/metahub/rtk/endpoints/site_settings.endpoints";
+import { useCreateContactMutation } from "@/integrations/metahub/rtk/endpoints/contacts.endpoints";
+import type { ContactCreateInput } from "@/integrations/metahub/db/types/contacts";
 
 import {
   type Product as ApiProduct,
+  type ProductReviewRow,
+  type ProductSpecRow,
+  type ProductFaqRow,
 } from "@/integrations/metahub/db/types/products.rows";
 
 // ---- Session mapping: numericKey <-> realId (uuid/slug) ----
@@ -24,7 +35,6 @@ const IDMAP_KEY = "mh_public_product_idmap_v1";
 type IdMap = Record<string, string>; // numericKey(string) -> realId
 
 function hashToNumericKey(s: string): number {
-  // simple 32-bit hash, always >= 1
   let h = 0;
   for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
   h = Math.abs(h);
@@ -52,7 +62,7 @@ function readRealId(numericKey: number | string): string | null {
   }
 }
 
-// ---- specs normalize (unknown -> Record<string,string>)
+// ---- specs normalize
 function normalizeSpecs(specs: unknown): Record<string, string> {
   if (!specs) return {};
   if (typeof specs === "string") {
@@ -113,14 +123,51 @@ function toUiProduct(p: ApiProduct): UiProduct {
 }
 
 interface ProductDetailPageProps {
-  // Parent halen number gönderiyor; biz numericKey -> realId map’inden çözüyoruz.
   productId: number;
   onNavigate: (page: string) => void;
   onProductDetail?: (productId: number) => void;
 }
 
+/* ---------- helpers: site settings ---------- */
+type SiteSettingLike = { key?: string; name?: string; value?: string | null };
+function toSettingsMap(data: unknown): Record<string, string> {
+  if (!data) return {};
+  if (Array.isArray(data)) {
+    const m: Record<string, string> = {};
+    for (const it of data as SiteSettingLike[]) {
+      const k = (it?.key ?? it?.name ?? "").toString();
+      const v = (it?.value ?? "").toString();
+      if (k) m[k] = v;
+    }
+    return m;
+  }
+  if (typeof data === "object") return data as Record<string, string>;
+  return {};
+}
+function sanitizePhoneDigits(s: string): string {
+  return (s || "").replace(/[^\d]/g, "");
+}
+function buildTelHref(raw: string): string {
+  const trimmed = (raw || "").replace(/\s+/g, "");
+  if (trimmed.startsWith("+")) return `tel:${trimmed}`;
+  const digits = sanitizePhoneDigits(trimmed);
+  let intl = digits;
+  if (digits.startsWith("90")) intl = digits;
+  else if (digits.startsWith("0")) intl = `9${digits}`; // -> 90...
+  else if (digits.length === 10) intl = `90${digits}`;
+  return `tel:+${intl}`;
+}
+function buildWhatsappHref(raw: string): string {
+  const digits = sanitizePhoneDigits(raw);
+  let intl = digits;
+  if (digits.startsWith("90")) intl = digits;
+  else if (digits.startsWith("0")) intl = `9${digits}`;
+  else if (digits.length === 10) intl = `90${digits}`;
+  return `https://wa.me/${intl}`;
+}
+
 export function ProductDetailPage({ productId, onNavigate, onProductDetail }: ProductDetailPageProps) {
-  // ----- UI state (dokunma, slider, form vs.)
+  // ----- UI state
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
@@ -133,25 +180,31 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
   const [similarTouchEnd, setSimilarTouchEnd] = useState(0);
   const [isSimilarAutoPlaying, setIsSimilarAutoPlaying] = useState(true);
 
-  const [formData, setFormData] = useState({ name: "", phone: "", cemetery: "", email: "", message: "" });
+  // ---- Contact form (ContactPage ile aynı patern)
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    subject: "",
+    message: "",
+    website: "", // honeypot
+    cemetery: "", // sadece UI, BE'ye gönderilmiyor
+  });
+  const [createContact, { isLoading: contactSaving }] = useCreateContactMutation();
 
   const itemsPerView = { mobile: 1, tablet: 2, desktop: 4 } as const;
 
-  // ----- Müşteri yorumları (statik)
-  const customerReviews = useMemo(
-    () => [
-      { id: 1, name: "Mehmet KARATAŞ", location: "İhlamurkuyu Mezarlığı", rating: 5, comment: "Çok kaliteli işçilik ve malzeme kullanılmış. Personel ilgiliydi." },
-      { id: 2, name: "Ayşe YILMAZ", location: "Zincirlikuyu Mezarlığı", rating: 5, comment: "Zamanında teslim, güzel işçilik. Memnun kaldık." },
-      { id: 3, name: "Ali DEMİR", location: "Karacaahmet Mezarlığı", rating: 5, comment: "Profesyonel hizmet ve uygun fiyat." },
-    ],
-    []
-  );
+  // ----- Site settings
+  const { data: siteSettingsData } = useListSiteSettingsQuery(undefined);
+  const settings = useMemo(() => toSettingsMap(siteSettingsData), [siteSettingsData]);
+  const contactPhoneRaw = settings["contact_phone_tel"] || "0533 483 89 71";
+  const telHref = buildTelHref(contactPhoneRaw);
+  const waHref = buildWhatsappHref(contactPhoneRaw);
 
-  // ----- Numeric -> real id/slug çöz
+  // ----- Numeric -> real id/slug
   const mappedId = readRealId(productId);
   const shouldUseListFallback = !mappedId && Number.isFinite(productId);
 
-  // Liste fallback
   const { data: fallbackList } = useListProductsQuery(undefined, {
     skip: !shouldUseListFallback,
   });
@@ -179,11 +232,21 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
 
   const product = useMemo(() => (detailData ? toUiProduct(detailData) : null), [detailData]);
 
-  // ----- Popüler: rating desc
+  // --- Ürün geldikten sonra ContactPage ile uyumlu default subject yaz
+  useEffect(() => {
+    if (product && !formData.subject.trim()) {
+      setFormData((p) => ({
+        ...p,
+        subject: `Ürün bilgi talebi: ${product.title || ""}`.trim(),
+      }));
+    }
+  }, [product]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ----- Popüler
   const { data: popularRes } = useListProductsQuery({ is_active: 1, sort: "rating", order: "desc", limit: 8 });
   const popularProducts = useMemo(() => (Array.isArray(popularRes) ? popularRes.map(toUiProduct) : []), [popularRes]);
 
-  // ----- Benzer: aynı kategori (ürün geldikten sonra)
+  // ----- Benzer
   const { data: similarRes } = useListProductsQuery(
     product ? { is_active: 1, category_id: product.category_id, limit: 24 } : undefined,
     { skip: !product }
@@ -193,12 +256,42 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
     return product ? arr.filter((p) => p.id !== product.id).slice(0, 8) : [];
   }, [similarRes, product]);
 
-  // ----- Autoplay (yorumlar)
+  // ----- Reviews / FAQs / Specs
+  const { data: reviewsData = [], isFetching: reviewsLoading } = useListProductReviewsQuery(
+    product ? { product_id: product.id, only_active: 1 } : { product_id: "" as any, only_active: 1 },
+    { skip: !product }
+  );
+  const { data: faqsData = [], isFetching: faqsLoading } = useListProductFaqsQuery(
+    product ? { product_id: product.id, only_active: 1 } : { product_id: "" as any, only_active: 1 },
+    { skip: !product }
+  );
+  const { data: specsRows = [], isFetching: specsLoading } = useListProductSpecsQuery(
+    product ? { product_id: product.id } : { product_id: "" as any },
+    { skip: !product }
+  );
+
+  const reviews: ProductReviewRow[] = Array.isArray(reviewsData) ? reviewsData : [];
+  const faqs: ProductFaqRow[] = Array.isArray(faqsData) ? faqsData : [];
+
+  const specsFromRows: Record<string, string> = useMemo(() => {
+    const out: Record<string, string> = {};
+    (specsRows as ProductSpecRow[]).forEach((s) => {
+      if (s?.name) out[s.name] = s.value ?? "";
+    });
+    return out;
+  }, [specsRows]);
+
+  const specsMerged = useMemo(() => {
+    const base = { ...normalizeSpecs(product?.specifications) };
+    return { ...base, ...specsFromRows };
+  }, [product?.specifications, specsFromRows]);
+
+  // ----- Autoplay (yorumlar) — 1'den fazlaysa çalışsın
   useEffect(() => {
-    if (!isAutoPlaying || customerReviews.length === 0) return;
-    const t = setInterval(() => setCurrentReviewIndex((i) => (i + 1) % customerReviews.length), 5000);
+    if (!isAutoPlaying || reviews.length <= 1) return;
+    const t = setInterval(() => setCurrentReviewIndex((i) => (i + 1) % reviews.length), 5000);
     return () => clearInterval(t);
-  }, [isAutoPlaying, customerReviews.length]);
+  }, [isAutoPlaying, reviews.length]);
 
   // ----- Autoplay (benzer)
   useEffect(() => {
@@ -210,17 +303,16 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
     return () => clearInterval(t);
   }, [isSimilarAutoPlaying, similarProducts.length, itemsPerView.desktop]);
 
-  // ----- Touch handlers (yorumlar) — TS2532 safe
+  // ----- Touch handlers
   const onTouchStart = (e: React.TouchEvent) => setTouchStart(e.targetTouches?.[0]?.clientX ?? 0);
   const onTouchMove = (e: React.TouchEvent) => setTouchEnd(e.targetTouches?.[0]?.clientX ?? 0);
   const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
+    if (!touchStart || !touchEnd || reviews.length === 0) return;
     const dist = touchStart - touchEnd;
-    if (dist > 50) setCurrentReviewIndex((i) => (i + 1) % customerReviews.length);
-    if (dist < -50) setCurrentReviewIndex((i) => (i - 1 + customerReviews.length) % customerReviews.length);
+    if (dist > 50) setCurrentReviewIndex((i) => (i + 1) % reviews.length);
+    if (dist < -50) setCurrentReviewIndex((i) => (i - 1 + reviews.length) % reviews.length);
   };
 
-  // ----- Touch handlers (benzer) — TS2532 safe
   const onSimilarStart = (e: React.TouchEvent) => setSimilarTouchStart(e.targetTouches?.[0]?.clientX ?? 0);
   const onSimilarMove = (e: React.TouchEvent) => setSimilarTouchEnd(e.targetTouches?.[0]?.clientX ?? 0);
   const onSimilarEnd = () => {
@@ -257,13 +349,65 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
   };
   const handleSimilarClick = (id: string) => goDetailByRealId(id);
 
-  // ----- Form
-  const onInput = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
-  const onSubmit = (e: React.FormEvent) => {
+  // ----- Contact form (ContactPage paternine göre)
+  const onContactInput = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((p) => ({ ...p, [name]: value }));
+  };
+
+  const canSubmit =
+    formData.name.trim().length > 1 &&
+    formData.email.trim().length > 5 &&
+    formData.phone.trim().length > 5 &&
+    formData.subject.trim().length > 0 &&
+    formData.message.trim().length > 0;
+
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert("Talebiniz alındı! En kısa sürede size dönüş yapacağız.");
-    setFormData({ name: "", phone: "", cemetery: "", email: "", message: "" });
+    if (!canSubmit) {
+      toast.error("Lütfen tüm gerekli alanları doldurunuz.");
+      return;
+    }
+
+    // Mesaja kullanıcıdan gelen ek alanları iliştir (ör. cemetery)
+    const messageFinal = [
+      formData.message.trim(),
+      formData.cemetery.trim() ? `\n\nMezarlık: ${formData.cemetery.trim()}` : "",
+      product?.title ? `\nİlgili Ürün: ${product.title}` : "",
+    ]
+      .join("")
+      .trim();
+
+    const basePayload = {
+      name: formData.name.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone.trim(),
+      subject: formData.subject.trim(),
+      message: messageFinal,
+    };
+
+    const websiteTrim = formData.website.trim();
+    const payload: ContactCreateInput = websiteTrim
+      ? { ...basePayload, website: websiteTrim }
+      : { ...basePayload, website: null }; // ContactPage ile birebir
+
+    try {
+      await createContact(payload).unwrap();
+      toast.success("Talebiniz alındı! En kısa sürede size dönüş yapacağız.");
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        subject: product ? `Ürün bilgi talebi: ${product.title}` : "",
+        message: "",
+        website: "",
+        cemetery: "",
+      });
+    } catch (err: any) {
+      toast.error(
+        typeof err?.data?.error === "string" ? `Hata: ${err.data.error}` : "Mesaj gönderilemedi. Lütfen tekrar deneyin."
+      );
+    }
   };
 
   // ----- Ürün bulunamadı
@@ -272,25 +416,16 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Ürün bulunamadı</h2>
-          <Button onClick={() => onNavigate("home")} className="bg-teal-500 hover:bg-teal-600">Ana Sayfaya Dön</Button>
         </div>
       </div>
     );
   }
 
-  const images = product.images.length ? product.images : (product.image ? [product.image] : []);
-  const specs = (product.specifications ?? {}) as Record<string, string>;
+  const images = product.images.length ? product.images : product.image ? [product.image] : [];
 
   // ---- TS-safe: gösterilecek ana anahtarlar ve etiketleri
-  const SPEC_MAIN_KEYS = [
-    "dimensions",
-    "weight",
-    "thickness",
-    "surfaceFinish",
-    "warranty",
-    "installationTime",
-  ] as const;
-  type SpecKey = typeof SPEC_MAIN_KEYS[number];
+  const SPEC_MAIN_KEYS = ["dimensions", "weight", "thickness", "surfaceFinish", "warranty", "installationTime"] as const;
+  type SpecKey = (typeof SPEC_MAIN_KEYS)[number];
   const SPEC_LABELS: Record<SpecKey, string> = {
     dimensions: "Boyutlar",
     weight: "Ağırlık",
@@ -299,8 +434,24 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
     warranty: "Garanti",
     installationTime: "Kurulum Süresi",
   };
+
   const hasSpecs =
-    Object.values(specs).some((v) => (v ?? "").toString().trim().length > 0);
+    Object.values(specsMerged).some((v) => (v ?? "").toString().trim().length > 0) || specsRows.length > 0;
+
+  // Yorum yıldız helper
+  const Stars = ({ rating }: { rating: number }) => {
+    const r = Math.max(0, Math.min(5, Math.round(rating)));
+    return (
+      <div className="flex justify-center mb-3">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Star key={i} className={`w-4 h-4 ${i < r ? "text-yellow-400 fill-current" : "text-gray-300"} mx-0.5`} />
+        ))}
+      </div>
+    );
+  };
+
+  // --- Review slider hesapları
+  const reviewCount = Math.max(1, reviews.length);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -315,7 +466,6 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
             <span className="text-gray-400">/</span>
             <span className="text-gray-600 font-semibold">Mezar Modelleri</span>
             <span className="text-gray-400">/</span>
-            {/* ID fallback kaldırıldı; ürün kodu varsa göster, yoksa başlığı yaz */}
             <span className="text-gray-800 font-bold">{product.productCode || product.title}</span>
           </div>
         </div>
@@ -351,9 +501,7 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
             )}
 
             <div className="text-center">
-              <p className="text-sm text-gray-500 font-medium">
-                {Math.max(1, images.length)} fotoğraf mevcut
-              </p>
+              <p className="text-sm text-gray-500 font-medium">{Math.max(1, images.length)} fotoğraf mevcut</p>
             </div>
           </div>
 
@@ -370,9 +518,7 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
               </div>
 
               <div className="mb-4">
-                <div className="inline-flex items-center bg-teal-500 text-white px-3 py-1 rounded-full text-xs font-bold">
-                  Ürün Satış Fiyatı:
-                </div>
+                <div className="inline-flex items-center bg-teal-500 text-white px-3 py-1 rounded-full text-xs font-bold">Ürün Satış Fiyatı:</div>
               </div>
 
               <div className="mb-6">
@@ -394,8 +540,16 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                 <h3 className="text-2xl font-bold text-gray-800 mb-4">Teknik Özellikler</h3>
                 <div className="bg-gray-100 p-6 rounded-lg">
                   <div className="space-y-3">
-                    {SPEC_MAIN_KEYS.map((k) => {
-                      const v = (specs as Record<string, string>)[k];
+                    {(["dimensions", "weight", "thickness", "surfaceFinish", "warranty", "installationTime"] as const).map((k) => {
+                      const SPEC_LABELS: Record<typeof k, string> = {
+                        dimensions: "Boyutlar",
+                        weight: "Ağırlık",
+                        thickness: "Kalınlık",
+                        surfaceFinish: "Yüzey İşlemi",
+                        warranty: "Garanti",
+                        installationTime: "Kurulum Süresi",
+                      } as any;
+                      const v = (specsMerged as Record<string, string>)[k];
                       return v ? (
                         <div className="flex items-start gap-3" key={k}>
                           <div className="w-2 h-2 bg-teal-500 rounded-full mt-2 flex-shrink-0" />
@@ -406,8 +560,8 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                       ) : null;
                     })}
 
-                    {Object.entries(specs)
-                      .filter(([k]) => !(SPEC_MAIN_KEYS as readonly string[]).includes(k))
+                    {Object.entries(specsMerged)
+                      .filter(([k]) => !(["dimensions", "weight", "thickness", "surfaceFinish", "warranty", "installationTime"] as readonly string[]).includes(k))
                       .map(([k, v]) => (
                         <div className="flex items-start gap-3" key={k}>
                           <div className="w-2 h-2 bg-teal-500 rounded-full mt-2 flex-shrink-0" />
@@ -416,6 +570,10 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                           </span>
                         </div>
                       ))}
+
+                    {(specsLoading || (!Object.keys(specsMerged).length && specsRows.length === 0)) && (
+                      <p className="text-sm text-gray-500">Teknik özellikler yükleniyor…</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -444,29 +602,41 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                     <div className="overflow-hidden rounded-xl">
                       <div
                         className="flex transition-transform duration-500 ease-in-out"
-                        style={{ transform: `translateX(-${currentReviewIndex * 100}%)`, width: `${customerReviews.length * 100}%` }}
+                        style={{
+                          width: `${reviewCount * 100}%`,
+                          transform: `translateX(-${(currentReviewIndex * 100) / reviewCount}%)`,
+                        }}
                       >
-                        {customerReviews.map((review) => (
-                          <div key={review.id} className="w-full flex-shrink-0" style={{ width: `${100 / customerReviews.length}%` }}>
+                        {(reviews.length
+                          ? reviews
+                          : [
+                              {
+                                id: "placeholder",
+                                rating: 5,
+                                comment: "Yorumlar yükleniyor…",
+                                customer_name: "",
+                                is_active: 1,
+                              } as any,
+                            ]
+                        ).map((review: ProductReviewRow | any, i: number) => (
+                          <div
+                            key={(review as ProductReviewRow).id ?? `rev-${i}`}
+                            className="flex-shrink-0"
+                            style={{ width: `${100 / reviewCount}%` }}
+                          >
                             <div className="bg-gradient-to-br from-teal-50 to-white rounded-lg p-3 md:p-4 shadow-sm border border-teal-100 mx-1">
                               <div className="text-center mb-3">
                                 <div className="w-12 h-12 mx-auto mb-2 bg-teal-600 rounded-full flex items-center justify-center shadow-md">
-                                  <span className="text-white text-base font-bold">{review.name.charAt(0)}</span>
+                                  <span className="text-white text-base font-bold">
+                                    {(review.customer_name || "M").toString().trim().charAt(0).toUpperCase()}
+                                  </span>
                                 </div>
-                                <h4 className="text-base font-bold text-teal-600 mb-1">{review.name}</h4>
-                                <p className="text-xs text-gray-600 mb-2 flex items-center justify-center gap-1">
-                                  <span>📍</span>
-                                  {review.location}
-                                </p>
-                                <div className="flex justify-center mb-3">
-                                  {[...Array(5)].map((_, i) => (
-                                    <Star key={i} className="w-4 h-4 text-yellow-400 fill-current mx-0.5" />
-                                  ))}
-                                </div>
+                                <h4 className="text-base font-bold text-teal-600 mb-1">{review.customer_name || "Anonim Müşteri"}</h4>
+                                <Stars rating={Number(review.rating ?? 5)} />
                               </div>
                               <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100">
                                 <div className="text-teal-600 text-2xl mb-1 text-center opacity-50">"</div>
-                                <p className="text-gray-700 text-center leading-relaxed text-sm italic">{review.comment}</p>
+                                <p className="text-gray-700 text-center leading-relaxed text-sm italic">{review.comment || "—"}</p>
                                 <div className="text-teal-600 text-2xl mt-1 text-center rotate-180 opacity-50">"</div>
                               </div>
                             </div>
@@ -476,37 +646,82 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center mt-3">
-                    <Button variant="outline" size="sm" onClick={() => setCurrentReviewIndex((i) => (i - 1 + customerReviews.length) % customerReviews.length)} className="border-teal-500 text-teal-600 hover:bg-teal-50 text-xs px-2 py-1">
-                      <ChevronLeft className="w-3 h-3 mr-1" />
-                      Önceki
-                    </Button>
-                    <div className="flex items-center gap-1">
-                      {customerReviews.map((_, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setCurrentReviewIndex(idx)}
-                          className={`transition-all duration-300 rounded-full ${idx === currentReviewIndex ? "w-6 h-2 bg-teal-500" : "w-2 h-2 bg-gray-300 hover:bg-gray-400"}`}
-                          aria-label={`${idx + 1}. yoruma git`}
-                        />
-                      ))}
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => setCurrentReviewIndex((i) => (i + 1) % customerReviews.length)} className="border-teal-500 text-teal-600 hover:bg-teal-50 text-xs px-2 py-1">
-                      Sonraki
-                      <ChevronRight className="w-3 h-3 ml-1" />
-                    </Button>
-                  </div>
+                  {reviews.length > 1 && (
+                    <>
+                      <div className="flex justify-between items-center mt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentReviewIndex((i) => (i - 1 + reviews.length) % reviews.length)}
+                          className="border-teal-500 text-teal-600 hover:bg-teal-50 text-xs px-2 py-1"
+                        >
+                          <ChevronLeft className="w-3 h-3 mr-1" />
+                          Önceki
+                        </Button>
+                        <div className="flex items-center gap-1">
+                          {reviews.map((_, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setCurrentReviewIndex(idx)}
+                              className={`transition-all duration-300 rounded-full ${
+                                idx === currentReviewIndex ? "w-6 h-2 bg-teal-500" : "w-2 h-2 bg-gray-300 hover:bg-gray-400"
+                              }`}
+                              aria-label={`${idx + 1}. yoruma git`}
+                            />
+                          ))}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentReviewIndex((i) => (i + 1) % reviews.length)}
+                          className="border-teal-500 text-teal-600 hover:bg-teal-50 text-xs px-2 py-1"
+                        >
+                          Sonraki
+                          <ChevronRight className="w-3 h-3 ml-1" />
+                        </Button>
+                      </div>
 
-                  <div className="text-center mt-2">
-                    <p className="text-xs text-gray-500">
-                      {currentReviewIndex + 1} / {customerReviews.length} müşteri yorumu
-                    </p>
-                  </div>
+                      <div className="text-center mt-2">
+                        <p className="text-xs text-gray-500">
+                          {currentReviewIndex + 1} / {reviews.length} müşteri yorumu
+                        </p>
+                      </div>
+                    </>
+                  )}
+
+                  {reviewsLoading && reviews.length === 0 && (
+                    <p className="text-center text-sm text-gray-500 mt-2">Yorumlar yükleniyor…</p>
+                  )}
                 </div>
               </AccordionContent>
             </AccordionItem>
 
-            {/* İletişim */}
+            {/* FAQs */}
+            <AccordionItem value="faqs" className="border-b border-gray-200">
+              <AccordionTrigger className="bg-teal-600 text-white px-6 py-4 hover:bg-teal-700 text-left">
+                <span className="text-lg font-bold">Sık Sorulan Sorular</span>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 py-6 bg-white">
+                {faqsLoading && faqs.length === 0 && <p className="text-sm text-gray-500">Sorular yükleniyor…</p>}
+                {faqs.length > 0 ? (
+                  <div className="space-y-4">
+                    {faqs
+                      .filter((f) => (f.is_active ? Number(f.is_active) !== 0 : true))
+                      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+                      .map((f) => (
+                        <div key={f.id} className="border border-gray-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-gray-900 mb-2">{f.question}</h4>
+                          <p className="text-gray-700 whitespace-pre-line">{f.answer}</p>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  !faqsLoading && <p className="text-sm text-gray-500">Bu ürün için SSS henüz eklenmemiş.</p>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* İletişim (ContactPage ile aynı kurallar) */}
             <AccordionItem value="contact" className="border-b border-gray-200">
               <AccordionTrigger className="bg-teal-600 text-white px-6 py-4 hover:bg-teal-700 text-left">
                 <span className="text-lg font-bold">Bu Ürün Hakkında Detaylı Görüşmek</span>
@@ -522,7 +737,7 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                         </div>
                         <div>
                           <p className="font-semibold text-gray-800">Telefon</p>
-                          <p className="text-teal-600 font-bold">0533 483 89 71</p>
+                          <p className="text-teal-600 font-bold">{contactPhoneRaw}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -531,25 +746,103 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                         </div>
                         <div>
                           <p className="font-semibold text-gray-800">WhatsApp</p>
-                          <p className="text-green-600 font-bold">0533 483 89 71</p>
+                          <p className="text-green-600 font-bold">{contactPhoneRaw}</p>
                         </div>
                       </div>
                     </div>
                     <div className="mt-6 space-y-3">
-                      <Button onClick={() => window.open("tel:+905334838971")} className="w-full bg-teal-500 hover:bg-teal-600 text-white">📞 Hemen Ara</Button>
-                      <Button onClick={() => window.open("https://wa.me/905334838971", "_blank")} className="w-full bg-green-500 hover:bg-green-600 text-white">💬 WhatsApp'tan Yaz</Button>
+                      <Button onClick={() => window.open(telHref)} className="w-full bg-teal-500 hover:bg-teal-600 text-white">
+                        📞 Hemen Ara
+                      </Button>
+                      <Button onClick={() => window.open(waHref, "_blank")} className="w-full bg-green-500 hover:bg-green-600 text-white">
+                        💬 WhatsApp'tan Yaz
+                      </Button>
                     </div>
                   </div>
 
                   <div>
                     <h4 className="text-xl font-bold text-teal-600 mb-4">Detaylı Bilgi Formu</h4>
                     <form onSubmit={onSubmit} className="space-y-4">
-                      <Input type="text" name="name" placeholder="Adınız Soyadınız" value={formData.name} onChange={onInput} />
-                      <Input type="tel" name="phone" placeholder="Telefon Numaranız" value={formData.phone} onChange={onInput} />
-                      <Input type="text" name="cemetery" placeholder="Mezarlık Adı" value={formData.cemetery} onChange={onInput} />
-                      <Input type="email" name="email" placeholder="E-posta Adresiniz (Opsiyonel)" value={formData.email} onChange={onInput} />
-                      <Textarea name="message" placeholder="Mesajınız ve özel istekleriniz..." value={formData.message} onChange={onInput} rows={4} />
-                      <Button type="submit" className="w-full bg-teal-500 hover:bg-teal-600 text-white">📧 Bilgi Talep Et</Button>
+                      {/* Honeypot (gizli) */}
+                      <div className="hidden">
+                        <Input
+                          id="website"
+                          name="website"
+                          type="text"
+                          value={formData.website}
+                          onChange={onContactInput}
+                          autoComplete="off"
+                          tabIndex={-1}
+                        />
+                      </div>
+
+                      <Input
+                        type="text"
+                        name="name"
+                        placeholder="Adınız Soyadınız"
+                        value={formData.name}
+                        onChange={onContactInput}
+                        required
+                        disabled={contactSaving}
+                      />
+
+                      <Input
+                        type="email"
+                        name="email"
+                        placeholder="E-posta Adresiniz"
+                        value={formData.email}
+                        onChange={onContactInput}
+                        required
+                        disabled={contactSaving}
+                      />
+
+                      <Input
+                        type="tel"
+                        name="phone"
+                        placeholder="Telefon Numaranız"
+                        value={formData.phone}
+                        onChange={onContactInput}
+                        required
+                        disabled={contactSaving}
+                      />
+
+                      {/* Ürün başlıkla ön-dolu, kullanıcı isterse değiştirebilir */}
+                      <Input
+                        type="text"
+                        name="subject"
+                        placeholder="Konu"
+                        value={formData.subject}
+                        onChange={onContactInput}
+                        required
+                        disabled={contactSaving}
+                      />
+
+                      <Input
+                        type="text"
+                        name="cemetery"
+                        placeholder="Mezarlık Adı (opsiyonel)"
+                        value={formData.cemetery}
+                        onChange={onContactInput}
+                        disabled={contactSaving}
+                      />
+
+                      <Textarea
+                        name="message"
+                        placeholder="Mesajınız ve özel istekleriniz..."
+                        value={formData.message}
+                        onChange={onContactInput}
+                        rows={4}
+                        required
+                        disabled={contactSaving}
+                      />
+
+                      <Button
+                        type="submit"
+                        disabled={!canSubmit || contactSaving}
+                        className="w-full bg-teal-500 hover:bg-teal-600 text-white"
+                      >
+                        {contactSaving ? "Gönderiliyor…" : "📧 Bilgi Talep Et"}
+                      </Button>
                     </form>
                   </div>
                 </div>
@@ -611,10 +904,16 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
         <div className="mt-8 bg-gradient-to-r from-teal-500 to-teal-600 rounded-lg p-6 md:p-8 text-white">
           <div className="text-center">
             <h3 className="text-2xl md:text-3xl font-bold mb-4">🔥 Özel Fiyat İçin Hemen Arayın! 🔥</h3>
-            <p className="text-lg md:text-xl mb-6 opacity-90">Bu ürün için en uygun fiyatı almak ve detaylı bilgi için hemen bizimle iletişime geçin.</p>
+            <p className="text-lg md:text-xl mb-6 opacity-90">
+              Bu ürün için en uygun fiyatı almak ve detaylı bilgi için hemen bizimle iletişime geçin.
+            </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button onClick={() => window.open("tel:+905334838971")} className="bg-white text-teal-600 hover:bg-gray-100 font-bold px-8 py-3 text-lg">📞 0533 483 89 71</Button>
-              <Button onClick={() => window.open("https://wa.me/905334838971", "_blank")} className="bg-green-500 hover:bg-green-600 text-white font-bold px-8 py-3 text-lg">💬 WhatsApp</Button>
+              <Button onClick={() => window.open(telHref)} className="bg-white text-teal-600 hover:bg-gray-100 font-bold px-8 py-3 text-lg">
+                📞 {contactPhoneRaw}
+              </Button>
+              <Button onClick={() => window.open(waHref, "_blank")} className="bg-green-500 hover:bg-green-600 text-white font-bold px-8 py-3 text-lg">
+                💬 WhatsApp
+              </Button>
             </div>
           </div>
         </div>
@@ -635,12 +934,22 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
               onMouseEnter={() => setIsSimilarAutoPlaying(false)}
               onMouseLeave={() => setIsSimilarAutoPlaying(true)}
             >
-              <div className="flex transition-transform duration-500 ease-in-out" style={{ transform: `translateX(-${currentSimilarIndex * (100 / itemsPerView.desktop)}%)` }}>
+              <div
+                className="flex transition-transform duration-500 ease-in-out"
+                style={{ transform: `translateX(-${currentSimilarIndex * (100 / itemsPerView.desktop)}%)` }}
+              >
                 {similarProducts.map((sp) => (
                   <div key={sp.id} className="flex-none w-full sm:w-1/2 lg:w-1/4 px-3" style={{ minWidth: "0" }}>
-                    <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group h-full" onClick={() => handleSimilarClick(sp.id)}>
+                    <div
+                      className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group h-full"
+                      onClick={() => handleSimilarClick(sp.id)}
+                    >
                       <div className="aspect-[4/3] overflow-hidden relative">
-                        <ImageWithFallback src={sp.image} alt={sp.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                        <ImageWithFallback
+                          src={sp.image}
+                          alt={sp.title}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
                         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
                           <div className="transform scale-0 group-hover:scale-100 transition-transform duration-300">
                             <div className="bg-white bg-opacity-90 rounded-full p-3">
@@ -658,7 +967,6 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                           <span className="text-teal-600 font-bold text-lg">
                             {typeof sp.price === "number" ? sp.price.toLocaleString("tr-TR") : String(sp.price)}
                           </span>
-                          {/* ID/UUID gösterimi kaldırıldı */}
                         </div>
                         <Button
                           className="w-full bg-teal-500 hover:bg-teal-600 text-white text-sm py-2.5 rounded-lg transition-colors duration-200"

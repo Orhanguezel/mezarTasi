@@ -1,52 +1,88 @@
 // =============================================================
-// FILE: src/modules/products/admin.routes.ts
+// FILE: src/modules/products/admin.routes.ts  (GÜNCEL)
 // =============================================================
 import type { FastifyInstance } from "fastify";
 import { requireAuth } from "@/common/middleware/auth";
 import { requireAdmin } from "@/common/middleware/roles";
+
+/* Products ana controller (CRUD + images + lists) */
 import {
   adminListProducts,
   adminGetProduct,
   adminCreateProduct,
   adminUpdateProduct,
   adminDeleteProduct,
-  adminBulkSetActive,
-  adminReorderProducts,
-  adminToggleActive,
-  adminToggleHomepage,
-  adminReplaceFaqs,
-  adminReplaceSpecs,
-  adminListCategories,
   adminSetProductImages,
 } from "./admin.controller";
 
+/* Ayrı controller'lar */
+import {
+  adminListProductFaqs,
+  adminCreateProductFaq,
+  adminUpdateProductFaq,
+  adminToggleFaqActive,
+  adminDeleteProductFaq,
+  adminReplaceFaqs,
+} from "./admin.faqs.controller";
+
+import {
+  adminListProductSpecs,
+  adminCreateProductSpec,
+  adminUpdateProductSpec,
+  adminDeleteProductSpec,
+  adminReplaceSpecs,
+} from "./admin.specs.controller";
+
+import {
+  adminListProductReviews,
+  adminCreateProductReview,
+  adminUpdateProductReview,
+  adminToggleReviewActive,
+  adminDeleteProductReview,
+} from "./admin.reviews.controller";
+
+/* Kategori yardımcı uçları (varsa ayrı modülde de olabilir) */
+import { adminListCategories, adminListSubcategories } from "./helpers.categoryLists"; 
+// İstersen bu iki handler'ı mevcut admin.controller içine geri alabilirsin.
+// Eğer ayrı dosya istemezsen, şu satırı değiştir:
+// import { adminListCategories, adminListSubcategories } from "./admin.controller";
+
 export async function registerProductsAdmin(app: FastifyInstance) {
-  // ÖNEMLİ: Bu modül üstten `app.register(registerProductsAdmin, { prefix: "/admin" })`
-  // ile mount ediliyorsa, burada BASE **/products** olmalı. (/admin/**products** şeklinde birleşir)
-  // Eğer prefix YOKSA, BASE'i "/admin/products" yap.
   const BASE = "/products";
 
-  // Products
-  app.get(BASE, { preHandler: [requireAuth, requireAdmin] }, adminListProducts);
-  app.get(`${BASE}/:id`, { preHandler: [requireAuth, requireAdmin] }, adminGetProduct);
-  app.post(BASE, { preHandler: [requireAuth, requireAdmin] }, adminCreateProduct);
-  app.patch(`${BASE}/:id`, { preHandler: [requireAuth, requireAdmin] }, adminUpdateProduct);
+  // -------- Products (CRUD) --------
+  app.get(   BASE,          { preHandler: [requireAuth, requireAdmin] }, adminListProducts);
+  app.get(  `${BASE}/:id`,  { preHandler: [requireAuth, requireAdmin] }, adminGetProduct);
+  app.post(  BASE,          { preHandler: [requireAuth, requireAdmin] }, adminCreateProduct);
+  app.patch(`${BASE}/:id`,  { preHandler: [requireAuth, requireAdmin] }, adminUpdateProduct);
   app.delete(`${BASE}/:id`, { preHandler: [requireAuth, requireAdmin] }, adminDeleteProduct);
 
-  // Images (storage ile eşleme)
+  // Images
   app.put(`${BASE}/:id/images`, { preHandler: [requireAuth, requireAdmin] }, adminSetProductImages);
 
-  // Bulk & toggles
-  app.post(`${BASE}/bulk/active`, { preHandler: [requireAuth, requireAdmin] }, adminBulkSetActive);
-  app.post(`${BASE}/bulk/reorder`, { preHandler: [requireAuth, requireAdmin] }, adminReorderProducts);
-  app.patch(`${BASE}/:id/active`, { preHandler: [requireAuth, requireAdmin] }, adminToggleActive);
-  app.patch(`${BASE}/:id/homepage`, { preHandler: [requireAuth, requireAdmin] }, adminToggleHomepage);
+  // -------- FAQs --------
+  app.get(   `${BASE}/:id/faqs`,                   { preHandler: [requireAuth, requireAdmin] }, adminListProductFaqs);
+  app.post(  `${BASE}/:id/faqs`,                   { preHandler: [requireAuth, requireAdmin] }, adminCreateProductFaq);
+  app.patch( `${BASE}/:id/faqs/:faqId`,            { preHandler: [requireAuth, requireAdmin] }, adminUpdateProductFaq);
+  app.patch( `${BASE}/:id/faqs/:faqId/active`,     { preHandler: [requireAuth, requireAdmin] }, adminToggleFaqActive);
+  app.delete(`${BASE}/:id/faqs/:faqId`,            { preHandler: [requireAuth, requireAdmin] }, adminDeleteProductFaq);
+  app.put(   `${BASE}/:id/faqs`,                   { preHandler: [requireAuth, requireAdmin] }, adminReplaceFaqs); // replace
 
-  // Replace collections
-  app.put(`${BASE}/:id/faqs`, { preHandler: [requireAuth, requireAdmin] }, adminReplaceFaqs);
-  app.put(`${BASE}/:id/specs`, { preHandler: [requireAuth, requireAdmin] }, adminReplaceSpecs);
+  // -------- SPECS --------
+  app.get(   `${BASE}/:id/specs`,                  { preHandler: [requireAuth, requireAdmin] }, adminListProductSpecs);
+  app.post(  `${BASE}/:id/specs`,                  { preHandler: [requireAuth, requireAdmin] }, adminCreateProductSpec);
+  app.patch( `${BASE}/:id/specs/:specId`,          { preHandler: [requireAuth, requireAdmin] }, adminUpdateProductSpec);
+  app.delete(`${BASE}/:id/specs/:specId`,          { preHandler: [requireAuth, requireAdmin] }, adminDeleteProductSpec);
+  app.put(   `${BASE}/:id/specs`,                  { preHandler: [requireAuth, requireAdmin] }, adminReplaceSpecs); // replace
 
-  // FE filtreleri için
-  // prefix "/admin" ile birleşince => /admin/categories
-  app.get("/categories", { preHandler: [requireAuth, requireAdmin] }, adminListCategories);
+  // -------- REVIEWS --------
+  app.get(   `${BASE}/:id/reviews`,                { preHandler: [requireAuth, requireAdmin] }, adminListProductReviews); // opsiyonel liste
+  app.post(  `${BASE}/:id/reviews`,                { preHandler: [requireAuth, requireAdmin] }, adminCreateProductReview);
+  app.patch( `${BASE}/:id/reviews/:reviewId`,      { preHandler: [requireAuth, requireAdmin] }, adminUpdateProductReview);
+  app.patch( `${BASE}/:id/reviews/:reviewId/active`, { preHandler: [requireAuth, requireAdmin] }, adminToggleReviewActive);
+  app.delete(`${BASE}/:id/reviews/:reviewId`,      { preHandler: [requireAuth, requireAdmin] }, adminDeleteProductReview);
+
+  // -------- Helper Lists --------
+  app.get(`/categories`,    { preHandler: [requireAuth, requireAdmin] }, adminListCategories);
+  app.get(`/subcategories`, { preHandler: [requireAuth, requireAdmin] }, adminListSubcategories);
 }

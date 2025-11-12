@@ -1,15 +1,18 @@
+// =============================================================
+// FILE: src/components/admin/AdminPanel/form/CategoryFormPage.tsx
+// =============================================================
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import * as React from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
 
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Save, ArrowLeft } from "lucide-react";
 
 import {
   useGetCategoryAdminByIdQuery,
@@ -17,331 +20,303 @@ import {
   useUpdateCategoryAdminMutation,
   useSetCategoryImageAdminMutation,
 } from "@/integrations/metahub/rtk/endpoints/admin/categories_admin.endpoints";
-import { useUploadStorageAssetAdminMutation } from "@/integrations/metahub/rtk/endpoints/admin/storage_admin.endpoints";
+import { useCreateAssetAdminMutation } from "@/integrations/metahub/rtk/endpoints/admin/storage_admin.endpoints";
 
-import type { CategoryForm } from "@/integrations/metahub/db/types/categories.rows";
+import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
+import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";
 
-const slugify = (v: string) =>
-  v.toString().trim().toLowerCase()
-    .replace(/[^a-z0-9ğüşöçı\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-
-const pickAssetId = (res: any): string | undefined =>
-  (typeof res?.id === "string" && res.id) ||
-  (typeof res?.asset_id === "string" && res.asset_id) ||
-  (typeof res?.public_id === "string" && res.public_id) ||
-  (typeof res?.data?.id === "string" && res.data.id) ||
-  (typeof res?._id === "string" && res._id) ||
-  undefined;
-
-const pickAssetUrl = (res: any): string | undefined =>
-  (typeof res?.url === "string" && res.url) ||
-  (typeof res?.secure_url === "string" && res.secure_url) ||
-  (res?.path && res?.bucket
-    ? `${(import.meta.env.VITE_PUBLIC_API_ORIGIN ?? "")
-        .toString()
-        .replace(/\/$/, "")}/storage/${encodeURIComponent(res.bucket)}/${
-          // replaceAll yerine regex (ES2021 gerektirmez)
-          encodeURIComponent(res.path).replace(/%2F/gi, "/")
-        }`
-    : undefined);
-
-// Global DnD guard → dosya bırakınca sayfadan çıkmayı engelle
-function useGlobalFileDropGuard() {
-  useEffect(() => {
-    const guard = (e: DragEvent) => {
-      if (!e.dataTransfer) return;
-      const hasFiles = Array.from(e.dataTransfer.types || []).includes("Files");
-      if (hasFiles) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-    window.addEventListener("dragover", guard, true);
-    window.addEventListener("drop", guard, true);
-    return () => {
-      window.removeEventListener("dragover", guard, true);
-      window.removeEventListener("drop", guard, true);
-    };
-  }, []);
-}
+const slugifyTr = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ı/g, "i")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "")
+    .substring(0, 120);
 
 export default function CategoryFormPage() {
-  const nav = useNavigate();
-  const { id } = useParams<{ id?: string }>();
-  const location = useLocation();
-  useGlobalFileDropGuard();
+  const { id } = useParams() as { id?: string };
+  const isNew = !id || id === "new";
+  const navigate = useNavigate();
 
-  const isEdit = Boolean(id);
-
-  const initialFromState = (location.state as any)?.initialValue as
-    | { id?: string; name?: string; slug?: string; description?: string; image_url?: string | null }
-    | undefined;
-
-  const { data: serverRow, isFetching } = useGetCategoryAdminByIdQuery(id!, {
-    skip: !isEdit,
-    refetchOnMountOrArgChange: true,
+  const { data: existing, isFetching: loadingExisting } = useGetCategoryAdminByIdQuery(id as string, {
+    skip: isNew,
   });
 
+  // form state
+  const [name, setName] = React.useState("");
+  const [slug, setSlug] = React.useState("");
+  const [autoSlug, setAutoSlug] = React.useState(true);
+  const [description, setDescription] = React.useState("");
+
+  const [isActive, setIsActive] = React.useState(true);
+  const [isFeatured, setIsFeatured] = React.useState(false);
+  const [displayOrder, setDisplayOrder] = React.useState<number>(0);
+
+  // image state
+  const [imageUrl, setImageUrl] = React.useState<string>("");
+  const [alt, setAlt] = React.useState<string>("");
+  const [coverId, setCoverId] = React.useState<string | undefined>(undefined);
+  const [stagedCoverId, setStagedCoverId] = React.useState<string | undefined>(undefined);
+
+  // mutations
   const [createCategory, { isLoading: creating }] = useCreateCategoryAdminMutation();
   const [updateCategory, { isLoading: updating }] = useUpdateCategoryAdminMutation();
-  const [setCatImage, { isLoading: settingImage }] = useSetCategoryImageAdminMutation();
-  const [uploadAsset, { isLoading: uploading }] = useUploadStorageAssetAdminMutation();
+  const [setCategoryImage, { isLoading: savingImg }] = useSetCategoryImageAdminMutation();
+  const [uploadOne] = useCreateAssetAdminMutation();
 
-  // exactOptionalPropertyTypes: id'yi sadece varsa ekle
-  const [form, setForm] = useState<CategoryForm>({
-    ...(id ? { id } : {}),
-    name: initialFromState?.name ?? "",
-    slug: initialFromState?.slug ?? "",
-    description: initialFromState?.description ?? "",
-    image_url: initialFromState?.image_url ?? null,
-    is_active: true,
-    is_featured: false,
-    display_order: 0,
+  const saving = creating || updating;
+
+  // hydrate
+  React.useEffect(() => {
+    if (!isNew && existing) {
+      setName(existing.name ?? "");
+      setSlug(existing.slug ?? "");
+      setDescription(existing.description ?? "");
+      setIsActive(!!existing.is_active);
+      setIsFeatured(!!existing.is_featured);
+      setDisplayOrder(Number(existing.display_order ?? 0));
+      setImageUrl(existing.image_url ?? "");
+      setCoverId((existing as any).storage_asset_id ?? undefined);
+      setAlt((existing as any).alt ?? "");
+    }
+  }, [existing, isNew]);
+
+  React.useEffect(() => {
+    if (autoSlug) setSlug(slugifyTr(name));
+  }, [name, autoSlug]);
+
+  const onBack = () =>
+    window.history.length ? window.history.back() : navigate("/admin/categories");
+
+  // UpsertCategoryBody: boolean bekler
+  const buildPayload = () => ({
+    name,
+    slug,
+    description: description || null,
+    image_url: imageUrl || null, // dış url istenirse
+    is_active: isActive,
+    is_featured: isFeatured,
+    display_order: Number(displayOrder) || 0,
   });
 
-  useEffect(() => {
-    if (!serverRow) return;
-    setForm((prev) => ({
-      ...prev,
-      id: serverRow.id,
-      name: prev.name || serverRow.name || "",
-      slug: prev.slug || serverRow.slug || "",
-      description: prev.description ?? (serverRow.description ?? "") ?? "",
-      image_url: serverRow.image_url ?? null,
-      is_active: !!serverRow.is_active,
-      is_featured: !!serverRow.is_featured,
-      display_order: Number(serverRow.display_order ?? 0),
-    }));
-  }, [serverRow]);
-
-  // Dosya input
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const onUpload = async (files: File[]) => {
-    if (!files.length) return;
-    const file = files[0];
-    if (!file) return; // TS: file possibly undefined guard
-
-    if (!file.type.startsWith("image/")) {
-      toast.error("Lütfen bir resim seçin");
+  const doCreate = async () => {
+    if (!name || !slug) {
+      toast.error("Ad ve slug zorunlu");
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Maksimum 10MB");
-      return;
-    }
-
     try {
-      const folder = isEdit ? `categories/${id}` : `categories/tmp`;
-      const res: any = await uploadAsset({ file, bucket: "categories", folder }).unwrap();
-      const url = pickAssetUrl(res);
-      const assetId = pickAssetId(res);
-      if (!url) {
-        toast.error("Yüklenen görsel için URL alınamadı");
+      const created = await createCategory(buildPayload()).unwrap();
+
+      // Storage kapak seçilmişse ilişkilendir
+      const assocId = coverId ?? stagedCoverId;
+      if (assocId) {
+        try {
+          await setCategoryImage({
+            id: created.id,
+            body: { asset_id: assocId, alt: alt || null }, // undefined gönderme
+          }).unwrap();
+          toast.success("Görsel ilişkilendirildi");
+        } catch (e: any) {
+          toast.error(e?.data?.message || "Görsel ilişkilendirilemedi");
+        }
+      }
+
+      toast.success("Kategori oluşturuldu");
+      navigate("/admin/categories");
+    } catch (e: any) {
+      toast.error(e?.data?.message || "Oluşturma başarısız");
+    }
+  };
+
+  const doUpdate = async () => {
+    if (isNew || !id) return;
+    if (!name || !slug) {
+      toast.error("Ad ve slug zorunlu");
+      return;
+    }
+    try {
+      await updateCategory({ id, body: buildPayload() }).unwrap();
+      toast.success("Kategori güncellendi");
+      navigate("/admin/categories");
+    } catch (e: any) {
+      toast.error(e?.data?.message || "Güncelleme başarısız");
+    }
+  };
+
+  /** Section içinden çağrılır: dosya yükle + storage id ata + gerekirse anında ilişkilendir */
+  const uploadCover = async (file: File): Promise<void> => {
+    try {
+      const res = await uploadOne({
+        file,
+        bucket: "categories",
+        folder: `categories/${Date.now()}/cover`,
+      }).unwrap();
+      const newCoverId = (res as any)?.id as string | undefined;
+      if (!newCoverId) {
+        toast.error("Yükleme cevabı beklenen formatta değil");
         return;
       }
-      setForm((p) => ({ ...p, image_url: url }));
-      if (isEdit && assetId) {
-        await setCatImage({ id: id!, body: { asset_id: assetId } }).unwrap();
+
+      setCoverId(newCoverId);
+      setStagedCoverId(newCoverId);
+
+      if (!isNew && id) {
+        await setCategoryImage({ id, body: { asset_id: newCoverId, alt: alt || null } }).unwrap();
+        toast.success("Kapak resmi güncellendi");
+      } else {
+        toast.success("Kapak yüklendi (kayıt sonrası ilişkilendirilecek)");
       }
-      toast.success("Görsel yüklendi");
-      if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (e: any) {
-      toast.error(e?.data?.error?.message ?? "Yükleme başarısız");
+      toast.error(e?.data?.message || "Kapak yüklenemedi");
     }
   };
 
-  const removeImage = async () => {
+  /** Sadece ALT bilgisini güncelle (mevcut kayıtta) */
+  const saveAltOnly = async () => {
+    if (isNew || !id) return;
     try {
-      setForm((p) => ({ ...p, image_url: null }));
-      if (isEdit) {
-        await setCatImage({ id: id!, body: { asset_id: null } }).unwrap();
-      }
+      await setCategoryImage({ id, body: { alt: alt || null } }).unwrap(); // asset_id göndermiyoruz
+      toast.success("Alt metin güncellendi");
+    } catch (e: any) {
+      toast.error(e?.data?.message || "Alt metin güncellenemedi");
+    }
+  };
+
+  /** Storage kapak kaldır */
+  const removeCover = async () => {
+    if (isNew) {
+      setCoverId(undefined);
+      setStagedCoverId(undefined);
+      toast.info("Görsel yerelden kaldırıldı (kayıt yok).");
+      return;
+    }
+    if (!id) return;
+    try {
+      await setCategoryImage({ id, body: { asset_id: null, alt: alt || null } }).unwrap();
+      setCoverId(undefined);
+      setStagedCoverId(undefined);
       toast.success("Görsel kaldırıldı");
     } catch (e: any) {
-      toast.error(e?.data?.error?.message ?? "Kaldırma başarısız");
+      toast.error(e?.data?.message || "Görsel kaldırılamadı");
     }
   };
 
-  const saving = creating || updating || uploading || settingImage || isFetching;
-
-  const save = async () => {
-    const name = form.name.trim();
-    let slug = form.slug.trim();
-    if (!name) return toast.error("Kategori adı gerekli");
-    if (!slug) slug = slugify(name);
-
-    const body = {
-      name,
-      slug,
-      description: form.description?.trim() || null,
-      image_url: form.image_url ?? null,
-      is_active: !!form.is_active,
-      is_featured: !!form.is_featured,
-      display_order: Number(form.display_order || 0),
-    } as const;
-
-    try {
-      if (isEdit) {
-        await updateCategory({ id: id!, body }).unwrap();
-        toast.success("Kategori güncellendi");
-      } else {
-        await createCategory(body).unwrap();
-        toast.success("Yeni kategori oluşturuldu");
-      }
-      // Listeye güvenli dönüş (tanımlı route)
-      nav("/admin");
-    } catch (e: any) {
-      toast.error(e?.data?.error?.message ?? "Kaydetme başarısız");
-    }
-  };
-
-  const [dragOver, setDragOver] = useState(false);
+  if (!isNew && loadingExisting) {
+    return <div className="p-4 text-sm text-gray-500">Yükleniyor…</div>;
+  }
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-6 bg-white">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{isEdit ? "Kategori Düzenle" : "Yeni Kategori"}</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => nav(-1)} disabled={saving}>Geri</Button>
-          <Button onClick={save} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
-            {isEdit ? "Güncelle" : "Oluştur"}
+    <div className="mx-auto max-w-5xl space-y-6">
+      {/* Header actions */}
+      <div className="flex items-center justify-between">
+        <Button variant="secondary" onClick={onBack} className="gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Geri
+        </Button>
+        {isNew ? (
+          <Button onClick={doCreate} disabled={saving} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+            <Save className="h-4 w-4" />
+            Oluştur
           </Button>
-        </div>
+        ) : (
+          <Button onClick={doUpdate} disabled={saving} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+            <Save className="h-4 w-4" />
+            Kaydet
+          </Button>
+        )}
       </div>
 
-      <div className="rounded-xl border bg-card p-5 shadow-sm">
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Label htmlFor="cat-name">Kategori Adı *</Label>
-            <Input
-              id="cat-name"
-              className="mt-1"
-              value={form.name}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, name: e.target.value, slug: p.slug || slugify(e.target.value) }))
-              }
-            />
+      {/* Temel Bilgiler */}
+      <Section title="Temel Bilgiler">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Ad</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Kategori adı" />
           </div>
 
-          <div>
-            <Label htmlFor="cat-slug">Slug *</Label>
-            <Input
-              id="cat-slug"
-              className="mt-1"
-              value={form.slug}
-              onChange={(e) => setForm((p) => ({ ...p, slug: slugify(e.target.value) }))}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="cat-order">Sıra</Label>
-            <Input
-              id="cat-order"
-              type="number"
-              inputMode="numeric"
-              className="mt-1"
-              value={form.display_order}
-              onChange={(e) => setForm((p) => ({ ...p, display_order: Number(e.target.value || 0) }))}
-            />
-          </div>
-
-          <div className="flex items-end gap-3">
-            <Switch
-              id="cat-active"
-              checked={!!form.is_active}
-              onCheckedChange={(v) => setForm((p) => ({ ...p, is_active: v }))}
-            />
-            <Label htmlFor="cat-active" className="text-sm text-muted-foreground">Aktif</Label>
-          </div>
-
-          <div className="flex items-end gap-3">
-            <Switch
-              id="cat-featured"
-              checked={!!form.is_featured}
-              onCheckedChange={(v) => setForm((p) => ({ ...p, is_featured: v }))}
-            />
-            <Label htmlFor="cat-featured" className="text-sm text-muted-foreground">Öne Çıkar</Label>
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <Label htmlFor="cat-desc">Açıklama</Label>
-          <Textarea
-            id="cat-desc"
-            className="mt-1 min-h-[110px]"
-            value={form.description ?? ""}
-            onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-          />
-        </div>
-
-        {/* Görsel alanı */}
-        <div className="mt-6">
-          <Label>Kategori Görseli</Label>
-
-          <div
-            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault(); e.stopPropagation(); setDragOver(false);
-              const files = Array.from(e.dataTransfer?.files ?? []) as File[];
-              void onUpload(files);
-            }}
-            className={[
-              "mt-2 rounded-lg border border-dashed p-4 text-center text-sm transition",
-              dragOver ? "border-teal-500 bg-teal-50/70 text-teal-700" : "border-gray-300 bg-gray-50/80 text-gray-600 hover:bg-gray-50"
-            ].join(" ")}
-            role="button"
-            tabIndex={0}
-            onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click(); }}
-          >
-            Dosya seç veya görseli bu alana bırak
-            <input
-              ref={fileInputRef}
-              id="cat-image"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => void onUpload(Array.from(e.target.files ?? []))}
-            />
-          </div>
-          {uploading && <p className="mt-2 text-xs text-muted-foreground">Yükleniyor…</p>}
-
-          {form.image_url && (
-            <div className="mt-3 rounded-lg border bg-white p-4">
-              <p className="mb-3 text-sm font-medium text-gray-700">Kapak Görseli</p>
-              <div className="relative max-w-sm">
-                <div className="aspect-video overflow-hidden rounded-md border bg-muted">
-                  <img src={form.image_url} alt="" className="h-full w-full object-cover" />
-                </div>
-
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="icon"
-                  aria-label="Görseli sil"
-                  title="Sil"
-                  onClick={removeImage}
-                  className="absolute right-2 top-2 h-8 w-8 rounded-full p-0 shadow-lg ring-2 ring-white hover:scale-105 transition"
-                  disabled={uploading || settingImage}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Label>Slug</Label>
+              <label className="flex items-center gap-2 text-xs text-gray-500">
+                <Switch
+                  checked={autoSlug}
+                  onCheckedChange={setAutoSlug}
+                  className="data-[state=checked]:bg-indigo-600"
+                />
+                otomatik
+              </label>
             </div>
-          )}
-        </div>
+            <Input
+              value={slug}
+              onChange={(e) => {
+                setSlug(e.target.value);
+                setAutoSlug(false);
+              }}
+              placeholder="kategori-slug"
+            />
+          </div>
 
-        <div className="mt-8 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => nav(-1)} disabled={saving}>Vazgeç</Button>
-          <Button onClick={save} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
-            {isEdit ? "Güncelle" : "Oluştur"}
-          </Button>
+          <div className="space-y-2">
+            <Label>Aktif</Label>
+            <div className="flex h-10 items-center">
+              <Switch
+                checked={isActive}
+                onCheckedChange={setIsActive}
+                className="data-[state=checked]:bg-emerald-600"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Anasayfa</Label>
+            <div className="flex h-10 items-center">
+              <Switch
+                checked={isFeatured}
+                onCheckedChange={setIsFeatured}
+                className="data-[state=checked]:bg-amber-500"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Sıra</Label>
+            <Input
+              inputMode="numeric"
+              value={String(displayOrder)}
+              onChange={(e) => setDisplayOrder(Number(e.target.value) || 0)}
+              placeholder="0"
+            />
+          </div>
+
+          <div className="sm:col-span-2 space-y-2">
+            <Label>Açıklama</Label>
+            <Textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
         </div>
-      </div>
-    </main>
+      </Section>
+
+      {/* KAPAK GÖRSELİ - AYRI SECTION */}
+      <CoverImageSection
+        title="Kapak Görseli"
+        coverId={coverId}
+        stagedCoverId={stagedCoverId}
+        imageUrl={imageUrl}
+        alt={alt}
+        saving={savingImg}
+        onPickFile={uploadCover}
+        onRemove={removeCover}
+        onUrlChange={setImageUrl}
+        onAltChange={setAlt}
+        onSaveAlt={!isNew && !!id ? saveAltOnly : undefined}
+        accept="image/*"
+      />
+    </div>
   );
 }

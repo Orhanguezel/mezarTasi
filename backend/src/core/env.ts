@@ -19,7 +19,7 @@ const CORS_ORIGIN = CORS_LIST.length ? CORS_LIST : [FRONTEND_URL];
 
 export const env = {
   NODE_ENV: process.env.NODE_ENV ?? 'development',
-  PORT: toInt(process.env.PORT, 8082),
+  PORT: toInt(process.env.PORT, 8083),
 
   QUIZ: {
     DURATION_SECONDS: Number(process.env.QUIZ_DURATION_SECONDS ?? 60),
@@ -29,6 +29,7 @@ export const env = {
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
   CLOUDINARY_UPLOAD_PRESET: process.env.CLOUDINARY_UPLOAD_PRESET || '',
+  CLOUDINARY_FOLDER: process.env.CLOUDINARY_FOLDER || 'uploads',
 
   DB: {
     host: process.env.DB_HOST || '127.0.0.1',

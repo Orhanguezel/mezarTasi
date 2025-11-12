@@ -1,20 +1,21 @@
--- 0xx_slider.sql
+-- 0xx_slider.sql  (Drizzle şemasıyla birebir uyumlu)
+
 DROP TABLE IF EXISTS `slider`;
 CREATE TABLE `slider` (
   `id`                INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `uuid`              CHAR(36)     NOT NULL,
   `name`              VARCHAR(255) NOT NULL,
   `slug`              VARCHAR(255) NOT NULL,
-  `description`       LONGTEXT,
+  `description`       TEXT,
 
-  `image_url`         LONGTEXT,
-  `storage_asset_id`  CHAR(36),
+  `image_url`         TEXT,
+  `image_asset_id`    CHAR(36),
   `alt`               VARCHAR(255),
   `button_text`       VARCHAR(100),
   `button_link`       VARCHAR(255),
 
-  `featured`          TINYINT(1)   NOT NULL DEFAULT 0,
-  `is_active`         TINYINT(1)   NOT NULL DEFAULT 1,
+  `featured`          TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
+  `is_active`         TINYINT(1) UNSIGNED NOT NULL DEFAULT 1,
 
   `display_order`     INT UNSIGNED NOT NULL DEFAULT 0,
 
@@ -26,11 +27,11 @@ CREATE TABLE `slider` (
   UNIQUE KEY `uniq_slider_uuid` (`uuid`),
   KEY `idx_slider_active` (`is_active`),
   KEY `idx_slider_order`  (`display_order`),
-  KEY `idx_slider_storage`(`storage_asset_id`)
+  KEY `idx_slider_image_asset`(`image_asset_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO `slider`
-(`id`,`uuid`,`name`,`slug`,`description`,`image_url`,`storage_asset_id`,`alt`,`button_text`,`button_link`,
+(`id`,`uuid`,`name`,`slug`,`description`,`image_url`,`image_asset_id`,`alt`,`button_text`,`button_link`,
  `featured`,`is_active`,`display_order`,`created_at`,`updated_at`)
 VALUES
 -- slide-1

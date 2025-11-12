@@ -654,7 +654,7 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
       {/* Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent
-          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          className="max-w-2xl bg-white/90 max-h-[90vh] overflow-y-auto"
           aria-describedby={
             selectedModel
               ? `product-description-${selectedModel.id}`

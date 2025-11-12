@@ -24,6 +24,7 @@ import { QualityPolicyPage } from "./components/public/QualityPolicyPage";
 import { FAQPage } from "./components/public/FAQPage";
 import { ProductDetailPage } from "./components/public/ProductDetailPage";
 import { CemeteriesPage } from "./components/public/CemeteriesPage";
+import RamadanCampaignCMS from "./components/public/RamadanCampaignPage";
 
 import CampaignAnnouncementsPage from "./components/public/CampaignAnnouncementsPage";
 import { DetailPanel } from "./components/public/CampaignAnnouncementDetailPanel";
@@ -58,7 +59,8 @@ type PageKey =
   | "gardening"
   | "soilfilling"
   | "productDetail"
-  | "cemetery";
+  | "cemetery"
+  | "campaigns";
 
 const routeMap: Record<PageKey, string> = {
   home: "/",
@@ -76,6 +78,7 @@ const routeMap: Record<PageKey, string> = {
   admin: "/admin",
   productDetail: "/product/:id",
   cemetery: "/cemetery",
+  campaigns: "/campaigns",
 };
 
 function useCurrentPageKey(): PageKey {
@@ -94,6 +97,7 @@ function useCurrentPageKey(): PageKey {
   if (pathname.startsWith("/contact")) return "contact";
   if (pathname.startsWith("/product/")) return "productDetail";
   if (pathname.startsWith("/cemetery")) return "cemetery";
+  if (pathname.startsWith("/campaigns")) return "campaigns";
   return "home";
 }
 
@@ -334,6 +338,7 @@ export default function App() {
             <Route path="/quality" element={<QualityPolicyPage onNavigate={onNavigateString} />} />
             <Route path="/faq" element={<FAQPage onNavigate={onNavigateString} />} />
             <Route path="/cemetery" element={<CemeteriesPage onNavigate={onNavigateString} />} />
+            <Route path="/campaigns" element={<RamadanCampaignCMS />} />
 
             <Route
               path="/pricing"
@@ -386,7 +391,12 @@ export default function App() {
             <Route path="/admin/recent-works/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/recent-works/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route path="/admin/site-settings" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/settings" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/settings/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/settings/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+
+
+            <Route path="/admin/sitesettings" element={<AdminPanel onNavigate={onNavigateString} />} />
 
             <Route path="/admin/announcements" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/announcements/new" element={<AdminPanel onNavigate={onNavigateString} />} />

@@ -1,15 +1,17 @@
+// =============================================================
+// FILE: src/modules/campaigns/repository.ts
+// =============================================================
 import { db } from "@/db/client";
 import { simpleCampaigns, type NewSimpleCampaignRow } from "./schema";
 import { and, asc, desc, eq, inArray, like, or, sql, type SQL } from "drizzle-orm";
-
-// Storage bağı (services ile aynı public URL mantığı)
 import { storageAssets, type StorageAsset } from "@/modules/storage/schema";
 import { env } from "@/core/env";
+// üst importlara ekle
+import type { SetCampaignImageBody } from "./validation";
+
 
 /* ===== SEO JSON yardımcıları ===== */
-export function packSeoKeywords(arr: string[]) {
-  return JSON.stringify(arr);
-}
+export function packSeoKeywords(arr: string[]) { return JSON.stringify(arr); }
 export function unpackSeoKeywords(json: string | null | undefined): string[] {
   if (!json) return [];
   try { const v = JSON.parse(json); return Array.isArray(v) ? v : []; } catch { return []; }
@@ -24,8 +26,8 @@ function andSQL(...conds: Array<SQL | undefined | null | false | true>): SQL {
 function encSeg(s: string) { return encodeURIComponent(s); }
 function encPath(p: string) { return p.split("/").map(encSeg).join("/"); }
 
-function publicUrlFromAsset(a: StorageAsset): string {
-  if (a.url) return a.url; // Cloudinary secure_url varsa onu kullan
+function publicUrlFromAsset(a: Pick<StorageAsset, "bucket" | "path" | "url">): string {
+  if (a.url) return a.url;
   const cdnBase = (env.CDN_PUBLIC_BASE || "").replace(/\/+$/, "");
   if (cdnBase) return `${cdnBase}/${encSeg(a.bucket)}/${encPath(a.path)}`;
   const apiBase = (env.PUBLIC_API_BASE || "").replace(/\/+$/, "");
@@ -35,8 +37,11 @@ function publicUrlFromAsset(a: StorageAsset): string {
 
 async function resolveAssetUrl(assetId?: string | null): Promise<string | null> {
   if (!assetId) return null;
-  const rows = await db.select().from(storageAssets).where(eq(storageAssets.id, assetId)).limit(1);
-  const a = rows[0] as StorageAsset | undefined;
+  const [a] = await db
+    .select({ bucket: storageAssets.bucket, path: storageAssets.path, url: storageAssets.url })
+    .from(storageAssets)
+    .where(eq(storageAssets.id, assetId))
+    .limit(1);
   return a ? publicUrlFromAsset(a) : null;
 }
 
@@ -87,11 +92,7 @@ export async function listSimpleCampaigns(params: ListParams = {}) {
 }
 
 export async function getSimpleCampaign(id: string) {
-  const r = await db
-    .select()
-    .from(simpleCampaigns)
-    .where(eq(simpleCampaigns.id, id))
-    .limit(1);
+  const r = await db.select().from(simpleCampaigns).where(eq(simpleCampaigns.id, id)).limit(1);
   return r[0] ?? null;
 }
 
@@ -111,35 +112,31 @@ export async function deleteSimpleCampaign(id: string) {
   return (res as any)?.affectedRows ?? 0;
 }
 
-/* ===== Tek görsel attach/detach (services ile aynı akış) ===== */
-export async function attachCampaignImage(campaignId: string, payload: { storage_asset_id?: string; image_url?: string }) {
-  // XOR garanti: validation’da sağladık; burada en uygun şekilde güncelle
-  if (payload.storage_asset_id) {
-    const url = await resolveAssetUrl(payload.storage_asset_id);
-    await db.update(simpleCampaigns)
-      .set({
-        storage_asset_id: payload.storage_asset_id,
-        image_url: url,
-        updated_at: new Date(),
-      })
-      .where(eq(simpleCampaigns.id, campaignId));
-  } else if (payload.image_url) {
-    await db.update(simpleCampaigns)
-      .set({
-        storage_asset_id: null,
-        image_url: payload.image_url,
-        updated_at: new Date(),
-      })
-      .where(eq(simpleCampaigns.id, campaignId));
+/* ===== Tek uç: SET IMAGE (storage patern) ===== */
+export async function setSimpleCampaignImage(id: string, body: SetCampaignImageBody) {
+  const patch: Partial<typeof simpleCampaigns.$inferInsert> = {};
+  // storage verildiyse aktif: URL'i sıfırla
+  if (typeof body.storage_asset_id !== "undefined") {
+    patch.storage_asset_id = body.storage_asset_id ?? null;
+    if (body.storage_asset_id) patch.image_url = null;
   }
-  return getSimpleCampaign(campaignId);
-}
+  // URL verildiyse aktif: storage’ı sıfırla (set edilmediyse)
+  if (typeof body.image_url !== "undefined") {
+    patch.image_url = body.image_url; // null veya string
+    if (body.image_url && typeof patch.storage_asset_id === "undefined") {
+      patch.storage_asset_id = null;
+    }
+  }
+  // alt
+  if (typeof (body as any).alt !== "undefined") {
+    patch.alt = (body as any).alt;
+  }
+  patch.updated_at = new Date();
 
-export async function detachCampaignImage(campaignId: string) {
-  await db.update(simpleCampaigns)
-    .set({ storage_asset_id: null, image_url: null, updated_at: new Date() })
-    .where(eq(simpleCampaigns.id, campaignId));
-  return getSimpleCampaign(campaignId);
+  const res = await db.update(simpleCampaigns).set(patch).where(eq(simpleCampaigns.id, id));
+  // @ts-ignore drizzle returns info
+  if (!res || (res as any).affectedRows === 0) return null;
+  return await getSimpleCampaign(id);
 }
 
 /** Opsiyonel toplu aktif/pasif */

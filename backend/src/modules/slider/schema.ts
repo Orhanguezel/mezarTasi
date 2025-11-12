@@ -1,6 +1,6 @@
-// src/modules/slider/schema.ts
-
-
+// =============================================================
+// FILE: src/modules/slider/schema.ts
+// =============================================================
 import {
   mysqlTable,
   int,
@@ -11,15 +11,13 @@ import {
   datetime,
   index,
   uniqueIndex,
-
 } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
 
 /**
  * slider — public modül (id: int AI → FE için numeric)
- * image_url (legacy) + storage_asset_id (yeni ilişki) birlikte tutulur.
+ * image_url (legacy) + image_asset_id (yeni ilişki) birlikte tutulur.
  */
-// ...
 export const slider = mysqlTable(
   "slider",
   {
@@ -31,12 +29,13 @@ export const slider = mysqlTable(
     description: text("description"),
 
     image_url: text("image_url"),
-    storage_asset_id: char("storage_asset_id", { length: 36 }),
+    /** ✅ Standart ad: image_asset_id */
+    image_asset_id: char("image_asset_id", { length: 36 }),
+
     alt: varchar("alt", { length: 255 }),
     buttonText: varchar("button_text", { length: 100 }),
     buttonLink: varchar("button_link", { length: 255 }),
 
-    // ❗ mode: "boolean" YOK → 0/1 numeric
     featured: tinyint("featured", { unsigned: true }).notNull().default(0),
     is_active: tinyint("is_active", { unsigned: true }).notNull().default(1),
 
@@ -49,11 +48,10 @@ export const slider = mysqlTable(
     uniq_slug: uniqueIndex("uniq_slider_slug").on(t.slug),
     idx_active: index("idx_slider_active").on(t.is_active),
     idx_order: index("idx_slider_order").on(t.display_order),
-    idx_storage: index("idx_slider_storage").on(t.storage_asset_id),
+    idx_image_asset: index("idx_slider_image_asset").on(t.image_asset_id),
     idx_uuid: uniqueIndex("uniq_slider_uuid").on(t.uuid),
   })
 );
-
 
 export type SliderRow = typeof slider.$inferSelect;
 export type NewSliderRow = typeof slider.$inferInsert;

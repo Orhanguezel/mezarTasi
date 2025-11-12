@@ -76,7 +76,7 @@ export type UpsertSimpleCampaignBody = {
   description: string;
   seoKeywords: string[];
   is_active?: BoolLike;
-
+ 
   // Tek görsel alanları opsiyonel
   image_url?: string | null;
   storage_asset_id?: string | null;
@@ -90,4 +90,5 @@ export type AttachCampaignImageBody = {
   // XOR: FE doğrulaması sende; backend zaten zod refine ile kontrol ediyor
   storage_asset_id?: string;
   image_url?: string;
+  alt?: string | null;
 };

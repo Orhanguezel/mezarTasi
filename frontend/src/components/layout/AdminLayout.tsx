@@ -9,7 +9,6 @@ import AdminSidebar from "./AdminSidebar";
 export type ActiveTab =
   | "products"
   | "sliders"
-  | "keywords"
   | "campaigns"
   | "recent_works" 
   | "services"
@@ -18,13 +17,14 @@ export type ActiveTab =
   | "subcategories"
   | "pages"
   | "sitesettings"
-  | "popups"
   | "faqs"
   | "announcements"
   | "users"
   | "contacts"
   | "reviews"
-  | "settings";
+  | "settings"
+  | "dashboard"
+  ;
 
 type AdminLayoutProps = {
   activeTab: ActiveTab;

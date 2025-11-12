@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/recent-works/admin.routes.ts
+// =============================================================
 import type { FastifyInstance } from "fastify";
 import {
   listRecentWorksAdmin,
@@ -6,8 +9,10 @@ import {
   createRecentWorkAdmin,
   updateRecentWorkAdmin,
   removeRecentWorkAdmin,
+  // 👇 yeni:
   attachImageAdmin,
   detachImageAdmin,
+  // (opsiyonel ileri kullanım) adminSetRecentWorkImage,
 } from "./admin.controller";
 
 const BASE = "/recent_works";
@@ -21,7 +26,7 @@ export async function registerRecentWorksAdmin(app: FastifyInstance) {
   app.patch(`${BASE}/:id`,         { config: { auth: true } }, updateRecentWorkAdmin);
   app.delete(`${BASE}/:id`,        { config: { auth: true } }, removeRecentWorkAdmin);
 
-  // Tek görsel yönetimi (campaign ile aynı)
+  // ✅ Tek görsel patern — FE’nin RTK’sına birebir uyum
   app.post(`${BASE}/:id/image`,    { config: { auth: true } }, attachImageAdmin);
   app.delete(`${BASE}/:id/image`,  { config: { auth: true } }, detachImageAdmin);
 }

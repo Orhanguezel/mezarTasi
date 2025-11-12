@@ -1,8 +1,13 @@
+// =============================================================
+// FILE: src/modules/accessories/repository.ts
+// =============================================================
 import { and, asc, desc, eq, like, or, sql as dsql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { accessories, type AccessoryRow, type NewAccessoryRow } from "./schema";
+import { accessories, type NewAccessoryRow } from "./schema";
 import { storageAssets } from "@/modules/storage/schema";
 import type { ListQuery, CreateAccessoryInput, UpdateAccessoryInput } from "./validation";
+import { env } from "@/core/env";
+import { randomUUID } from "crypto";
 
 /* ---- helpers ---- */
 const ORDER_COL = {
@@ -24,10 +29,24 @@ function toTinyint(v: unknown, def = 0): 0 | 1 {
   return def as 0 | 1;
 }
 
+/* ---- effective public URL (storage patern) ---- */
+function encSeg(s: string) { return encodeURIComponent(s); }
+function encPath(p: string) { return p.split("/").map(encSeg).join("/"); }
+function effectiveUrl(opts: { asset_url?: string | null; bucket?: string | null; path?: string | null; legacy?: string | null }) {
+  if (opts.asset_url) return opts.asset_url;
+  if (opts.bucket && opts.path) {
+    const cdnBase = (env.CDN_PUBLIC_BASE || "").replace(/\/+$/, "");
+    if (cdnBase) return `${cdnBase}/${encSeg(opts.bucket)}/${encPath(opts.path)}`;
+    const apiBase = (env.PUBLIC_API_BASE || "").replace(/\/+$/, "");
+    return `${apiBase || ""}/storage/${encSeg(opts.bucket)}/${encPath(opts.path)}`;
+  }
+  return opts.legacy ?? null;
+}
+
 /* ---- public list (yalnız aktifler) ---- */
 export async function repoListPublic(q: ListQuery) {
   const where = and(
-    eq(accessories.is_active, 1), // ← bool değil, 1
+    eq(accessories.is_active, 1),
     q.category ? eq(accessories.category, q.category) : dsql`1=1`,
     q.q
       ? or(
@@ -117,7 +136,7 @@ export async function repoGetBySlug(slug: string, onlyActive = true) {
     .where(
       and(
         eq(accessories.slug, slug),
-        onlyActive ? eq(accessories.is_active, 1) : dsql`1=1` // ← 1
+        onlyActive ? eq(accessories.is_active, 1) : dsql`1=1`
       )
     )
     .limit(1);
@@ -128,24 +147,28 @@ export async function repoGetBySlug(slug: string, onlyActive = true) {
 /* ---- create ---- */
 export async function repoCreate(input: CreateAccessoryInput) {
   const rec: NewAccessoryRow = {
-    uuid: crypto.randomUUID(),
+    uuid: randomUUID(),
     name: input.name,
     slug: slugifyUnicode(input.name),
     category: input.category,
     material: input.material,
     price: input.price,
     description: input.description ?? "",
-    featured: toTinyint(input.featured, 0), // ← number
-    image_url: input.image_url ?? null as any, // şeman ne kabul ediyorsa null/undefined
-    storage_asset_id: input.storage_asset_id ?? null as any,
-    dimensions: input.dimensions ?? null as any,
-    weight: input.weight ?? null as any,
-    thickness: input.thickness ?? null as any,
-    finish: input.finish ?? null as any,
-    warranty: input.warranty ?? null as any,
-    installation_time: input.installation_time ?? null as any,
+    featured: toTinyint(input.featured, 0),
+
+    // ✅ storage pattern alanları
+    image_url: input.image_url ?? null,
+    storage_asset_id: input.storage_asset_id ?? null,
+    alt: input.alt ?? null,
+
+    dimensions: input.dimensions ?? null,
+    weight: input.weight ?? null,
+    thickness: input.thickness ?? null,
+    finish: input.finish ?? null,
+    warranty: input.warranty ?? null,
+    installation_time: input.installation_time ?? null,
     display_order: input.display_order ?? 0,
-    is_active: toTinyint(input.is_active, 1), // ← default 1
+    is_active: toTinyint(input.is_active, 1),
   };
 
   const res = await db.insert(accessories).values(rec);
@@ -166,16 +189,18 @@ export async function repoUpdate(id: number, patch: UpdateAccessoryInput) {
   if (patch.price !== undefined) sets.price = patch.price;
   if (patch.description !== undefined) sets.description = patch.description;
 
-  if (patch.image_url !== undefined) sets.image_url = patch.image_url as any;
-  if (patch.storage_asset_id !== undefined) sets.storage_asset_id = patch.storage_asset_id as any;
+  // ✅ storage pattern alanları
+  if (patch.image_url !== undefined) sets.image_url = patch.image_url ?? null;
+  if (patch.storage_asset_id !== undefined) sets.storage_asset_id = patch.storage_asset_id ?? null;
+  if (patch.alt !== undefined) sets.alt = patch.alt ?? null;
 
   if (patch.featured !== undefined) sets.featured = toTinyint(patch.featured, 0);
-  if (patch.dimensions !== undefined) sets.dimensions = patch.dimensions as any;
-  if (patch.weight !== undefined) sets.weight = patch.weight as any;
-  if (patch.thickness !== undefined) sets.thickness = patch.thickness as any;
-  if (patch.finish !== undefined) sets.finish = patch.finish as any;
-  if (patch.warranty !== undefined) sets.warranty = patch.warranty as any;
-  if (patch.installation_time !== undefined) sets.installation_time = patch.installation_time as any;
+  if (patch.dimensions !== undefined) sets.dimensions = patch.dimensions ?? null;
+  if (patch.weight !== undefined) sets.weight = patch.weight ?? null;
+  if (patch.thickness !== undefined) sets.thickness = patch.thickness ?? null;
+  if (patch.finish !== undefined) sets.finish = patch.finish ?? null;
+  if (patch.warranty !== undefined) sets.warranty = patch.warranty ?? null;
+  if (patch.installation_time !== undefined) sets.installation_time = patch.installation_time ?? null;
 
   if (patch.display_order !== undefined) sets.display_order = patch.display_order;
   if (patch.is_active !== undefined) sets.is_active = toTinyint(patch.is_active, 1);

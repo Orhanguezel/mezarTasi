@@ -7,11 +7,10 @@ import type {
   Product as ProductRow,
   Faq,
   Spec as ProductSpecRow,
+  Review,
 } from "@/integrations/metahub/db/types/products.rows";
 
-// -------------------------------------------------------------
-// Helpers
-// -------------------------------------------------------------
+/* ---------------- Helpers ---------------- */
 type NumericLike = number | string | null | undefined;
 
 const asNumber = (v: NumericLike, fallback = 0): number => {
@@ -38,7 +37,6 @@ const parseArr = (v: unknown): string[] | null => {
   return null;
 };
 
-// payload içinde dizi nerede olursa olsun çıkar
 function takeRows(payload: any): any[] {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload;
@@ -49,7 +47,7 @@ function takeRows(payload: any): any[] {
   return [];
 }
 
-// -- helper: undefined/null değerleri params'a hiç koyma + FetchArgs oluştur
+/* ---- list params -> FetchArgs ---- */
 export type AdminProductListParams = {
   q?: string;
   is_active?: boolean | 0 | 1;
@@ -64,31 +62,23 @@ export type AdminProductListParams = {
 function buildAdminListParams(params?: AdminProductListParams) {
   if (!params) return undefined as undefined | Record<string, string | number>;
   const p: Record<string, string | number> = {};
-
   if (params.q) p.q = params.q;
   if (params.category_id) p.category_id = params.category_id;
   if (params.sub_category_id) p.sub_category_id = params.sub_category_id;
-
   if (typeof params.limit === "number") p.limit = params.limit;
   if (typeof params.offset === "number") p.offset = params.offset;
-
   if (params.sort) p.sort = params.sort;
   if (params.order) p.order = params.order;
-
   if (typeof params.is_active !== "undefined") p.is_active = params.is_active ? 1 : 0;
-
   return p;
 }
 
 function args(url: string, params?: AdminProductListParams): FetchArgs {
   const p = buildAdminListParams(params);
-  // exactOptionalPropertyTypes ile uyumlu: undefined ise hiç eklemiyoruz
-  return p ? { url, params: p as Record<string, any> } : { url };
+  return p ? ({ url, params: p as Record<string, any> }) : ({ url });
 }
 
-// -------------------------------------------------------------
-// Types
-// -------------------------------------------------------------
+/* ---------------- Types ---------------- */
 export type AdminProductUpsert = Partial<
   Pick<
     ProductRow,
@@ -99,7 +89,10 @@ export type AdminProductUpsert = Partial<
     | "category_id"
     | "sub_category_id"
     | "image_url"
+    | "storage_asset_id"
+    | "alt"
     | "images"
+    | "storage_image_ids"
     | "is_active"
     | "is_featured"
     | "tags"
@@ -119,54 +112,91 @@ export type AdminSpecReplaceBody = Array<
   Pick<ProductSpecRow, "name" | "value" | "category" | "order_num"> & { id?: string }
 >;
 
+export type AdminReviewCreateBody = {
+  rating: number;
+  comment?: string | null;
+  customer_name?: string | null;
+  is_active?: boolean | 0 | 1;
+  review_date?: string | null;
+  user_id?: string | null;
+  tags?: string[] | null;
+};
+export type AdminReviewUpdateBody = Partial<AdminReviewCreateBody>;
+
+/* ---- Admin list DTOs ---- */
 export type AdminCategoryListItem = {
   id: string;
   name: string;
   is_featured: boolean | 0 | 1;
 };
+export type AdminSubcategoryListItem = {
+  id: string;
+  name: string;
+  slug: string;
+  category_id: string;
+};
 
+/* ---- gevşek giriş ---- */
 type ApiProductInput = Omit<
   ProductRow,
-  "price" | "rating" | "review_count" | "stock_quantity" | "images" | "tags"
+  "price" | "rating" | "review_count" | "stock_quantity" | "images" | "tags" | "storage_image_ids"
 > & {
   price: NumericLike;
   rating?: NumericLike;
   review_count?: NumericLike;
   stock_quantity?: NumericLike;
-  images?: unknown;
-  tags?: unknown;
-  specifications?: unknown;
+  images?: unknown;              // string[] | CSV | JSON
+  storage_image_ids?: unknown;   // string[] | CSV | JSON
+  /** 🔽 BE alias'ları destekle */
+  image_ids?: unknown;           // alias
+  gallery_ids?: unknown;         // alias
+  tags?: string[] | null;
+
+  /** Kapak alias'ları */
+  cover_id?: string | null;      // alias
+  cover_url?: string | null;     // alias
 };
 
 const normalizeProduct = (p: ApiProductInput): ProductRow => {
-  const images = parseArr(p.images ?? null);
+  // 🔽 Galeri alanlarını alias'larla topla
+  const galleryIds =
+    parseArr(p.storage_image_ids ?? null) ??
+    parseArr((p as any).image_ids ?? null) ??
+    parseArr((p as any).gallery_ids ?? null) ??
+    parseArr(p.images ?? null);
+
+  // 🔽 Kapak alias
+  const storageAssetId = p.storage_asset_id ?? (p as any).cover_id ?? null;
+  const imageUrl = p.image_url ?? (p as any).cover_url ?? null;
+
   const tags = parseArr(p.tags ?? null);
+
   return {
     ...p,
+    image_url: imageUrl,
+    storage_asset_id: storageAssetId,
+    storage_image_ids: galleryIds ?? null,
+    images: parseArr(p.images ?? null) ?? null, // (isterseniz tamamen kaldırılabilir)
+
     price: asNumber(p.price, 0),
     rating: asNumber(p.rating, 5),
     review_count: toInt(p.review_count, 0),
     stock_quantity: toInt(p.stock_quantity, 0),
-    images: images ?? null,
     tags: tags ?? null,
   };
 };
 
-// -------------------------------------------------------------
-// Endpoints
-// -------------------------------------------------------------
 const ADMIN_BASE = "/admin/products";
 
-type AdminSetProductImagesBody = {
-  cover_id?: string;
-  image_ids: string[];
-};
+type AdminSetProductImagesBody = { cover_id?: string | null; image_ids: string[] };
+
+/* ---- Specs CRUD bodies ---- */
+export type AdminSpecCreateBody = Pick<ProductSpecRow, "name" | "value" | "category" | "order_num">;
+export type AdminSpecUpdateBody = Partial<AdminSpecCreateBody>;
 
 export const productsAdminApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    /* =========================================================
-       LIST (sadece /admin/products)
-    ========================================================= */
+    /* ===================== LIST ===================== */
     adminListProducts: builder.query<ProductRow[], AdminProductListParams | undefined>({
       query: (params): FetchArgs => args(ADMIN_BASE, params),
       transformResponse: (res: unknown): ProductRow[] =>
@@ -181,19 +211,14 @@ export const productsAdminApi = baseApi.injectEndpoints({
       keepUnusedDataFor: 60,
     }),
 
-    /* =========================================================
-       DETAIL
-    ========================================================= */
+    /* ===================== DETAIL ===================== */
     adminGetProduct: builder.query<ProductRow, string>({
       query: (id): FetchArgs => ({ url: `${ADMIN_BASE}/${encodeURIComponent(id)}` }),
       transformResponse: (res: unknown): ProductRow => normalizeProduct(res as ApiProductInput),
-      providesTags: (r) =>
-        r ? [{ type: "Product", id: r.id }] : [{ type: "Products", id: "ADMIN_LIST" }],
+      providesTags: (r) => (r ? [{ type: "Product", id: r.id }] : [{ type: "Products", id: "ADMIN_LIST" }]),
     }),
 
-    /* =========================================================
-       CREATE / UPDATE / DELETE
-    ========================================================= */
+    /* ========== CREATE / UPDATE / DELETE ========== */
     adminCreateProduct: builder.mutation<ProductRow, AdminProductUpsert>({
       query: (body): FetchArgs => ({ url: ADMIN_BASE, method: "POST", body }),
       transformResponse: (res: unknown): ProductRow => normalizeProduct(res as ApiProductInput),
@@ -225,9 +250,7 @@ export const productsAdminApi = baseApi.injectEndpoints({
       ],
     }),
 
-    /* =========================================================
-       BULK / TOGGLES / REORDER
-    ========================================================= */
+    /* ========== BULK / TOGGLES / REORDER ========== */
     adminBulkSetActive: builder.mutation<{ ok: true }, { ids: string[]; is_active: boolean | 0 | 1 }>({
       query: ({ ids, is_active }): FetchArgs => ({
         url: `${ADMIN_BASE}/bulk/active`,
@@ -273,7 +296,8 @@ export const productsAdminApi = baseApi.injectEndpoints({
       ],
     }),
 
-    adminReplaceFaqs: builder.mutation<{ replaced?: number; ok?: true }, { id: string; items: AdminFaqReplaceBody }>({
+    /* ========== FAQ REPLACE ========== */
+    adminReplaceFaqs: builder.mutation<{ ok?: true }, { id: string; items: AdminFaqReplaceBody }>({
       query: ({ id, items }): FetchArgs => ({
         url: `${ADMIN_BASE}/${encodeURIComponent(id)}/faqs`,
         method: "PUT",
@@ -282,7 +306,8 @@ export const productsAdminApi = baseApi.injectEndpoints({
       invalidatesTags: (_r, _e, arg) => [{ type: "Faqs", id: arg.id }],
     }),
 
-    adminReplaceSpecs: builder.mutation<{ replaced?: number; ok?: true }, { id: string; items: AdminSpecReplaceBody }>({
+    /* ========== SPECS REPLACE ========== */
+    adminReplaceSpecs: builder.mutation<{ ok?: true }, { id: string; items: AdminSpecReplaceBody }>({
       query: ({ id, items }): FetchArgs => ({
         url: `${ADMIN_BASE}/${encodeURIComponent(id)}/specs`,
         method: "PUT",
@@ -291,7 +316,8 @@ export const productsAdminApi = baseApi.injectEndpoints({
       invalidatesTags: (_r, _e, arg) => [{ type: "Specs", id: arg.id }],
     }),
 
-    adminSetProductImages: builder.mutation<ProductRow, { id: string; body: AdminSetProductImagesBody }>({
+    /* ========== IMAGES ========== */
+      adminSetProductImages: builder.mutation<ProductRow, { id: string; body: AdminSetProductImagesBody }>({
       query: ({ id, body }): FetchArgs => ({
         url: `${ADMIN_BASE}/${encodeURIComponent(id)}/images`,
         method: "PUT",
@@ -304,9 +330,178 @@ export const productsAdminApi = baseApi.injectEndpoints({
       ],
     }),
 
-    /* =========================================================
-       ADMIN CATEGORIES (sadece /admin/categories)
-    ========================================================= */
+    /* ===================== REVIEWS ===================== */
+    adminCreateProductReview: builder.mutation<
+      Review,
+      { id: string; body: AdminReviewCreateBody }
+    >({
+      query: ({ id, body }): FetchArgs => ({
+        url: `${ADMIN_BASE}/${encodeURIComponent(id)}/reviews`,
+        method: "POST",
+        body,
+      }),
+      transformResponse: (res: unknown): Review => res as Review,
+      invalidatesTags: (_r, _e, arg) => [
+        { type: "Reviews", id: arg.id },
+        { type: "Product", id: arg.id },
+      ],
+    }),
+
+    adminUpdateProductReview: builder.mutation<
+      Review,
+      { id: string; reviewId: string; body: AdminReviewUpdateBody }
+    >({
+      query: ({ id, reviewId, body }): FetchArgs => ({
+        url: `${ADMIN_BASE}/${encodeURIComponent(id)}/reviews/${encodeURIComponent(reviewId)}`,
+        method: "PATCH",
+        body,
+      }),
+      transformResponse: (res: unknown): Review => res as Review,
+      invalidatesTags: (_r, _e, arg) => [
+        { type: "Reviews", id: arg.id },
+        { type: "Product", id: arg.id },
+      ],
+    }),
+
+    adminToggleReviewActive: builder.mutation<
+      { ok: true },
+      { id: string; reviewId: string; is_active: boolean | 0 | 1 }
+    >({
+      query: ({ id, reviewId, is_active }): FetchArgs => ({
+        url: `${ADMIN_BASE}/${encodeURIComponent(id)}/reviews/${encodeURIComponent(reviewId)}/active`,
+        method: "PATCH",
+        body: { is_active: !!is_active },
+      }),
+      transformResponse: (): { ok: true } => ({ ok: true }),
+      invalidatesTags: (_r, _e, arg) => [
+        { type: "Reviews", id: arg.id },
+        { type: "Product", id: arg.id },
+      ],
+    }),
+
+    adminDeleteProductReview: builder.mutation<
+      { ok: true },
+      { id: string; reviewId: string }
+    >({
+      query: ({ id, reviewId }): FetchArgs => ({
+        url: `${ADMIN_BASE}/${encodeURIComponent(id)}/reviews/${encodeURIComponent(reviewId)}`,
+        method: "DELETE",
+      }),
+      transformResponse: (): { ok: true } => ({ ok: true }),
+      invalidatesTags: (_r, _e, arg) => [
+        { type: "Reviews", id: arg.id },
+        { type: "Product", id: arg.id },
+      ],
+    }),
+
+    /* ===================== FAQS (CRUD + LIST) ===================== */
+    adminListProductFaqs: builder.query<Faq[], { id: string; only_active?: boolean | 0 | 1 }>({
+      query: ({ id, only_active }): FetchArgs => {
+        const url = `${ADMIN_BASE}/${encodeURIComponent(id)}/faqs`;
+        const p = typeof only_active === "undefined" ? undefined : { only_active: !!only_active ? 1 : 0 };
+        return p ? { url, params: p as Record<string, any> } : { url };
+      },
+      transformResponse: (res: unknown): Faq[] => {
+        const rows = takeRows(res);
+        return (Array.isArray(rows) ? rows : []) as Faq[];
+      },
+      providesTags: (_r, _e, arg) => [{ type: "Faqs", id: arg.id }],
+    }),
+
+    adminCreateProductFaq: builder.mutation<
+      Faq,
+      { id: string; body: Pick<Faq, "question" | "answer" | "display_order"> & { is_active?: boolean | 0 | 1 } }
+    >({
+      query: ({ id, body }): FetchArgs => ({
+        url: `${ADMIN_BASE}/${encodeURIComponent(id)}/faqs`,
+        method: "POST",
+        body,
+      }),
+      transformResponse: (res: unknown): Faq => res as Faq,
+      invalidatesTags: (_r, _e, arg) => [{ type: "Faqs", id: arg.id }],
+    }),
+
+    adminUpdateProductFaq: builder.mutation<
+      Faq,
+      { id: string; faqId: string; body: Partial<Pick<Faq, "question" | "answer" | "display_order"> & { is_active?: boolean | 0 | 1 }> }
+    >({
+      query: ({ id, faqId, body }): FetchArgs => ({
+        url: `${ADMIN_BASE}/${encodeURIComponent(id)}/faqs/${encodeURIComponent(faqId)}`,
+        method: "PATCH",
+        body,
+      }),
+      transformResponse: (res: unknown): Faq => res as Faq,
+      invalidatesTags: (_r, _e, arg) => [{ type: "Faqs", id: arg.id }],
+    }),
+
+    adminToggleFaqActive: builder.mutation<
+      { ok: true },
+      { id: string; faqId: string; is_active: boolean | 0 | 1 }
+    >({
+      query: ({ id, faqId, is_active }): FetchArgs => ({
+        url: `${ADMIN_BASE}/${encodeURIComponent(id)}/faqs/${encodeURIComponent(faqId)}/active`,
+        method: "PATCH",
+        body: { is_active: !!is_active },
+      }),
+      transformResponse: (): { ok: true } => ({ ok: true }),
+      invalidatesTags: (_r, _e, arg) => [{ type: "Faqs", id: arg.id }],
+    }),
+
+    adminDeleteProductFaq: builder.mutation<
+      { ok: true },
+      { id: string; faqId: string }
+    >({
+      query: ({ id, faqId }): FetchArgs => ({
+        url: `${ADMIN_BASE}/${encodeURIComponent(id)}/faqs/${encodeURIComponent(faqId)}`,
+        method: "DELETE",
+      }),
+      transformResponse: (): { ok: true } => ({ ok: true }),
+      invalidatesTags: (_r, _e, arg) => [{ type: "Faqs", id: arg.id }],
+    }),
+
+    /* ===================== SPECS (CRUD + LIST) ===================== */
+    adminListProductSpecs: builder.query<ProductSpecRow[], { id: string }>({
+      query: ({ id }): FetchArgs => ({ url: `${ADMIN_BASE}/${encodeURIComponent(id)}/specs` }),
+      transformResponse: (res: unknown): ProductSpecRow[] => {
+        const rows = takeRows(res);
+        return (Array.isArray(rows) ? rows : []) as ProductSpecRow[];
+      },
+      providesTags: (_r, _e, arg) => [{ type: "Specs", id: arg.id }],
+    }),
+
+    adminCreateProductSpec: builder.mutation<ProductSpecRow, { id: string; body: AdminSpecCreateBody }>({
+      query: ({ id, body }): FetchArgs => ({
+        url: `${ADMIN_BASE}/${encodeURIComponent(id)}/specs`,
+        method: "POST",
+        body,
+      }),
+      transformResponse: (res: unknown): ProductSpecRow => res as ProductSpecRow,
+      invalidatesTags: (_r, _e, arg) => [{ type: "Specs", id: arg.id }],
+    }),
+
+    adminUpdateProductSpec: builder.mutation<
+      ProductSpecRow,
+      { id: string; specId: string; body: AdminSpecUpdateBody }
+    >({
+      query: ({ id, specId, body }): FetchArgs => ({
+        url: `${ADMIN_BASE}/${encodeURIComponent(id)}/specs/${encodeURIComponent(specId)}`,
+        method: "PATCH",
+        body,
+      }),
+      transformResponse: (res: unknown): ProductSpecRow => res as ProductSpecRow,
+      invalidatesTags: (_r, _e, arg) => [{ type: "Specs", id: arg.id }],
+    }),
+
+    adminDeleteProductSpec: builder.mutation<{ ok: true }, { id: string; specId: string }>({
+      query: ({ id, specId }): FetchArgs => ({
+        url: `${ADMIN_BASE}/${encodeURIComponent(id)}/specs/${encodeURIComponent(specId)}`,
+        method: "DELETE",
+      }),
+      transformResponse: (): { ok: true } => ({ ok: true }),
+      invalidatesTags: (_r, _e, arg) => [{ type: "Specs", id: arg.id }],
+    }),
+
+    /* ===================== ADMIN LISTS (geri eklendi) ===================== */
     adminListCategories: builder.query<AdminCategoryListItem[], void>({
       query: (): FetchArgs => ({ url: "/admin/categories" }),
       transformResponse: (res: unknown): AdminCategoryListItem[] => {
@@ -321,11 +516,25 @@ export const productsAdminApi = baseApi.injectEndpoints({
             ]
           : [{ type: "Category" as const, id: "LIST" }],
     }),
+
+  
+
+    adminListSubcategories: builder.query<AdminSubcategoryListItem[], { category_id?: string } | void>({
+      query: (p): FetchArgs => {
+        const url = "/admin/subcategories";
+        const params = p?.category_id ? { category_id: p.category_id } : undefined;
+        return params ? { url, params: params as Record<string, any> } : { url };
+      },
+      transformResponse: (res: unknown): AdminSubcategoryListItem[] => {
+        const rows = takeRows(res);
+        return Array.isArray(rows) ? (rows as AdminSubcategoryListItem[]) : [];
+      },
+      providesTags: (_r, _e, arg) => [{ type: "Subcategories", id: (arg as any)?.category_id ?? "LIST" }],
+    }),
   }),
   overrideExisting: true,
 });
 
-// Hooks
 export const {
   useAdminListProductsQuery,
   useAdminGetProductQuery,
@@ -336,8 +545,32 @@ export const {
   useAdminReorderProductsMutation,
   useAdminToggleActiveMutation,
   useAdminToggleHomepageMutation,
+
+  // FAQs
   useAdminReplaceFaqsMutation,
+  useAdminListProductFaqsQuery,
+  useAdminCreateProductFaqMutation,
+  useAdminUpdateProductFaqMutation,
+  useAdminDeleteProductFaqMutation,
+  useAdminToggleFaqActiveMutation,
+
+  // SPECS
   useAdminReplaceSpecsMutation,
+  useAdminListProductSpecsQuery,
+  useAdminCreateProductSpecMutation,
+  useAdminUpdateProductSpecMutation,
+  useAdminDeleteProductSpecMutation,
+
+  // IMAGES
   useAdminSetProductImagesMutation,
+
+  // ADMIN LISTS (eksik hook'lar geri geldi)
   useAdminListCategoriesQuery,
+  useAdminListSubcategoriesQuery,
+
+  // REVIEWS
+  useAdminCreateProductReviewMutation,
+  useAdminUpdateProductReviewMutation,
+  useAdminToggleReviewActiveMutation,
+  useAdminDeleteProductReviewMutation,
 } = productsAdminApi;

@@ -1,4 +1,6 @@
-// src/modules/slider/router.ts
+// =============================================================
+// FILE: src/modules/slider/router.ts  (PUBLIC ROUTES ONLY)
+// =============================================================
 import type { FastifyInstance } from "fastify";
 import { listPublicSlides, getPublicSlide } from "./controller";
 

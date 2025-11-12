@@ -33,7 +33,9 @@ type MenuValue =
   | "users"
   | "contacts"
   | "settings"
-  | "reviews";
+  | "reviews"
+  | "dashboard";
+
 
 const menuGroups: {
   label: string;
@@ -42,9 +44,10 @@ const menuGroups: {
   {
     label: "Genel",
     items: [
-      { title: "Dashboard", icon: BarChart3, value: "products" },
+      { title: "Dashboard", icon: BarChart3, value: "dashboard" },
       { title: "Sayfa Ayarları", icon: Home, value: "sitesettings" },
       { title: "Kampanyalar", icon: Megaphone, value: "campaigns" },
+      { title: "Duyurular", icon: Megaphone, value: "announcements" },
       { title: "Son Çalışmalar", icon: FileText, value: "recent_works" }, 
       { title: "Hizmetler", icon: FolderTree, value: "services" },
       { title: "Slaytlar", icon: FolderTree, value: "sliders" },
@@ -59,7 +62,7 @@ const menuGroups: {
       { title: "Aksesuarlar", icon: FolderTree, value: "accessories" },
       { title: "Sayfalar", icon: FileText, value: "pages" },
       { title: "SSS (FAQ)", icon: HelpCircle, value: "faqs" },
-      { title: "Duyurular", icon: Megaphone, value: "announcements" },
+      
       { title: "İletişim Mesajları", icon: Mail, value: "contacts" },
       { title: "Yorumlar", icon: MessageSquare, value: "reviews" },
       { title: "Kullanıcılar", icon: Users, value: "users" },
@@ -85,6 +88,7 @@ const MENU_TO_TAB: Partial<Record<MenuValue, ActiveTab>> = {
   settings: "settings",
   reviews: "reviews",
   services: "services",
+  dashboard: "dashboard",
 };
 
 const NavButton = React.forwardRef<

@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/customPages/schema.ts
+// =============================================================
 import {
   mysqlTable,
   char,
@@ -24,16 +27,13 @@ export const customPages = mysqlTable(
     title: varchar("title", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 255 }).notNull(),
 
-    // JSON string: {"html":"..."} — LONGTEXT (JSON_VALID check SQL tarafında)
+    // JSON string: {"html":"..."} — LONGTEXT
     content: longtext("content").notNull(),
 
-    // Görsel alanları (blogPosts ile aynı desen)
-    /** Eski/serbest URL (geriye dönük uyumluluk) */
-    featured_image: varchar("featured_image", { length: 500 }),
-    /** Storage bağı: asset id */
-    featured_image_asset_id: char("featured_image_asset_id", { length: 36 }),
-    /** Erişilebilirlik/SEO alt metni */
-    featured_image_alt: varchar("featured_image_alt", { length: 255 }),
+    // ✅ Görsel alanları (storage ile hizalı)
+    image_url: varchar("image_url", { length: 500 }),
+    storage_asset_id: char("storage_asset_id", { length: 36 }),
+    alt: varchar("alt", { length: 255 }),
 
     meta_title: varchar("meta_title", { length: 255 }),
     meta_description: varchar("meta_description", { length: 500 }),
@@ -52,9 +52,14 @@ export const customPages = mysqlTable(
     index("custom_pages_created_idx").on(t.created_at),
     index("custom_pages_updated_idx").on(t.updated_at),
     index("custom_pages_is_published_idx").on(t.is_published),
-    index("custom_pages_featured_asset_idx").on(t.featured_image_asset_id),
+    index("custom_pages_asset_idx").on(t.storage_asset_id),
   ],
 );
 
 export type CustomPageRow = typeof customPages.$inferSelect;
 export type NewCustomPageRow = typeof customPages.$inferInsert;
+
+export type CustomPageView = CustomPageRow & {
+  /** storage join ile hesaplanan efektif URL */
+  image_effective_url: string | null;
+};

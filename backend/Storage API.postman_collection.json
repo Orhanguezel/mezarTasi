@@ -1,0 +1,373 @@
+{
+  "info": {
+    "_postman_id": "8b8b0e36-6e94-4c3a-9c3d-pt-products-storage",
+    "name": "BBB Mezartasi — Products + Storage (Images) [Cookie-only]",
+    "description": "Products modülü için storage destekli resim ekleme/çıkarma/güncelleme uçtan uca testleri. Auth tamamen Cookie Jar (login ile Set-Cookie). Header'da Bearer/Cookie kullanılmaz.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global pre-request: sadece zaman damgası",
+          "if (!pm.environment.get('timestamp')) pm.environment.set('timestamp', Date.now().toString());"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Auth: Login (sets cookie)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{base_url}}/api/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200/204/302', () => pm.expect([200,204,302]).to.include(pm.response.code));",
+                  "// Postman otomatik olarak Set-Cookie'yi Cookie Jar'a ekler."
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Auth: Status (optional)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/status"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin Helpers",
+      "item": [
+        {
+          "name": "01) Admin: List Categories → set category_id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/admin/categories"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const arr = pm.response.json();",
+                  "pm.expect(arr).to.be.an('array');",
+                  "if (!pm.environment.get('category_id')) {",
+                  "  pm.test('En az 1 kategori', () => pm.expect(arr.length).to.be.above(0));",
+                  "  if (arr.length) pm.environment.set('category_id', arr[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Storage",
+      "item": [
+        {
+          "name": "02) Admin: Create Asset A (cover)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "{{test_image_path}}" },
+                { "key": "bucket", "value": "{{bucket}}", "type": "text" },
+                { "key": "folder", "value": "products/{{timestamp}}/cover", "type": "text" },
+                { "key": "metadata", "value": "{\"module\":\"products\",\"type\":\"cover\"}", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/api/admin/storage/assets"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200/201', () => pm.expect([200,201]).to.include(pm.response.code));",
+                  "const x = pm.response.json();",
+                  "pm.expect(x).to.have.property('url');",
+                  "pm.environment.set('asset_a_id', x.id || x.provider_public_id || '');",
+                  "pm.environment.set('asset_a_url', x.url || '');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03) Admin: Create Asset B (gallery)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "{{test_image_path2}}" },
+                { "key": "bucket", "value": "{{bucket}}", "type": "text" },
+                { "key": "folder", "value": "products/{{timestamp}}/gallery", "type": "text" },
+                { "key": "metadata", "value": "{\"module\":\"products\",\"type\":\"gallery\"}", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/api/admin/storage/assets"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200/201', () => pm.expect([200,201]).to.include(pm.response.code));",
+                  "const x = pm.response.json();",
+                  "pm.expect(x).to.have.property('url');",
+                  "pm.environment.set('asset_b_id', x.id || x.provider_public_id || '');",
+                  "pm.environment.set('asset_b_url', x.url || '');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "04) Admin: Create Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Test Product {{timestamp}}\",\n  \"slug\": \"test-product-{{timestamp}}\",\n  \"price\": 199.99,\n  \"description\": \"Auto created product.\",\n  \"category_id\": \"{{category_id}}\",\n  \"image_url\": null,\n  \"images\": [],\n  \"is_active\": true,\n  \"is_featured\": false,\n  \"tags\": [\"test\",\"postman\"],\n  \"specifications\": {\"dimensions\":\"10x10\"},\n  \"stock_quantity\": 5\n}"
+            },
+            "url": "{{base_url}}/api/admin/products"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.expect(pm.response.code).to.eql(201));",
+                  "const x = pm.response.json();",
+                  "pm.expect(x).to.have.property('id');",
+                  "pm.environment.set('product_id', x.id);",
+                  "pm.environment.set('product_slug', x.slug);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05) Admin: Set Product Images [A,B] (cover=A)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cover_id\": \"{{asset_a_id}}\",\n  \"image_ids\": [\"{{asset_a_id}}\", \"{{asset_b_id}}\"]\n}"
+            },
+            "url": "{{base_url}}/api/admin/products/{{product_id}}/images"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json();",
+                  "pm.expect(p.image_url).to.eql(pm.environment.get('asset_a_url'));",
+                  "pm.expect(p.images).to.be.an('array');",
+                  "pm.expect(p.images).to.include(pm.environment.get('asset_a_url'));",
+                  "pm.expect(p.images).to.include(pm.environment.get('asset_b_url'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "06) Admin: Get Product (doğrula cover=A, images [A,B])",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/admin/products/{{product_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json();",
+                  "pm.expect(p.image_url).to.eql(pm.environment.get('asset_a_url'));",
+                  "pm.expect(p.images).to.include(pm.environment.get('asset_a_url'));",
+                  "pm.expect(p.images).to.include(pm.environment.get('asset_b_url'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07) Admin: Set Product Images [B] (cover=B)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cover_id\": \"{{asset_b_id}}\",\n  \"image_ids\": [\"{{asset_b_id}}\"]\n}"
+            },
+            "url": "{{base_url}}/api/admin/products/{{product_id}}/images"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json();",
+                  "pm.expect(p.image_url).to.eql(pm.environment.get('asset_b_url'));",
+                  "pm.expect(p.images).to.be.an('array');",
+                  "pm.expect(p.images.length).to.eql(1);",
+                  "pm.expect(p.images[0]).to.eql(pm.environment.get('asset_b_url'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "08) Public: Get Product by slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/products/by-slug/{{product_slug}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const x = pm.response.json();",
+                  "pm.expect(x).to.have.property('slug', pm.environment.get('product_slug'));",
+                  "pm.expect(x.image_url).to.eql(pm.environment.get('asset_b_url'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "09) Admin: Delete Product",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/api/admin/products/{{product_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10) Storage: Bulk Delete Assets [A,B]",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [\"{{asset_a_id}}\", \"{{asset_b_id}}\"]\n}"
+            },
+            "url": "{{base_url}}/api/admin/storage/assets/bulk-delete"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.expect(j.deleted).to.be.a('number');",
+                  "pm.test('>=1 silinmiş', () => pm.expect(j.deleted).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8083" },
+    { "key": "email", "value": "orhanguzell@gmail.com" },
+    { "key": "password", "value": "admin123" },
+    { "key": "bucket", "value": "products" },
+    { "key": "test_image_path", "value": "/absolute/path/to/sample.jpg" },
+    { "key": "test_image_path2", "value": "/absolute/path/to/sample2.jpg" },
+    { "key": "timestamp", "value": "" },
+    { "key": "category_id", "value": "" },
+    { "key": "product_id", "value": "" },
+    { "key": "product_slug", "value": "" },
+    { "key": "asset_a_id", "value": "" },
+    { "key": "asset_b_id", "value": "" },
+    { "key": "asset_a_url", "value": "" },
+    { "key": "asset_b_url", "value": "" }
+  ]
+}

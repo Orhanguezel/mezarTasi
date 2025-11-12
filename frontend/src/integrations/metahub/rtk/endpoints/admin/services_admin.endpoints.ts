@@ -232,6 +232,22 @@ export const servicesAdminApi = baseApi.injectEndpoints({
       ],
     }),
 
+    // services_admin.endpoints.ts içinde:
+setServiceImageAdmin: builder.mutation<ServiceView, { id: string; body: { asset_id?: string | null } }>({
+  query: ({ id, body }) => ({
+    url: `/admin/services/${encodeURIComponent(id)}/image`,
+    method: "PATCH",
+    body,
+  }),
+  transformResponse: (res: unknown): ServiceView => normalizeService(res),
+  invalidatesTags: (_r, _e, arg) => [
+    { type: "Services", id: arg.id },
+    { type: "Services", id: "LIST" },
+  ],
+}),
+// export { useSetServiceImageAdminMutation }
+
+
     /** POST /admin/services/:id/detach-image  (body yok) */
     detachServiceImage: builder.mutation<ServiceView, { id: string }>({
       query: ({ id }) => ({
@@ -258,4 +274,5 @@ export const {
   useSetServiceStatusAdminMutation,
   useAttachServiceImageMutation,
   useDetachServiceImageMutation,
+  useSetServiceImageAdminMutation
 } = servicesAdminApi;

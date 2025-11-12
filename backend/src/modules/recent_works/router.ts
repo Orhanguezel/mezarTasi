@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/recent-works/router.ts  (PUBLIC ROUTES)
+// =============================================================
 import type { FastifyInstance } from "fastify";
 import {
   listRecentWorksPublic,

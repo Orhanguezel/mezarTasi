@@ -45,18 +45,13 @@ const toView = (row: unknown): CustomPageView => {
     slug: String(r["slug"] ?? ""),
     content: extractHtml(raw), // <-- DÜZ HTML string
 
-    featured_image:
-      (typeof r["featured_image"] === "string"
-        ? (r["featured_image"] as string)
+    image_url: (typeof r["image_url"] === "string" ? (r["image_url"] as string) : null) ?? null,
+    image_effective_url:
+      (typeof r["image_effective_url"] === "string"
+        ? (r["image_effective_url"] as string)
         : null) ?? null,
-    featured_image_asset_id:
-      (typeof r["featured_image_asset_id"] === "string"
-        ? (r["featured_image_asset_id"] as string)
-        : null) ?? null,
-    featured_image_alt:
-      (typeof r["featured_image_alt"] === "string"
-        ? (r["featured_image_alt"] as string)
-        : null) ?? null,
+    alt: (typeof r["alt"] === "string" ? (r["alt"] as string) : null) ?? null,
+
 
     meta_title:
       (typeof r["meta_title"] === "string"

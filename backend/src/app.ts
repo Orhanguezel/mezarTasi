@@ -18,11 +18,8 @@ import { registerCategories } from '@/modules/categories/router';
 import { registerSubCategories } from '@/modules/subcategories/router';
 import { registerProducts } from '@/modules/products/router';
 import { registerCustomPages } from '@/modules/customPages/router';
-import { registerBlog } from '@/modules/blog/router';
 import { registerSiteSettings } from '@/modules/siteSettings/router';
-import { registerPopups } from '@/modules/popups/router';
 import { registerUserRoles } from "@/modules/userRoles/router";
-import { registerFooterSections } from "@/modules/footerSections/router";
 import { registerInfoCards } from "@/modules/info_cards/router";
 import { registerAnnouncements } from "@/modules/announcements/router"; 
 import { registerSimpleCampaigns } from "@/modules/campaigns/router";
@@ -37,10 +34,8 @@ import { registerSlider } from "@/modules/slider/router";
 
 // Admin modüller
 import { registerProductsAdmin } from "@/modules/products/admin.routes";
-import { registerBlogAdmin } from "@/modules/blog/admin.routes";
 import { registerCustomPagesAdmin } from "@/modules/customPages/admin.routes";
 import { registerSiteSettingsAdmin } from '@/modules/siteSettings/admin.routes';
-import { registerPopupsAdmin } from '@/modules/popups/admin.routes';
 import { registerUserAdmin } from "@/modules/auth/admin.routes";
 import { registerCampaignsAdmin } from "@/modules/campaigns/admin.routes";
 import { registerAnnouncementsAdmin } from "@/modules/announcements/admin.routes";
@@ -53,6 +48,10 @@ import { registerReviewsAdmin } from "@/modules/review/admin.routes";
 import { registerContactsAdmin } from "@/modules/contact/admin.routes";
 import { registerAccessoriesAdmin } from "@/modules/accessories/admin.routes";
 import { registerSliderAdmin } from "@/modules/slider/admin.routes";
+import { registerStorageAdmin } from '@/modules/storage/admin.routes';
+import { registerCategoriesAdmin } from '@/modules/categories/admin.routes';
+import { registerSubCategoriesAdmin } from '@/modules/subcategories/admin.routes';
+import { registerDbAdmin } from "@/modules/db_admin/admin.routes";
 
 function parseCorsOrigins(v?: string | string[]): boolean | string[] {
   if (!v) return true;
@@ -125,10 +124,8 @@ export async function createApp() {
   await app.register(async (api) => {
     // --- Admin modüller → /api/admin/...
     await api.register(registerProductsAdmin,    { prefix: "/admin" });
-    await api.register(registerBlogAdmin,        { prefix: "/admin" });
     await api.register(registerCustomPagesAdmin, { prefix: "/admin" });
     await api.register(registerSiteSettingsAdmin,{ prefix: "/admin" });
-    await api.register(registerPopupsAdmin,      { prefix: "/admin" });
     await api.register(registerUserAdmin,        { prefix: "/admin" });
     await api.register(registerCampaignsAdmin,   { prefix: "/admin" });
     await api.register(registerAnnouncementsAdmin,{ prefix: "/admin" });
@@ -141,6 +138,11 @@ export async function createApp() {
     await api.register(registerContactsAdmin,    { prefix: "/admin" });
     await api.register(registerAccessoriesAdmin, { prefix: "/admin" });
     await api.register(registerSliderAdmin,      { prefix: "/admin" });
+    await api.register(registerStorageAdmin,     { prefix: "/admin" });
+    await api.register(registerCategoriesAdmin,  { prefix: "/admin" });
+    await api.register(registerSubCategoriesAdmin,{ prefix: "/admin" });
+    await api.register(registerDbAdmin,          { prefix: "/admin" });
+
 
     // --- Public modüller → /api/...
     await registerAuth(api);
@@ -150,11 +152,8 @@ export async function createApp() {
     await registerSubCategories(api);
     await registerProducts(api);
     await registerCustomPages(api);
-    await registerBlog(api);
     await registerSiteSettings(api);
-    await registerPopups(api);
     await registerUserRoles(api);
-    await registerFooterSections(api);
     await registerInfoCards(api);
     await registerAnnouncements(api);
     await registerSimpleCampaigns(api);

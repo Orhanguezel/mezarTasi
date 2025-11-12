@@ -1,33 +1,63 @@
+// FILE: src/components/layout/Header.tsx
+"use client";
+
 import { useState, useEffect } from "react";
 import { Menu, X, ChevronDown, ChevronUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useListSiteSettingsQuery } from "@/integrations/metahub/rtk/endpoints/site_settings.endpoints";
 
 interface HeaderProps {
-  currentPage: string;                // "home" | "about" | ...
-  onNavigate: (page: string) => void; // backward-compat
+  currentPage: string;
+  onNavigate: (page: string) => void;
   onSearch: (searchTerm: string) => void;
   searchTerm: string;
 }
 
+type MenuItem = { title: string; path: string; pageKey?: string };
+
 export function Header({ currentPage, onNavigate, onSearch, searchTerm }: HeaderProps) {
   const navigate = useNavigate();
+
+  // Ayarları tek istekle çek
+  const { data: settings } = useListSiteSettingsQuery({
+    keys: [
+      "brand_name",
+      "brand_tagline",
+      "header_info_text",
+      "header_cta_label",
+      "contact_phone_display",
+      "contact_phone_tel",
+      "menu_kurumsal",
+      "menu_other_services",
+    ],
+  });
+
+  const get = (k: string, d: any) =>
+    settings?.find((s) => s.key === k)?.value ?? d;
+
+  const brandName = String(get("brand_name", "mezarisim.com"));
+  const brandTagline = String(get("brand_tagline", "online mezar yapımı"));
+  const infoText = String(get("header_info_text", "Ürünlerimiz Hakkında Detaylı Bilgi İçin"));
+  const ctaLabel = String(get("header_cta_label", "HEMEN ARA"));
+  const phoneDisplay = String(get("contact_phone_display", "0533 483 89 71"));
+  const phoneTel = String(get("contact_phone_tel", "05334838971"));
+  const menuKurumsal = (get("menu_kurumsal", []) as MenuItem[]) || [];
+  const menuOther = (get("menu_other_services", []) as MenuItem[]) || [];
 
   const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isKurumsalOpen, setIsKurumsalOpen] = useState(false);
   const [isDigerHizmetlerOpen, setIsDigerHizmetlerOpen] = useState(false);
 
-  // Desktop dropdown states
   const [isDesktopKurumsalOpen, setIsDesktopKurumsalOpen] = useState(false);
   const [isDesktopDigerHizmetlerOpen, setIsDesktopDigerHizmetlerOpen] = useState(false);
 
   const go = (page: string, path: string) => {
-    onNavigate(page);     // eski sözleşme korunur
-    navigate(path);       // gerçek route
+    onNavigate(page);
+    navigate(path);
   };
 
   const handleSearch = () => onSearch(localSearchTerm);
-
   const handleMobileNavigation = (page: string, path: string) => {
     go(page, path);
     setIsMobileMenuOpen(false);
@@ -41,10 +71,6 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
     }
   };
 
-  const toggleKurumsal = () => setIsKurumsalOpen((v) => !v);
-  const toggleDigerHizmetler = () => setIsDigerHizmetlerOpen((v) => !v);
-
-  // Desktop dropdown handlers
   const handleDesktopKurumsalClick = () => {
     setIsDesktopKurumsalOpen((v) => !v);
     setIsDesktopDigerHizmetlerOpen(false);
@@ -97,15 +123,15 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
         <div className="bg-teal-500 text-white py-1.5">
           <div className="px-4">
             <div className="flex items-center justify-center space-x-2 text-xs">
-              <span className="text-white">Ürünlerimiz Hakkında Detaylı Bilgi İçin</span>
-              <a href="tel:05334838971" className="hover:text-teal-200 transition-colors whitespace-nowrap">
-                📞 0533 483 89 71
+              <span className="text-white">{infoText}</span>
+              <a href={`tel:${phoneTel}`} className="hover:text-teal-200 transition-colors whitespace-nowrap">
+                📞 {phoneDisplay}
               </a>
               <button
-                onClick={() => (window.location.href = "tel:05334838971")}
+                onClick={() => (window.location.href = `tel:${phoneTel}`)}
                 className="bg-white text-teal-500 px-2 py-0.5 rounded text-xs hover:bg-gray-100 active:bg-gray-200 transition-all duration-150 font-medium transform active:scale-95 shadow-sm hover:shadow-md whitespace-nowrap"
               >
-                HEMEN ARA
+                {ctaLabel}
               </button>
             </div>
           </div>
@@ -120,8 +146,8 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
               </div>
             </div>
             <div>
-              <h1 className="text-xl text-teal-500 font-bold">mezarisim.com</h1>
-              <p className="text-xs text-gray-500">online mezar yapımı</p>
+              <h1 className="text-xl text-teal-500 font-bold">{brandName}</h1>
+              <p className="text-xs text-gray-500">{brandTagline}</p>
             </div>
           </div>
 
@@ -170,7 +196,7 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
             {/* Kurumsal */}
             <div className="border-b border-teal-400">
               <button
-                onClick={toggleKurumsal}
+                onClick={() => setIsKurumsalOpen((v) => !v)}
                 className="w-full flex items-center justify-between py-3 px-2 font-medium text-white hover:bg-teal-600 transition-colors"
               >
                 <span>KURUMSAL</span>
@@ -183,38 +209,25 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
                 }`}
               >
                 <div className="pl-4 pb-2">
-                  <button
-                    onClick={() => handleMobileNavigation("about", "/about")}
-                    className={`block w-full text-left py-2 px-2 text-sm text-white hover:bg-teal-600 transition-colors ${
-                      currentPage === "about" ? "bg-teal-600" : ""
-                    }`}
-                  >
-                    HAKKIMIZDA
-                  </button>
-                  <button
-                    onClick={() => handleMobileNavigation("mission", "/mission")}
-                    className={`block w-full text-left py-2 px-2 text-sm text-white hover:bg-teal-600 transition-colors ${
-                      currentPage === "mission" ? "bg-teal-600" : ""
-                    }`}
-                  >
-                    MİSYONUMUZ - VİZYONUMUZ
-                  </button>
-                  <button
-                    onClick={() => handleMobileNavigation("quality", "/quality")}
-                    className={`block w-full text-left py-2 px-2 text-sm text-white hover:bg-teal-600 transition-colors ${
-                      currentPage === "quality" ? "bg-teal-600" : ""
-                    }`}
-                  >
-                    KALİTE POLİTİKAMIZ
-                  </button>
-                  <button
-                    onClick={() => handleMobileNavigation("faq", "/faq")}
-                    className={`block w-full text-left py-2 px-2 text-sm text-white hover:bg-teal-600 transition-colors ${
-                      currentPage === "faq" ? "bg-teal-600" : ""
-                    }`}
-                  >
-                    S.S.S.
-                  </button>
+                  {(menuKurumsal.length
+                    ? menuKurumsal
+                    : [
+                        { title: "HAKKIMIZDA", path: "/about", pageKey: "about" },
+                        { title: "MİSYONUMUZ - VİZYONUMUZ", path: "/mission", pageKey: "mission" },
+                        { title: "KALİTE POLİTİKAMIZ", path: "/quality", pageKey: "quality" },
+                        { title: "S.S.S.", path: "/faq", pageKey: "faq" },
+                      ]
+                  ).map((m) => (
+                    <button
+                      key={m.title}
+                      onClick={() => handleMobileNavigation(m.pageKey ?? "", m.path)}
+                      className={`block w-full text-left py-2 px-2 text-sm text-white hover:bg-teal-600 transition-colors ${
+                        currentPage === m.pageKey ? "bg-teal-600" : ""
+                      }`}
+                    >
+                      {m.title}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -248,7 +261,7 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
 
             <div className="border-b border-teal-400">
               <button
-                onClick={toggleDigerHizmetler}
+                onClick={() => setIsDigerHizmetlerOpen((v) => !v)}
                 className="w-full flex items-center justify-between py-3 px-2 font-medium text-white hover:bg-teal-600 transition-colors"
               >
                 <span>DİĞER HİZMETLER</span>
@@ -261,22 +274,23 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
                 }`}
               >
                 <div className="pl-4 pb-2">
-                  <button
-                    onClick={() => handleMobileNavigation("gardening", "/gardening")}
-                    className={`block w-full text-left py-2 px-2 text-sm text-white hover:bg-teal-600 transition-colors ${
-                      currentPage === "gardening" ? "bg-teal-600" : ""
-                    }`}
-                  >
-                    MEZAR ÇİÇEKLENDİRME
-                  </button>
-                  <button
-                    onClick={() => handleMobileNavigation("soilfilling", "/soilfilling")}
-                    className={`block w-full text-left py-2 px-2 text-sm text-white hover:bg-teal-600 transition-colors ${
-                      currentPage === "soilfilling" ? "bg-teal-600" : ""
-                    }`}
-                  >
-                    MEZAR TOPRAK DOLDURUMU
-                  </button>
+                  {(menuOther.length
+                    ? menuOther
+                    : [
+                        { title: "MEZAR ÇİÇEKLENDİRME", path: "/gardening", pageKey: "gardening" },
+                        { title: "MEZAR TOPRAK DOLDURUMU", path: "/soilfilling", pageKey: "soilfilling" },
+                      ]
+                  ).map((m) => (
+                    <button
+                      key={m.title}
+                      onClick={() => handleMobileNavigation(m.pageKey ?? "", m.path)}
+                      className={`block w-full text-left py-2 px-2 text-sm text-white hover:bg-teal-600 transition-colors ${
+                        currentPage === m.pageKey ? "bg-teal-600" : ""
+                      }`}
+                    >
+                      {m.title}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -299,15 +313,15 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
         <div className="bg-teal-500 text-white py-2">
           <div className="container mx-auto px-4 max-w-7xl">
             <div className="flex items-center justify-center space-x-4 text-sm">
-              <span className="text-white font-semibold">Ürünlerimiz Hakkında Detaylı Bilgi İçin</span>
-              <a href="tel:05334838971" className="hover:text-teal-200 transition-colors font-bold whitespace-nowrap">
-                📞 0533 483 89 71
+              <span className="text-white font-semibold">{infoText}</span>
+              <a href={`tel:${phoneTel}`} className="hover:text-teal-200 transition-colors font-bold whitespace-nowrap">
+                📞 {phoneDisplay}
               </a>
               <button
-                onClick={() => (window.location.href = "tel:05334838971")}
+                onClick={() => (window.location.href = `tel:${phoneTel}`)}
                 className="bg-white text-teal-500 px-4 py-1.5 rounded text-sm font-bold hover:bg-gray-100 active:bg-gray-200 transition-all duration-150 transform active:scale-95 shadow-sm hover:shadow-md whitespace-nowrap"
               >
-                HEMEN ARA
+                {ctaLabel}
               </button>
             </div>
           </div>
@@ -324,8 +338,8 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
                   </div>
                 </div>
                 <div>
-                  <h1 className="text-3xl text-teal-500 font-bold">mezarisim.com</h1>
-                  <p className="text-sm text-gray-500">online mezar yapımı</p>
+                  <h1 className="text-3xl text-teal-500 font-bold">{brandName}</h1>
+                  <p className="text-sm text-gray-500">{brandTagline}</p>
                 </div>
               </div>
 
@@ -382,38 +396,28 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
 
                   {isDesktopKurumsalOpen && (
                     <div className="absolute top-full left-0 bg-teal-500 border-2 border-teal-600 shadow-xl rounded-b-lg min-w-[240px] z-50">
-                      <button
-                        onClick={() => handleDropdownNavigation("about", "/about")}
-                        className={`block w-full text-left py-3 px-4 text-white hover:bg-teal-600 border-b border-teal-600 text-sm font-bold uppercase transition-colors ${
-                          currentPage === "about" ? "bg-teal-600" : ""
-                        }`}
-                      >
-                        HAKKIMIZDA
-                      </button>
-                      <button
-                        onClick={() => handleDropdownNavigation("mission", "/mission")}
-                        className={`block w-full text-left py-3 px-4 text-white hover:bg-teal-600 border-b border-teal-600 text-sm font-bold uppercase transition-colors ${
-                          currentPage === "mission" ? "bg-teal-600" : ""
-                        }`}
-                      >
-                        MİSYONUMUZ - VİZYONUMUZ
-                      </button>
-                      <button
-                        onClick={() => handleDropdownNavigation("quality", "/quality")}
-                        className={`block w-full text-left py-3 px-4 text-white hover:bg-teal-600 border-b border-teal-600 text-sm font-bold uppercase transition-colors ${
-                          currentPage === "quality" ? "bg-teal-600" : ""
-                        }`}
-                      >
-                        KALİTE POLİTİKAMIZ
-                      </button>
-                      <button
-                        onClick={() => handleDropdownNavigation("faq", "/faq")}
-                        className={`block w-full text-left py-3 px-4 text-white hover:bg-teal-600 text-sm font-bold uppercase transition-colors rounded-b-lg ${
-                          currentPage === "faq" ? "bg-teal-600" : ""
-                        }`}
-                      >
-                        S.S.S.
-                      </button>
+                      {(menuKurumsal.length
+                        ? menuKurumsal
+                        : [
+                            { title: "HAKKIMIZDA", path: "/about", pageKey: "about" },
+                            { title: "MİSYONUMUZ - VİZYONUMUZ", path: "/mission", pageKey: "mission" },
+                            { title: "KALİTE POLİTİKAMIZ", path: "/quality", pageKey: "quality" },
+                            { title: "S.S.S.", path: "/faq", pageKey: "faq" },
+                          ]
+                      ).map((m, i, arr) => {
+                        const isLast = i === arr.length - 1;
+                        return (
+                          <button
+                            key={m.title}
+                            onClick={() => handleDropdownNavigation(m.pageKey ?? "", m.path)}
+                            className={`block w-full text-left py-3 px-4 text-white hover:bg-teal-600 ${!isLast ? "border-b border-teal-600" : "rounded-b-lg"} text-sm font-bold uppercase transition-colors ${
+                              currentPage === m.pageKey ? "bg-teal-600" : ""
+                            }`}
+                          >
+                            {m.title}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -464,22 +468,26 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
 
                   {isDesktopDigerHizmetlerOpen && (
                     <div className="absolute top-full left-0 bg-teal-500 border-2 border-teal-600 shadow-xl rounded-b-lg min-w-[240px] z-50">
-                      <button
-                        onClick={() => handleDropdownNavigation("gardening", "/gardening")}
-                        className={`block w-full text-left py-3 px-4 text-white hover:bg-teal-600 border-b border-teal-600 text-sm font-bold uppercase transition-colors ${
-                          currentPage === "gardening" ? "bg-teal-600" : ""
-                        }`}
-                      >
-                        MEZAR ÇİÇEKLENDİRME
-                      </button>
-                      <button
-                        onClick={() => handleDropdownNavigation("soilfilling", "/soilfilling")}
-                        className={`block w-full text-left py-3 px-4 text-white hover:bg-teal-600 text-sm font-bold uppercase transition-colors rounded-b-lg ${
-                          currentPage === "soilfilling" ? "bg-teal-600" : ""
-                        }`}
-                      >
-                        MEZAR TOPRAK DOLDURUMU
-                      </button>
+                      {(menuOther.length
+                        ? menuOther
+                        : [
+                            { title: "MEZAR ÇİÇEKLENDİRME", path: "/gardening", pageKey: "gardening" },
+                            { title: "MEZAR TOPRAK DOLDURUMU", path: "/soilfilling", pageKey: "soilfilling" },
+                          ]
+                      ).map((m, i, arr) => {
+                        const isLast = i === arr.length - 1;
+                        return (
+                          <button
+                            key={m.title}
+                            onClick={() => handleDropdownNavigation(m.pageKey ?? "", m.path)}
+                            className={`block w-full text-left py-3 px-4 text-white hover:bg-teal-600 ${!isLast ? "border-b border-teal-600" : "rounded-b-lg"} text-sm font-bold uppercase transition-colors ${
+                              currentPage === m.pageKey ? "bg-teal-600" : ""
+                            }`}
+                          >
+                            {m.title}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

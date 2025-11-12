@@ -1,7 +1,7 @@
 // -------------------------------------------------------------
 // FILE: src/integrations/metahub/rtk/endpoints/sub_categories.endpoints.ts
 // -------------------------------------------------------------
-import { baseApi } from "../baseApi";
+import { publicApi } from "../publicApi"; // <-- baseApi DEĞİL
 import type { FetchArgs } from "@reduxjs/toolkit/query";
 import type { SubCategory } from "@/integrations/metahub/db/types/sub_categories.rows";
 
@@ -27,8 +27,8 @@ const buildParams = (
   if (params.category_id !== undefined && params.category_id !== null) {
     p.category_id = params.category_id;
   }
-  if (params.is_active !== undefined) p.is_active = params.is_active;
-  if (params.is_featured !== undefined) p.is_featured = params.is_featured;
+  if (params.is_active !== undefined) p.is_active = params.is_active;        // gerekirse 0/1'e çevir
+  if (params.is_featured !== undefined) p.is_featured = params.is_featured;  // gerekirse 0/1'e çevir
   if (params.limit !== undefined) p.limit = params.limit;
   if (params.offset !== undefined) p.offset = params.offset;
   if (params.sort) p.sort = params.sort;
@@ -36,7 +36,7 @@ const buildParams = (
   return Object.keys(p).length ? p : undefined;
 };
 
-export const subCategoriesApi = baseApi.injectEndpoints({
+export const subCategoriesApi = publicApi.injectEndpoints({
   endpoints: (b) => ({
     listSubCategories: b.query<SubCategory[], void | SubListParams>({
       query: (params): FetchArgs | string => {
@@ -57,7 +57,6 @@ export const subCategoriesApi = baseApi.injectEndpoints({
       providesTags: (_r, _e, id) => [{ type: "SubCategories", id }],
     }),
 
-    // ?category_id opsiyonel: BE şu an kullanmasa da arayüzden gönderebiliriz
     getSubCategoryBySlug: b.query<SubCategory, { slug: string; category_id?: string }>({
       query: ({ slug, category_id }): FetchArgs | string => {
         const url = `${BASE}/by-slug/${encodeURIComponent(slug)}`;

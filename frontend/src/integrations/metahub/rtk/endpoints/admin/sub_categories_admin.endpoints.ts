@@ -5,10 +5,7 @@ import { baseApi } from "../../baseApi";
 import type { FetchArgs } from "@reduxjs/toolkit/query";
 import type { SubCategory } from "@/integrations/metahub/db/types/sub_categories.rows";
 
-// normalize helpers
-const toNumber = (x: unknown): number =>
-  typeof x === "number" ? x : Number(x as any);
-
+const toNumber = (x: unknown): number => (typeof x === "number" ? x : Number(x as any));
 const toBool = (x: unknown): boolean => {
   if (typeof x === "boolean") return x;
   if (typeof x === "number") return x !== 0;
@@ -16,7 +13,6 @@ const toBool = (x: unknown): boolean => {
   return s === "true" || s === "1";
 };
 
-// BE ham payload'ı (tip geniş)
 export type ApiSubCategory = Omit<
   SubCategory,
   "is_active" | "is_featured" | "display_order" | "description" | "image_url" | "icon"
@@ -37,6 +33,7 @@ const normalize = (c: ApiSubCategory): SubCategory => ({
   description: (c.description ?? null) as string | null,
   image_url: (c.image_url ?? null) as string | null,
   icon: (c.icon ?? null) as string | null,
+  alt: (c as any).alt ?? null,
   is_active: toBool(c.is_active),
   is_featured: toBool(c.is_featured),
   display_order: toNumber(c.display_order),
@@ -55,15 +52,13 @@ export type AdminSubListParams = {
   order?: "asc" | "desc";
 };
 
-const buildParams = (
-  params?: AdminSubListParams
-): Record<string, string | number | boolean> | undefined => {
+const buildParams = (params?: AdminSubListParams):
+  | Record<string, string | number | boolean>
+  | undefined => {
   if (!params) return undefined;
   const p: Record<string, string | number | boolean> = {};
   if (params.q !== undefined) p.q = params.q;
-  if (params.category_id !== undefined && params.category_id !== null) {
-    p.category_id = params.category_id;
-  }
+  if (params.category_id !== undefined && params.category_id !== null) p.category_id = params.category_id;
   if (params.is_active !== undefined) p.is_active = params.is_active;
   if (params.is_featured !== undefined) p.is_featured = params.is_featured;
   if (params.limit !== undefined) p.limit = params.limit;
@@ -74,7 +69,7 @@ const buildParams = (
 };
 
 export type UpsertSubCategoryBody = {
-  category_id: string;          // ZORUNLU (BE)
+  category_id: string;
   name: string;
   slug: string;
   description?: string | null;
@@ -83,23 +78,27 @@ export type UpsertSubCategoryBody = {
   is_active?: boolean;
   is_featured?: boolean;
   display_order?: number;
-  // ⚠️ seo_* vb. BE'de yok → eklenmedi
 };
 
+export type SetSubCategoryImageBody = {
+  asset_id?: string | null; // BE ile birebir
+  alt?: string | null;
+};
 
-const BASE = "/sub-categories";
+const BASE = "/admin/sub-categories";
+const BASE_LIST = `${BASE}/list`;
 
 export const subCategoriesAdminApi = baseApi.injectEndpoints({
   endpoints: (b) => ({
     listSubCategoriesAdmin: b.query<SubCategory[], AdminSubListParams | void>({
       query: (params): FetchArgs | string => {
         const p = buildParams(params as AdminSubListParams | undefined);
-        return p ? { url: `${BASE}`, params: p } : BASE;
+        return p ? { url: BASE_LIST, params: p, method: "GET" } : BASE_LIST;
       },
       transformResponse: (res: unknown): SubCategory[] =>
         Array.isArray(res) ? (res as ApiSubCategory[]).map(normalize) : [],
       providesTags: (result) =>
-        result
+        result && result.length
           ? [
               ...result.map((sc) => ({ type: "SubCategories" as const, id: sc.id })),
               { type: "SubCategories" as const, id: "LIST" },
@@ -111,10 +110,9 @@ export const subCategoriesAdminApi = baseApi.injectEndpoints({
     getSubCategoryAdminById: b.query<SubCategory, string>({
       query: (id): FetchArgs | string => `${BASE}/${id}`,
       transformResponse: (res: unknown): SubCategory => normalize(res as ApiSubCategory),
-      providesTags: (_r, _e, id) => [{ type: "SubCategories", id }],
+      providesTags: (_r, _e, id) => [{ type: "SubCategories" as const, id }],
     }),
 
-    // 🔄 slug + optional category_id
     getSubCategoryAdminBySlug: b.query<SubCategory | null, { slug: string; category_id?: string }>({
       query: ({ slug, category_id }): FetchArgs | string => {
         const url = `${BASE}/by-slug/${encodeURIComponent(slug)}`;
@@ -122,19 +120,16 @@ export const subCategoriesAdminApi = baseApi.injectEndpoints({
       },
       transformResponse: (res: unknown): SubCategory | null =>
         res ? normalize(res as ApiSubCategory) : null,
-      providesTags: (_r, _e, arg) => [{ type: "SubCategories", id: `SLUG_${arg.slug}` }],
+      providesTags: (_r, _e, arg) => [{ type: "SubCategories" as const, id: `SLUG_${arg.slug}` }],
     }),
 
     createSubCategoryAdmin: b.mutation<SubCategory, UpsertSubCategoryBody>({
       query: (body): FetchArgs => ({ url: `${BASE}`, method: "POST", body }),
       transformResponse: (res: unknown): SubCategory => normalize(res as ApiSubCategory),
-      invalidatesTags: [{ type: "SubCategories", id: "LIST" }],
+      invalidatesTags: [{ type: "SubCategories" as const, id: "LIST" }],
     }),
 
-    updateSubCategoryAdmin: b.mutation<
-      SubCategory,
-      { id: string; body: UpsertSubCategoryBody }
-    >({
+    updateSubCategoryAdmin: b.mutation<SubCategory, { id: string; body: UpsertSubCategoryBody }>({
       query: ({ id, body }): FetchArgs => ({
         url: `${BASE}/${id}`,
         method: "PUT",
@@ -142,15 +137,12 @@ export const subCategoriesAdminApi = baseApi.injectEndpoints({
       }),
       transformResponse: (res: unknown): SubCategory => normalize(res as ApiSubCategory),
       invalidatesTags: (_r, _e, arg) => [
-        { type: "SubCategories", id: arg.id },
-        { type: "SubCategories", id: "LIST" },
+        { type: "SubCategories" as const, id: arg.id },
+        { type: "SubCategories" as const, id: "LIST" },
       ],
     }),
 
-    patchSubCategoryAdmin: b.mutation<
-      SubCategory,
-      { id: string; body: Partial<UpsertSubCategoryBody> }
-    >({
+    patchSubCategoryAdmin: b.mutation<SubCategory, { id: string; body: Partial<UpsertSubCategoryBody> }>({
       query: ({ id, body }): FetchArgs => ({
         url: `${BASE}/${id}`,
         method: "PATCH",
@@ -158,8 +150,8 @@ export const subCategoriesAdminApi = baseApi.injectEndpoints({
       }),
       transformResponse: (res: unknown): SubCategory => normalize(res as ApiSubCategory),
       invalidatesTags: (_r, _e, arg) => [
-        { type: "SubCategories", id: arg.id },
-        { type: "SubCategories", id: "LIST" },
+        { type: "SubCategories" as const, id: arg.id },
+        { type: "SubCategories" as const, id: "LIST" },
       ],
     }),
 
@@ -167,22 +159,19 @@ export const subCategoriesAdminApi = baseApi.injectEndpoints({
       query: (id): FetchArgs => ({ url: `${BASE}/${id}`, method: "DELETE" }),
       transformResponse: (): { ok: true } => ({ ok: true }),
       invalidatesTags: (_r, _e, id) => [
-        { type: "SubCategories", id },
-        { type: "SubCategories", id: "LIST" },
+        { type: "SubCategories" as const, id },
+        { type: "SubCategories" as const, id: "LIST" },
       ],
     }),
 
-    reorderSubCategoriesAdmin: b.mutation<
-      { ok: true },
-      Array<{ id: string; display_order: number }>
-    >({
+    reorderSubCategoriesAdmin: b.mutation<{ ok: true }, Array<{ id: string; display_order: number }>>({
       query: (items): FetchArgs => ({
         url: `${BASE}/reorder`,
         method: "POST",
         body: { items },
       }),
       transformResponse: (): { ok: true } => ({ ok: true }),
-      invalidatesTags: [{ type: "SubCategories", id: "LIST" }],
+      invalidatesTags: [{ type: "SubCategories" as const, id: "LIST" }],
     }),
 
     toggleSubActiveAdmin: b.mutation<SubCategory, { id: string; is_active: boolean }>({
@@ -193,8 +182,8 @@ export const subCategoriesAdminApi = baseApi.injectEndpoints({
       }),
       transformResponse: (res: unknown): SubCategory => normalize(res as ApiSubCategory),
       invalidatesTags: (_r, _e, arg) => [
-        { type: "SubCategories", id: arg.id },
-        { type: "SubCategories", id: "LIST" },
+        { type: "SubCategories" as const, id: arg.id },
+        { type: "SubCategories" as const, id: "LIST" },
       ],
     }),
 
@@ -206,16 +195,13 @@ export const subCategoriesAdminApi = baseApi.injectEndpoints({
       }),
       transformResponse: (res: unknown): SubCategory => normalize(res as ApiSubCategory),
       invalidatesTags: (_r, _e, arg) => [
-        { type: "SubCategories", id: arg.id },
-        { type: "SubCategories", id: "LIST" },
+        { type: "SubCategories" as const, id: arg.id },
+        { type: "SubCategories" as const, id: "LIST" },
       ],
     }),
 
-    // 🔥 Görsel set/kaldır (asset_id veya image_url)
-    setSubCategoryImageAdmin: b.mutation<
-      SubCategory,
-      { id: string; body: { asset_id?: string | null; image_url?: string | null } }
-    >({
+    // ✅ Görsel set/kaldır (asset_id + alt)
+    setSubCategoryImageAdmin: b.mutation<SubCategory, { id: string; body: SetSubCategoryImageBody }>({
       query: ({ id, body }): FetchArgs => ({
         url: `${BASE}/${id}/image`,
         method: "PATCH",
@@ -223,8 +209,8 @@ export const subCategoriesAdminApi = baseApi.injectEndpoints({
       }),
       transformResponse: (res: unknown): SubCategory => normalize(res as ApiSubCategory),
       invalidatesTags: (_r, _e, arg) => [
-        { type: "SubCategories", id: arg.id },
-        { type: "SubCategories", id: "LIST" },
+        { type: "SubCategories" as const, id: arg.id },
+        { type: "SubCategories" as const, id: "LIST" },
       ],
     }),
   }),
@@ -242,5 +228,5 @@ export const {
   useReorderSubCategoriesAdminMutation,
   useToggleSubActiveAdminMutation,
   useToggleSubFeaturedAdminMutation,
-  useSetSubCategoryImageAdminMutation,   // 🔥 export
+  useSetSubCategoryImageAdminMutation,
 } = subCategoriesAdminApi;

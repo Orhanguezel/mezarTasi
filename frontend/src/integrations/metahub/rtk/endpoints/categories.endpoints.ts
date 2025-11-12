@@ -1,7 +1,7 @@
 // -------------------------------------------------------------
 // FILE: src/integrations/metahub/rtk/endpoints/categories.endpoints.ts
 // -------------------------------------------------------------
-import { baseApi } from "../baseApi";
+import { publicApi } from "../publicApi"; // <-- baseApi DEĞİL
 import type { FetchArgs } from "@reduxjs/toolkit/query";
 import type { Category } from "@/integrations/metahub/db/types/categories.rows";
 
@@ -23,8 +23,8 @@ const buildParams = (params?: ListParams):
   if (!params) return undefined;
   const p: Record<string, string | number | boolean> = {};
   if (params.q !== undefined) p.q = params.q;
-  if (params.is_active !== undefined) p.is_active = params.is_active;
-  if (params.is_featured !== undefined) p.is_featured = params.is_featured;
+  if (params.is_active !== undefined) p.is_active = params.is_active;        // gerekirse 0/1'e çevir
+  if (params.is_featured !== undefined) p.is_featured = params.is_featured;  // gerekirse 0/1'e çevir
   if (params.limit !== undefined) p.limit = params.limit;
   if (params.offset !== undefined) p.offset = params.offset;
   if (params.sort) p.sort = params.sort;
@@ -32,10 +32,9 @@ const buildParams = (params?: ListParams):
   return Object.keys(p).length ? p : undefined;
 };
 
-export const categoriesApi = baseApi.injectEndpoints({
+export const categoriesApi = publicApi.injectEndpoints({
   endpoints: (builder) => ({
     listCategories: builder.query<Category[], void | ListParams>({
-      // RTK exactOptionalPropertyTypes uyumu: params yoksa hiç koyma
       query: (params): FetchArgs | string => {
         const p = buildParams(params as ListParams | undefined);
         return p ? { url: BASE, params: p } : BASE;

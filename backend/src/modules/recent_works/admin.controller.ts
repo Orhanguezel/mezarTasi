@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/recent-works/admin.controller.ts
+// =============================================================
 import type { RouteHandler } from "fastify";
 import { randomUUID } from "crypto";
 import {
@@ -7,18 +10,21 @@ import {
   createRecentWork,
   updateRecentWork,
   deleteRecentWork,
-  attachRecentWorkImage,
-  detachRecentWorkImage,
+  repoSetRecentWorkImage,
+  attachRecentWorkImage, 
+  detachRecentWorkImage 
 } from "./repository";
 import {
   recentWorkListQuerySchema,
   upsertRecentWorkBodySchema,
   patchRecentWorkBodySchema,
-  attachRecentWorkImageBodySchema,
+  setRecentWorkImageBodySchema,
   type RecentWorkListQuery,
   type UpsertRecentWorkBody,
   type PatchRecentWorkBody,
+  type SetRecentWorkImageBody,
 } from "./validation";
+
 
 const toBool = (v: unknown): boolean =>
   v === true || v === 1 || v === "1" || v === "true";
@@ -78,7 +84,6 @@ export const createRecentWorkAdmin: RouteHandler<{ Body: UpsertRecentWorkBody }>
       slug: b.slug.trim(),
       description: b.description,
 
-      // tek görsel alanları (opsiyonel)
       image_url: b.image_url ?? null,
       storage_asset_id: b.storage_asset_id ?? null,
       alt: typeof b.alt === "string" ? b.alt : b.alt ?? null,
@@ -130,7 +135,6 @@ export const updateRecentWorkAdmin: RouteHandler<{ Params: { id: string }; Body:
       slug: typeof b.slug === "string" ? b.slug.trim() : undefined,
       description: typeof b.description === "string" ? b.description : undefined,
 
-      // tek görsel alanları
       image_url: typeof b.image_url !== "undefined" ? (b.image_url ?? null) : undefined,
       storage_asset_id: typeof b.storage_asset_id !== "undefined" ? (b.storage_asset_id ?? null) : undefined,
       alt: typeof b.alt !== "undefined" ? (b.alt ?? null) : undefined,
@@ -175,24 +179,37 @@ export const removeRecentWorkAdmin: RouteHandler<{ Params: { id: string } }> = a
   return reply.code(204).send();
 };
 
-/** Tek görsel attach (storage XOR url) */
-export const attachImageAdmin: RouteHandler<{ Params: { id: string } }> = async (req, reply) => {
-  const parsed = attachRecentWorkImageBodySchema.safeParse(req.body ?? {});
-  if (!parsed.success) {
-    return reply.code(400).send({ error: { message: "invalid_body", issues: parsed.error.issues } });
-  }
-  const { storage_asset_id, image_url, alt } = parsed.data;
+/** ✅ SET IMAGE (admin) – tek uç */
+export const adminSetRecentWorkImage: RouteHandler<{ Params: { id: string }; Body: SetRecentWorkImageBody }> =
+  async (req, reply) => {
+    const b = setRecentWorkImageBodySchema.safeParse(req.body ?? {});
+    if (!b.success) {
+      return reply.code(400).send({ error: { message: "invalid_body", issues: b.error.issues } });
+    }
+    const updated = await repoSetRecentWorkImage(req.params.id, b.data);
+    if (!updated) return reply.code(404).send({ error: { message: "not_found_or_asset_missing" } });
+    return reply.send(updated);
+  };
 
-  const row = await attachRecentWorkImage(req.params.id, {
-    storage_asset_id, image_url, alt: typeof alt === "string" ? alt : alt ?? null,
-  });
-  if (!row) return reply.code(404).send({ error: { message: "not_found" } });
-  return reply.send(row);
-};
 
-/** Tek görsel detach */
-export const detachImageAdmin: RouteHandler<{ Params: { id: string } }> = async (req, reply) => {
-  const row = await detachRecentWorkImage(req.params.id);
-  if (!row) return reply.code(404).send({ error: { message: "not_found" } });
-  return reply.send(row);
-};
+
+// repo’daki geri uyum fonksiyonları
+
+// Body: storage_asset_id? / image_url? / alt?  (FE RTK ile birebir)
+export const attachImageAdmin: RouteHandler<{ Params: { id: string }; Body: { storage_asset_id?: string; image_url?: string; alt?: string | null } }> =
+  async (req, reply) => {
+    const row = await attachRecentWorkImage(req.params.id, {
+      storage_asset_id: req.body?.storage_asset_id,
+      image_url: req.body?.image_url,
+      alt: typeof req.body?.alt === "string" ? req.body.alt : req.body?.alt ?? null,
+    });
+    if (!row) return reply.code(404).send({ error: { message: "not_found_or_asset_missing" } });
+    return reply.send(row);
+  };
+
+export const detachImageAdmin: RouteHandler<{ Params: { id: string } }> =
+  async (req, reply) => {
+    const row = await detachRecentWorkImage(req.params.id);
+    if (!row) return reply.code(404).send({ error: { message: "not_found" } });
+    return reply.send(row);
+  };

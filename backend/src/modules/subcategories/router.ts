@@ -1,83 +1,24 @@
-// router.ts
-import type { FastifyInstance } from 'fastify';
-import { requireAuth } from '@/common/middleware/auth';
-import { requireAdmin } from '@/common/middleware/roles';
-
+// =============================================================
+// FILE: src/modules/sub-categories/router.ts   (PUBLIC ROUTES ONLY)
+// =============================================================
+import type { FastifyInstance } from "fastify";
 import {
   listSubCategories,
   getSubCategoryById,
   getSubCategoryBySlug,
-} from './controller';
-
-import type { SubCategoryCreateInput, SubCategoryUpdateInput } from './validation';
-import {
-  adminCreateSubCategory,
-  adminPutSubCategory,
-  adminPatchSubCategory,
-  adminDeleteSubCategory,
-  adminReorderSubCategories,
-  adminToggleSubActive,
-  adminToggleSubFeatured,
-  adminSetSubCategoryImage,        // 🔥
-} from './admin.controller';
+} from "./controller";
 
 export async function registerSubCategories(app: FastifyInstance) {
   // PUBLIC READ
-  app.get('/sub-categories', { config: { public: true } }, listSubCategories);
-  app.get<{ Params: { id: string } }>('/sub-categories/:id', { config: { public: true } }, getSubCategoryById);
-  app.get<{ Params: { slug: string }; Querystring: { category_id?: string } }>(
-    '/sub-categories/by-slug/:slug',
+  app.get("/sub-categories", { config: { public: true } }, listSubCategories);
+  app.get<{ Params: { id: string } }>(
+    "/sub-categories/:id",
     { config: { public: true } },
-    getSubCategoryBySlug,
+    getSubCategoryById
   );
-
-  // ADMIN WRITE
-  app.post<{ Body: SubCategoryCreateInput }>(
-    '/sub-categories',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminCreateSubCategory,
-  );
-
-  app.put<{ Params: { id: string }; Body: SubCategoryUpdateInput }>(
-    '/sub-categories/:id',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminPutSubCategory,
-  );
-
-  app.patch<{ Params: { id: string }; Body: SubCategoryUpdateInput }>(
-    '/sub-categories/:id',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminPatchSubCategory,
-  );
-
-  app.delete<{ Params: { id: string } }>(
-    '/sub-categories/:id',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminDeleteSubCategory,
-  );
-
-  app.post<{ Body: { items: Array<{ id: string; display_order: number }> } }>(
-    '/sub-categories/reorder',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminReorderSubCategories,
-  );
-
-  app.patch<{ Params: { id: string }; Body: { is_active: boolean } }>(
-    '/sub-categories/:id/active',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminToggleSubActive,
-  );
-
-  app.patch<{ Params: { id: string }; Body: { is_featured: boolean } }>(
-    '/sub-categories/:id/featured',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminToggleSubFeatured,
-  );
-
-  // 🔥 Görsel set/kaldır
-  app.patch<{ Params: { id: string }; Body: { asset_id?: string | null; image_url?: string | null } }>(
-    '/sub-categories/:id/image',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminSetSubCategoryImage,
+  app.get<{ Params: { slug: string }; Querystring: { category_id?: string } }>(
+    "/sub-categories/by-slug/:slug",
+    { config: { public: true } },
+    getSubCategoryBySlug
   );
 }

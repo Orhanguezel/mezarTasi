@@ -1,5 +1,6 @@
-// src/modules/services/routes.public.ts (veya routes.ts içinde public bölüm)
-
+// =============================================================
+// FILE: src/modules/services/router.ts (PUBLIC ROUTES)
+// =============================================================
 import type { FastifyInstance } from "fastify";
 import {
   listServicesPublic,

@@ -1,7 +1,10 @@
-// src/modules/announcements/repository.ts
-
+// =============================================================
+// FILE: src/modules/announcements/repository.ts
+// =============================================================
 import { db } from "@/db/client";
 import { announcements, type NewAnnouncementRow } from "./schema";
+import { storageAssets } from "@/modules/storage/schema";
+import { env } from "@/core/env";
 import { and, asc, desc, eq, like, sql, or, type SQL } from "drizzle-orm";
 
 export function packContent(html: string) {
@@ -30,8 +33,35 @@ type ListParams = {
 /** Drizzle'ın union’ını bertaraf eden garanti-SQL helper */
 function andSQL(...conds: Array<SQL | undefined | null | false | true>): SQL {
   const filtered = conds.filter(Boolean) as SQL[];
-  // sentinel ile asla boş kalmaz → and(...) kesin SQL döner, TS de bilir
   return and(sql`1=1`, ...filtered) as SQL;
+}
+
+/* ===== Public URL yardımcıları (storage ile aynı) ===== */
+function encSeg(s: string) { return encodeURIComponent(s); }
+function encPath(p: string) { return p.split("/").map(encSeg).join("/"); }
+
+function publicUrlFromAsset(bucket: string, path: string, providerUrl?: string | null) {
+  if (providerUrl) return providerUrl;
+  const cdnBase = (env.CDN_PUBLIC_BASE || "").replace(/\/+$/, "");
+  if (cdnBase) return `${cdnBase}/${encSeg(bucket)}/${encPath(path)}`;
+  const apiBase = (env.PUBLIC_API_BASE || "").replace(/\/+$/, "");
+  const base = apiBase || "";
+  return `${base}/storage/${encSeg(bucket)}/${encPath(path)}`;
+}
+
+async function resolveAssetEffectiveUrl(assetId?: string | null): Promise<string | null> {
+  if (!assetId) return null;
+  const [a] = await db
+    .select({
+      bucket: storageAssets.bucket,
+      path: storageAssets.path,
+      url: storageAssets.url,
+    })
+    .from(storageAssets)
+    .where(eq(storageAssets.id, assetId))
+    .limit(1);
+  if (!a) return null;
+  return publicUrlFromAsset(a.bucket, a.path, a.url ?? null);
 }
 
 export async function listAnnouncements(params: ListParams = {}) {
@@ -104,7 +134,10 @@ export async function createAnnouncement(v: NewAnnouncementRow) {
 }
 
 export async function updateAnnouncement(id: string, patch: Partial<NewAnnouncementRow>) {
-  await db.update(announcements).set({ ...patch }).where(andSQL(eq(announcements.id, id)));
+  await db
+    .update(announcements)
+    .set({ ...patch, updated_at: new Date() }) // ✅ updated_at güncelle
+    .where(andSQL(eq(announcements.id, id)));
   return getAnnouncement(id);
 }
 
@@ -121,4 +154,50 @@ export async function bulkReorder(ids: string[]) {
       .set({ display_order: order++ })
       .where(andSQL(eq(announcements.id, id)));
   }
+}
+
+/* ===== ✅ Tek uç: SET IMAGE (storage patern) ===== */
+export async function setAnnouncementImage(id: string, args: {
+  storage_asset_id?: string | null;
+  image_url?: string | null;
+  alt?: string | null;
+}) {
+  // Temizle
+  if (args.storage_asset_id === null || (args.image_url === null && args.storage_asset_id === undefined)) {
+    await db.update(announcements)
+      .set({ storage_asset_id: null, image_url: null, alt: args.alt ?? null, updated_at: new Date() })
+      .where(eq(announcements.id, id));
+    return getAnnouncement(id);
+  }
+
+  // Direkt URL set
+  if (typeof args.image_url === "string") {
+    await db.update(announcements)
+      .set({ storage_asset_id: null, image_url: args.image_url, alt: args.alt ?? null, updated_at: new Date() })
+      .where(eq(announcements.id, id));
+    return getAnnouncement(id);
+  }
+
+  // Asset set
+  if (typeof args.storage_asset_id === "string" && args.storage_asset_id.trim()) {
+    const effective = await resolveAssetEffectiveUrl(args.storage_asset_id);
+    if (!effective) return null;
+    await db.update(announcements)
+      .set({
+        storage_asset_id: args.storage_asset_id,
+        image_url: effective,          // 👈 effective public URL
+        alt: args.alt ?? null,
+        updated_at: new Date(),
+      })
+      .where(eq(announcements.id, id));
+    return getAnnouncement(id);
+  }
+
+  // Sadece alt güncelle
+  if (typeof args.alt !== "undefined") {
+    await db.update(announcements)
+      .set({ alt: args.alt, updated_at: new Date() })
+      .where(eq(announcements.id, id));
+  }
+  return getAnnouncement(id);
 }

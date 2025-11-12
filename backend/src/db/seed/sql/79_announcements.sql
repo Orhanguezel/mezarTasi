@@ -1,38 +1,58 @@
--- 042_announcements.sql
+-- =============================================================
+-- FILE: 042_announcements.sql
+-- =============================================================
 DROP TABLE IF EXISTS `announcements`;
 CREATE TABLE `announcements` (
-  `id`            CHAR(36)     NOT NULL,
-  `title`         VARCHAR(255) NOT NULL,
-  `description`   VARCHAR(500) NOT NULL,
-  `content`       LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (JSON_VALID(`content`)),
-  `icon`          VARCHAR(32)  NOT NULL,
-  `icon_type`     ENUM('emoji','lucide') NOT NULL DEFAULT 'emoji',
-  `lucide_icon`   VARCHAR(64)  DEFAULT NULL,
-  `link`          VARCHAR(255) NOT NULL,
-  `bg_color`      VARCHAR(64)  NOT NULL,
-  `hover_color`   VARCHAR(64)  NOT NULL,
-  `icon_color`    VARCHAR(64)  NOT NULL,
-  `text_color`    VARCHAR(64)  NOT NULL,
-  `border_color`  VARCHAR(64)  NOT NULL,
-  `badge_text`    VARCHAR(64)  DEFAULT NULL,
-  `badge_color`   VARCHAR(64)  DEFAULT NULL,
-  `button_text`   VARCHAR(64)  DEFAULT NULL,
-  `button_color`  VARCHAR(64)  DEFAULT NULL,
-  `is_active`     TINYINT(1)   NOT NULL DEFAULT 1,
-  `is_published`  TINYINT(1)   NOT NULL DEFAULT 1,
-  `display_order` INT          NOT NULL DEFAULT 1,
-  `created_at`    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  `updated_at`    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-  `published_at`  DATETIME(3)  DEFAULT NULL,
-  `expires_at`    DATETIME(3)  DEFAULT NULL,
-  `meta_title`       VARCHAR(255)  DEFAULT NULL,
-  `meta_description` VARCHAR(500)  DEFAULT NULL,
+  `id`              CHAR(36)     NOT NULL,
+  `title`           VARCHAR(255) NOT NULL,
+  `description`     VARCHAR(500) NOT NULL,
+
+  -- JSON-string: {"html":"..."}
+  `content`         LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL
+                    CHECK (JSON_VALID(`content`)),
+
+  `icon`            VARCHAR(32)  NOT NULL,
+  `icon_type`       VARCHAR(10)  NOT NULL,  -- 'emoji' | 'lucide'
+  `lucide_icon`     VARCHAR(64)  DEFAULT NULL,
+  `link`            VARCHAR(255) NOT NULL,
+
+  `bg_color`        VARCHAR(64)  NOT NULL,
+  `hover_color`     VARCHAR(64)  NOT NULL,
+  `icon_color`      VARCHAR(64)  NOT NULL,
+  `text_color`      VARCHAR(64)  NOT NULL,
+  `border_color`    VARCHAR(64)  NOT NULL,
+
+  `badge_text`      VARCHAR(64)  DEFAULT NULL,
+  `badge_color`     VARCHAR(64)  DEFAULT NULL,
+  `button_text`     VARCHAR(64)  DEFAULT NULL,
+  `button_color`    VARCHAR(64)  DEFAULT NULL,
+
+  -- storage pattern (şema ile aynı)
+  `image_url`       VARCHAR(500) DEFAULT NULL,
+  `storage_asset_id` CHAR(36)    DEFAULT NULL,
+  `alt`             VARCHAR(255) DEFAULT NULL,
+
+  `is_active`       TINYINT(1)   NOT NULL DEFAULT 1,
+  `is_published`    TINYINT(1)   NOT NULL DEFAULT 1,
+  `display_order`   INT          NOT NULL DEFAULT 1,
+
+  `created_at`      DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at`      DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `published_at`    DATETIME(3)  DEFAULT NULL,
+  `expires_at`      DATETIME(3)  DEFAULT NULL,
+
+  `meta_title`         VARCHAR(255) DEFAULT NULL,
+  `meta_description`   VARCHAR(500) DEFAULT NULL,
+
   PRIMARY KEY (`id`),
-  KEY `announcements_active_idx`(`is_active`,`is_published`),
-  KEY `announcements_order_idx`(`display_order`),
-  KEY `announcements_expires_idx`(`expires_at`)
+
+  KEY `announcements_active_idx` (`is_active`,`is_published`),
+  KEY `announcements_order_idx`  (`display_order`),
+  KEY `announcements_expires_idx`(`expires_at`),
+  KEY `announcements_asset_idx`  (`storage_asset_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Seed örnekleri
 INSERT INTO `announcements`
 (`id`,`title`,`description`,`content`,`icon`,`icon_type`,`lucide_icon`,`link`,
  `bg_color`,`hover_color`,`icon_color`,`text_color`,`border_color`,

@@ -1,5 +1,6 @@
-// src/modules/announcements/router.ts
-
+// =============================================================
+// FILE: src/modules/announcements/router.ts (PUBLIC)
+// =============================================================
 import type { FastifyInstance } from "fastify";
 import {
   listAnnouncementsPublic,

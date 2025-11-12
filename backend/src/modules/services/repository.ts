@@ -1,5 +1,8 @@
+// =============================================================
+// FILE: src/modules/services/repository.ts
+// =============================================================
 import { db } from "@/db/client";
-import { and, asc, desc, eq, like, sql,inArray } from "drizzle-orm";
+import { and, asc, desc, eq, like, sql, inArray } from "drizzle-orm";
 import { services, type NewServiceRow } from "./schema";
 import { storageAssets } from "@/modules/storage/schema";
 import {
@@ -7,8 +10,10 @@ import {
   type ServicePublicListQuery,
   type ServiceCreateBody,
   type ServiceUpdateBody,
+  type ServiceSetImageBody,
 } from "./validation";
 import { randomUUID } from "node:crypto";
+import { env } from "@/core/env";
 
 /* ---- helpers ---- */
 const slugify = (s: string) =>
@@ -29,6 +34,21 @@ const sortMap = {
   updated_at: (dir: "asc" | "desc") =>
     dir === "asc" ? asc(services.updated_at) : desc(services.updated_at),
 } as const;
+
+/** Provider URL varsa onu, yoksa /storage/:bucket/:path */
+function publicUrlOf(bucket?: string | null, path?: string | null, providerUrl?: string | null) {
+  if (providerUrl) return providerUrl;
+  if (!bucket || !path) return null;
+
+  const encSeg = (s: string) => encodeURIComponent(s);
+  const encPath = path.split("/").map(encSeg).join("/");
+
+  const cdnBase = (env.CDN_PUBLIC_BASE || "").replace(/\/+$/, "");
+  if (cdnBase) return `${cdnBase}/${encSeg(bucket)}/${encPath}`;
+
+  const apiBase = (env.PUBLIC_API_BASE || "").replace(/\/+$/, "");
+  return `${apiBase || ""}/storage/${encSeg(bucket)}/${encPath}`;
+}
 
 /** Storage ile uyumlu seçilim: asset bucket/path/provider_url */
 const selectWithAsset = {
@@ -66,7 +86,7 @@ export async function repoListServicesPublic(q: ServicePublicListQuery) {
       is_active: services.is_active,
       display_order: services.display_order,
       image_url: services.image_url,
-      storage_asset_id: services.storage_asset_id,
+      image_asset_id: services.image_asset_id, // ✅ isim uyumlu
       alt: services.alt,
       featured_image: services.featured_image,
       area: services.area,
@@ -93,14 +113,10 @@ export async function repoListServicesPublic(q: ServicePublicListQuery) {
 /* ---- ADMIN LIST ---- */
 export async function repoListServicesAdmin(q: ServiceAdminListQuery) {
   const where = and(
-    q.is_active === undefined
-      ? sql`1=1`
-      : eq(services.is_active, q.is_active ? 1 : (0 as any)),
+    q.is_active === undefined ? sql`1=1` : eq(services.is_active, q.is_active ? 1 : (0 as any)),
     q.type ? eq(services.type, q.type) : sql`1=1`,
     q.category ? eq(services.category, q.category) : sql`1=1`,
-    q.featured === undefined
-      ? sql`1=1`
-      : eq(services.featured, q.featured ? 1 : (0 as any)),
+    q.featured === undefined ? sql`1=1` : eq(services.featured, q.featured ? 1 : (0 as any)),
     q.q ? like(services.name, `%${q.q}%`) : sql`1=1`
   );
   const orderBy = sortMap[q.sort](q.order);
@@ -108,7 +124,7 @@ export async function repoListServicesAdmin(q: ServiceAdminListQuery) {
   return db
     .select(selectWithAsset)
     .from(services)
-    .leftJoin(storageAssets, eq(services.storage_asset_id, storageAssets.id))
+    .leftJoin(storageAssets, eq(services.image_asset_id, storageAssets.id)) // ✅
     .where(where)
     .orderBy(orderBy)
     .limit(q.limit)
@@ -119,7 +135,7 @@ export async function repoGetServiceById(id: string) {
   const [row] = await db
     .select(selectWithAsset)
     .from(services)
-    .leftJoin(storageAssets, eq(services.storage_asset_id, storageAssets.id))
+    .leftJoin(storageAssets, eq(services.image_asset_id, storageAssets.id)) // ✅
     .where(eq(services.id, id))
     .limit(1);
   return row ?? null;
@@ -129,7 +145,7 @@ export async function repoGetServiceBySlug(slugStr: string) {
   const [row] = await db
     .select(selectWithAsset)
     .from(services)
-    .leftJoin(storageAssets, eq(services.storage_asset_id, storageAssets.id))
+    .leftJoin(storageAssets, eq(services.image_asset_id, storageAssets.id)) // ✅
     .where(eq(services.slug, slugStr))
     .limit(1);
   return row ?? null;
@@ -164,7 +180,7 @@ export async function repoCreateService(body: ServiceCreateBody) {
     display_order,
 
     image_url: body.image_url ?? null,
-    storage_asset_id: body.storage_asset_id ?? null,
+    image_asset_id: body.image_asset_id ?? null, // ✅
     alt: body.alt ?? null,
 
     featured_image: body.featured_image ?? null,
@@ -198,7 +214,7 @@ export async function repoUpdateService(id: string, patch: ServiceUpdateBody) {
   if (patch.description !== undefined) values.description = patch.description ?? null;
 
   if (patch.image_url !== undefined) values.image_url = patch.image_url ?? null;
-  if (patch.storage_asset_id !== undefined) values.storage_asset_id = patch.storage_asset_id ?? null;
+  if (patch.image_asset_id !== undefined) values.image_asset_id = patch.image_asset_id ?? null; // ✅
   if (patch.alt !== undefined) values.alt = patch.alt ?? null;
 
   if (patch.featured_image !== undefined) values.featured_image = patch.featured_image ?? null;
@@ -250,23 +266,36 @@ export async function repoSetServiceStatus(id: string, isActive: boolean) {
   return repoGetServiceById(id);
 }
 
-/* ---- Görsel attach/detach (slider patern) ---- */
-export async function repoAttachServiceImage(
-  id: string,
-  opts: { storage_asset_id?: string; image_url?: string }
-) {
-  const set: Partial<NewServiceRow> = {};
-  if (opts.storage_asset_id) set.storage_asset_id = opts.storage_asset_id;
-  if (opts.image_url) set.image_url = opts.image_url;
-  if (Object.keys(set).length === 0) return repoGetServiceById(id);
-  await db.update(services).set(set).where(eq(services.id, id));
-  return repoGetServiceById(id);
-}
+/** ✅ SET IMAGE (kategori/slider ile aynı davranış)
+ * Body: { asset_id?: string | null }
+ * - asset_id verilirse → storage_assets’tan public URL bulunur ve image_asset_id + image_url set edilir
+ * - null/undefined ise → image_asset_id = NULL, image_url = NULL
+ */
+export async function repoSetServiceImage(id: string, body: ServiceSetImageBody) {
+  const assetId = body.asset_id ?? null;
 
-export async function repoDetachServiceImage(id: string) {
+  if (!assetId) {
+    await db
+      .update(services)
+      .set({ image_url: null, image_asset_id: null } as Partial<NewServiceRow>)
+      .where(eq(services.id, id));
+    return repoGetServiceById(id);
+  }
+
+  const [asset] = await db
+    .select({ bucket: storageAssets.bucket, path: storageAssets.path, url: storageAssets.url })
+    .from(storageAssets)
+    .where(eq(storageAssets.id, assetId))
+    .limit(1);
+
+  if (!asset) return null;
+
+  const finalUrl = publicUrlOf(asset.bucket, asset.path, asset.url ?? null);
+
   await db
     .update(services)
-    .set({ storage_asset_id: null, image_url: null })
+    .set({ image_url: finalUrl, image_asset_id: assetId } as Partial<NewServiceRow>)
     .where(eq(services.id, id));
+
   return repoGetServiceById(id);
 }

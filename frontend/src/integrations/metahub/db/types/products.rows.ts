@@ -4,7 +4,16 @@
 
 export type DbBool = 0 | 1 | boolean;
 
-/** DB: products */
+export type ProductSpecifications = {
+  dimensions?: string;
+  weight?: string;
+  thickness?: string;
+  surfaceFinish?: string;
+  warranty?: string;
+  installationTime?: string;
+};
+
+/** DB: products (Drizzle şemasıyla birebir) */
 export type ProductRow = {
   id: string;
   title: string;
@@ -16,14 +25,20 @@ export type ProductRow = {
   category_id: string;
   sub_category_id?: string | null;
 
+  /** Tekil kapak görsel alanları */
   image_url?: string | null;
+  storage_asset_id?: string | null;
+  alt?: string | null;
+
+  /** Galeri */
   images?: string[] | null;
+  storage_image_ids?: string[] | null;
 
   is_active: DbBool;
   is_featured: DbBool;
 
   tags?: string[] | null;
-  specifications?: unknown | null; // JSON (obj/array) — UI tarafında şekillendirilebilir
+  specifications?: ProductSpecifications | null; // JSON object
 
   product_code?: string | null;
   stock_quantity: number;
@@ -97,11 +112,7 @@ export type ProductReviewRow = {
   updated_at: string;
 };
 
-
-
-
-
-// Uyum kolaylığı
+// Uyum kolaylığı (alias)
 export type Product = ProductRow;
 export type Faq = ProductFaqRow;
 export type Review = ProductReviewRow;

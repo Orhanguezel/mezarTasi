@@ -1,5 +1,6 @@
-// src/modules/announcements/schema.ts
-
+// =============================================================
+// FILE: src/modules/announcements/schema.ts
+// =============================================================
 import { mysqlTable, char, varchar, longtext, tinyint, int, datetime, index } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
 
@@ -25,6 +26,11 @@ export const announcements = mysqlTable("announcements", {
   button_text: varchar("button_text", { length: 64 }),
   button_color: varchar("button_color", { length: 64 }),
 
+  /** ✅ Görsel alanları (storage patern) */
+  image_url: varchar("image_url", { length: 500 }),
+  storage_asset_id: char("storage_asset_id", { length: 36 }),
+  alt: varchar("alt", { length: 255 }),
+
   is_active: tinyint("is_active").notNull().default(1),
   is_published: tinyint("is_published").notNull().default(1),
   display_order: int("display_order").notNull().default(1),
@@ -41,6 +47,7 @@ export const announcements = mysqlTable("announcements", {
   index("announcements_active_idx").on(t.is_active, t.is_published),
   index("announcements_order_idx").on(t.display_order),
   index("announcements_expires_idx").on(t.expires_at),
+  index("announcements_asset_idx").on(t.storage_asset_id), // ✅
 ]);
 
 export type AnnouncementRow = typeof announcements.$inferSelect;

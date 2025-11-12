@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/campaigns/controller.ts (PUBLIC)
+// =============================================================
 import type { RouteHandler } from "fastify";
 import { listSimpleCampaigns, getSimpleCampaign } from "./repository";
 import { simpleCampaignListQuerySchema, type SimpleCampaignListQuery } from "./validation";

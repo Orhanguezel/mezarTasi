@@ -1,37 +1,45 @@
 DROP TABLE IF EXISTS `services`;
 CREATE TABLE `services` (
-  `id`              CHAR(36)      NOT NULL,
-  `slug`            VARCHAR(255)  NOT NULL,
-  `name`            VARCHAR(255)  NOT NULL,
-  `type`            VARCHAR(32)   NOT NULL DEFAULT 'other',
-  `category`        VARCHAR(64)   NOT NULL DEFAULT 'general',
-  `material`        VARCHAR(255)           DEFAULT NULL,
-  `price`           VARCHAR(128)           DEFAULT NULL,
-  `description`     LONGTEXT               DEFAULT NULL,
+  `id`               CHAR(36)      NOT NULL,
+  `slug`             VARCHAR(255)  NOT NULL,
+  `name`             VARCHAR(255)  NOT NULL,
 
-  `featured`        TINYINT(1)    NOT NULL DEFAULT 0,
-  `is_active`       TINYINT(1)    NOT NULL DEFAULT 1,
-  `display_order`   INT           NOT NULL DEFAULT 1,
+  `type`             VARCHAR(32)   NOT NULL DEFAULT 'other',
+  `category`         VARCHAR(64)   NOT NULL DEFAULT 'general',
 
-  `featured_image`   VARCHAR(500)          DEFAULT NULL,
-  `image_url`        VARCHAR(500)          DEFAULT NULL,
-  `storage_asset_id` CHAR(36)              DEFAULT NULL,  -- ⬅️ image_asset_id → storage_asset_id
-  `alt`              VARCHAR(255)          DEFAULT NULL,  -- ⬅️ image_alt → alt
+  `material`         VARCHAR(255)           DEFAULT NULL,
+  `price`            VARCHAR(128)           DEFAULT NULL,
+  `description`      TEXT                   DEFAULT NULL,
 
-  `area`            VARCHAR(64)            DEFAULT NULL,
-  `duration`        VARCHAR(64)            DEFAULT NULL,
-  `maintenance`     VARCHAR(64)            DEFAULT NULL,
-  `season`          VARCHAR(64)            DEFAULT NULL,
+  `featured`         TINYINT(1) UNSIGNED    NOT NULL DEFAULT 0,
+  `is_active`        TINYINT(1) UNSIGNED    NOT NULL DEFAULT 1,
+  `display_order`    INT UNSIGNED           NOT NULL DEFAULT 1,
 
-  `soil_type`       VARCHAR(128)           DEFAULT NULL,
-  `thickness`       VARCHAR(64)            DEFAULT NULL,
-  `equipment`       VARCHAR(128)           DEFAULT NULL,
+  -- ✅ Görsel alanları (şemayla aynı)
+  `image_url`        VARCHAR(500)           DEFAULT NULL,
+  `image_asset_id`   CHAR(36)               DEFAULT NULL,
+  `alt`              VARCHAR(255)           DEFAULT NULL,
 
-  `warranty`        VARCHAR(128)           DEFAULT NULL,
-  `includes`        VARCHAR(255)           DEFAULT NULL,
+  -- legacy
+  `featured_image`   VARCHAR(500)           DEFAULT NULL,
 
-  `created_at`      DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  `updated_at`      DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  -- Gardening
+  `area`             VARCHAR(64)            DEFAULT NULL,
+  `duration`         VARCHAR(64)            DEFAULT NULL,
+  `maintenance`      VARCHAR(64)            DEFAULT NULL,
+  `season`           VARCHAR(64)            DEFAULT NULL,
+
+  -- Soil
+  `soil_type`        VARCHAR(128)           DEFAULT NULL,
+  `thickness`        VARCHAR(64)            DEFAULT NULL,
+  `equipment`        VARCHAR(128)           DEFAULT NULL,
+
+  -- Common
+  `warranty`         VARCHAR(128)           DEFAULT NULL,
+  `includes`         VARCHAR(255)           DEFAULT NULL,
+
+  `created_at`       DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at`       DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
   PRIMARY KEY (`id`),
   UNIQUE KEY `ux_services_slug`(`slug`),
@@ -40,17 +48,16 @@ CREATE TABLE `services` (
   KEY `services_order_idx`(`display_order`),
   KEY `services_type_idx`(`type`),
   KEY `services_category_idx`(`category`),
-  KEY `services_asset_idx`(`storage_asset_id`),
+  KEY `services_image_asset_idx`(`image_asset_id`),
   KEY `services_created_idx`(`created_at`),
-  KEY `services_updated_idx`(`updated_at`)
+  KEY `services_updated_idx`(`updated_at`),
+  KEY `services_active_type_order_idx`(`is_active`,`type`,`display_order`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
 
 INSERT INTO `services`
 (`id`,`slug`,`name`,`type`,`category`,`material`,`price`,`description`,
  `featured`,`is_active`,`display_order`,
- `featured_image`,`image_url`,`storage_asset_id`,`alt`,
+ `featured_image`,`image_url`,`image_asset_id`,`alt`,
  `area`,`duration`,`maintenance`,`season`,
  `soil_type`,`thickness`,`equipment`,
  `warranty`,`includes`,
@@ -217,8 +224,8 @@ ON DUPLICATE KEY UPDATE
   `display_order`=VALUES(`display_order`),
   `featured_image`=VALUES(`featured_image`),
   `image_url`=VALUES(`image_url`),
-  `storage_asset_id`=VALUES(`storage_asset_id`),  -- ⬅️ güncellendi
-  `alt`=VALUES(`alt`),                            -- ⬅️ güncellendi
+  `image_asset_id`=VALUES(`image_asset_id`),
+  `alt`=VALUES(`alt`),
   `area`=VALUES(`area`),
   `duration`=VALUES(`duration`),
   `maintenance`=VALUES(`maintenance`),

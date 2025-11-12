@@ -1,5 +1,6 @@
-// src/modules/announcements/admin.controller.ts
-
+// =============================================================
+// FILE: src/modules/announcements/admin.controller.ts
+// =============================================================
 import type { RouteHandler } from "fastify";
 import { randomUUID } from "crypto";
 import {
@@ -7,6 +8,7 @@ import {
   upsertAnnouncementBodySchema,
   patchAnnouncementBodySchema,
   reorderBodySchema,
+  setAnnouncementImageBodySchema, // ✅
   toBool,
 } from "./validation";
 import {
@@ -18,6 +20,7 @@ import {
   packContent,
   unpackContent,
   bulkReorder,
+  setAnnouncementImage, // ✅
 } from "./repository";
 
 /** LIST (admin) */
@@ -85,6 +88,11 @@ export const createAdmin: RouteHandler = async (req, reply) => {
     button_text: b.button_text ?? null,
     button_color: b.button_color ?? null,
 
+    /** ✅ Görsel opsiyonelleri (varsa set) */
+    image_url: typeof b.image_url !== "undefined" ? (b.image_url ?? null) : undefined,
+    storage_asset_id: typeof b.storage_asset_id !== "undefined" ? (b.storage_asset_id ?? null) : undefined,
+    alt: typeof b.alt !== "undefined" ? (b.alt ?? null) : undefined,
+
     is_active: (toBool(b.is_active) ?? true) ? 1 : 0,
     is_published: (toBool(b.is_published) ?? true) ? 1 : 0,
     display_order: b.display_order,
@@ -131,6 +139,11 @@ export const patchAdmin: RouteHandler<{ Params: { id: string } }> = async (req, 
     button_text: typeof b.button_text !== "undefined" ? (b.button_text ?? null) : undefined,
     button_color: typeof b.button_color !== "undefined" ? (b.button_color ?? null) : undefined,
 
+    /** ✅ Görsel alanları */
+    image_url: typeof b.image_url !== "undefined" ? (b.image_url ?? null) : undefined,
+    storage_asset_id: typeof b.storage_asset_id !== "undefined" ? (b.storage_asset_id ?? null) : undefined,
+    alt: typeof b.alt !== "undefined" ? (b.alt ?? null) : undefined,
+
     is_active: typeof b.is_active !== "undefined" ? ((toBool(b.is_active) ?? true) ? 1 : 0) : undefined,
     is_published: typeof b.is_published !== "undefined" ? ((toBool(b.is_published) ?? true) ? 1 : 0) : undefined,
     display_order: b.display_order,
@@ -161,4 +174,15 @@ export const reorderAdmin: RouteHandler = async (req, reply) => {
   }
   await bulkReorder(parsed.data.ids);
   return reply.code(204).send();
+};
+
+/** ✅ PATCH /admin/announcements/:id/image */
+export const setImageAdmin: RouteHandler<{ Params: { id: string } }> = async (req, reply) => {
+  const parsed = setAnnouncementImageBodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return reply.code(400).send({ error: { message: "invalid_body", issues: parsed.error.flatten() } });
+  }
+  const updated = await setAnnouncementImage(req.params.id, parsed.data);
+  if (!updated) return reply.code(404).send({ error: { message: "not_found_or_asset_missing" } });
+  return reply.send(updated);
 };

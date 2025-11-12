@@ -1,192 +1,437 @@
-// src/components/admin/AdminPanel/Tabs/TabsProducts.tsx
-
+// =============================================================
+// FILE: src/components/admin/AdminPanel/Tabs/TabsProducts.tsx
+// =============================================================
 "use client";
 
-import React, { useMemo } from "react";
+import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Image, Edit, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
-
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   useAdminListProductsQuery,
   useAdminDeleteProductMutation,
+  useAdminToggleActiveMutation,
+  useAdminToggleHomepageMutation,
+  useAdminBulkSetActiveMutation,
   useAdminListCategoriesQuery,
+  useAdminListSubcategoriesQuery,
+  type AdminProductListParams,
 } from "@/integrations/metahub/rtk/endpoints/admin/products_admin.endpoints";
+import { cn } from "@/components/ui/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, Plus, Search, Trash2, Pencil, Home } from "lucide-react";
 
-export const TabsProducts: React.FC = () => {
-  const nav = useNavigate();
+/** Durum filtresi */
+type StatusFilter = "all" | "active" | "inactive";
 
-  const { data: products, isFetching, isError, error } = useAdminListProductsQuery(undefined);
-  const [deleteProduct, { isLoading: deleting }] = useAdminDeleteProductMutation();
+/** Stabil state: seçimsiz alanlar null */
+type Filters = {
+  q: string;
+  status: StatusFilter; // <-- tri-state
+  category_id: string | null;
+  sub_category_id: string | null;
+  limit: number;
+  offset: number;
+  sort: "price" | "rating" | "created_at" | "title" | "review_count";
+  order: "asc" | "desc";
+};
 
-  const { data: cats } = useAdminListCategoriesQuery();
-  const { catNameById, subCatNameById } = useMemo(() => {
-    const cMap = new Map<string, string>();
-    const sMap = new Map<string, string>();
-    (cats as any[] | undefined)?.forEach((c: any) => {
-      if (c?.id && c?.name) cMap.set(String(c.id), String(c.name));
-      const subs = Array.isArray(c?.sub_categories) ? c.sub_categories : [];
-      subs.forEach((s: any) => {
-        if (s?.id && s?.name) sMap.set(String(s.id), String(s.name));
-      });
+const DEFAULT_LIMIT = 20;
+const as01 = (b: boolean) => (b ? 1 : 0);
+
+export function TabsProducts() {
+  const navigate = useNavigate();
+
+  const [filters, setFilters] = React.useState<Filters>({
+    q: "",
+    status: "all",
+    category_id: null,
+    sub_category_id: null,
+    limit: DEFAULT_LIMIT,
+    offset: 0,
+    sort: "created_at",
+    order: "desc",
+  });
+
+  // API param haritalama: "all" ise is_active göndermiyoruz
+  const apiParams = React.useMemo<AdminProductListParams>(() => {
+    const p: AdminProductListParams = {
+      limit: filters.limit,
+      offset: filters.offset,
+      sort: filters.sort,
+      order: filters.order,
+    };
+    if (filters.q) p.q = filters.q;
+    if (filters.category_id) p.category_id = filters.category_id;
+    if (filters.sub_category_id) p.sub_category_id = filters.sub_category_id;
+    if (filters.status === "active") p.is_active = 1;
+    if (filters.status === "inactive") p.is_active = 0;
+    return p;
+  }, [filters]);
+
+  const { data: categories } = useAdminListCategoriesQuery();
+  const { data: subcats } = useAdminListSubcategoriesQuery(
+    filters.category_id ? { category_id: filters.category_id } : undefined
+  );
+
+  const { data: rows, isFetching, refetch } = useAdminListProductsQuery(apiParams);
+  const [del] = useAdminDeleteProductMutation();
+  const [toggleActive] = useAdminToggleActiveMutation();
+  const [toggleHomepage] = useAdminToggleHomepageMutation();
+  const [bulkActive] = useAdminBulkSetActiveMutation();
+
+  const [selected, setSelected] = React.useState<Record<string, boolean>>({});
+  const items = rows ?? [];
+  const selectedIds = Object.entries(selected).filter(([, v]) => !!v).map(([k]) => k);
+
+  // ---- Optimistic local patch (yalnızca is_active / is_featured) ----
+  const [pending, setPending] = React.useState<
+    Record<string, Partial<{ is_active: boolean; is_featured: boolean }>>
+  >({});
+
+  const viewActive = (id: string, fallback: boolean | 0 | 1) =>
+    (pending[id]?.is_active ?? !!fallback) as boolean;
+
+  const viewFeatured = (id: string, fallback: boolean | 0 | 1) =>
+    (pending[id]?.is_featured ?? !!fallback) as boolean;
+
+  const clearPending = (id: string) =>
+    setPending((p) => {
+      const { [id]: _, ...rest } = p;
+      return rest;
     });
-    return { catNameById: cMap, subCatNameById: sMap };
-  }, [cats]);
 
-  const rows = useMemo(() => Array.isArray(products) ? products : [], [products]);
-
-  const onCreate = () => nav("/admin/products/new");
-  const onEdit = (row: any) => {
-    // state ile ilk değerleri taşıyıp anında boyamak istersen:
-    const images = Array.isArray(row.images) && row.images.length ? row.images
-      : (row.image_url ? [row.image_url] : []);
-    nav(`/admin/products/${row.id}`, {
-      state: {
-        initialValue: {
-          id: row.id,
-          title: String(row.title ?? ""),
-          price: String(row.price ?? ""),
-          description: row.description ?? "",
-          category: String(row.category_id ?? ""),
-          subCategory: String(row.sub_category_id ?? ""),
-          image: images[0] ?? "",
-          images,
-          status: row.is_active ? "Active" : "Inactive",
-          specifications: row.specifications ?? undefined,
-        },
-      },
-    });
+  const toggleSelectAll = (checked: boolean) => {
+    const next: Record<string, boolean> = {};
+    if (checked) for (const r of items) next[r.id] = true;
+    setSelected(next);
   };
 
-  const onDelete = async (id: string) => {
+  const handleDelete = async (id: string) => {
+    if (!confirm("Bu ürünü silmek istediğinize emin misiniz?")) return;
     try {
-      await deleteProduct(id).unwrap();
+      await del(id).unwrap();
       toast.success("Ürün silindi");
+      refetch();
     } catch (e: any) {
-      toast.error(e?.data?.error?.message ?? "Silme başarısız");
+      toast.error(e?.data?.message || "Silinemedi");
+    }
+  };
+
+  // ✅ Switch: optimistic -> API -> refetch -> pending temizle (hata olursa geri al)
+  const handleToggleActive = async (id: string, next: boolean) => {
+    setPending((p) => ({ ...p, [id]: { ...p[id], is_active: next } }));
+    try {
+      await toggleActive({ id, is_active: as01(next) }).unwrap();
+      await refetch();
+      clearPending(id);
+      toast.success(next ? "Aktifleştirildi" : "Pasifleştirildi");
+    } catch (e: any) {
+      setPending((p) => ({ ...p, [id]: { ...p[id], is_active: !next } }));
+      toast.error(e?.data?.message || "Durum güncellenemedi");
+    }
+  };
+
+  const handleToggleHomepage = async (id: string, next: boolean) => {
+    setPending((p) => ({ ...p, [id]: { ...p[id], is_featured: next } }));
+    try {
+      // ❗ BE tarafı is_featured bekliyor → 0/1 gönder
+      await toggleHomepage({ id, is_featured: as01(next) } as any).unwrap();
+      await refetch();
+      clearPending(id);
+      toast.success(next ? "Anasayfada gösterilecek" : "Anasayfadan kaldırıldı");
+    } catch (e: any) {
+      setPending((p) => ({ ...p, [id]: { ...p[id], is_featured: !next } }));
+      toast.error(e?.data?.message || "Anasayfa durumu güncellenemedi");
+    }
+  };
+
+  const doBulkActive = async (val: boolean) => {
+    if (!selectedIds.length) return;
+    try {
+      await bulkActive({ ids: selectedIds, is_active: as01(val) } as any).unwrap();
+      toast.success(`Seçilen ürünler ${val ? "aktif" : "pasif"} yapıldı`);
+      setSelected({});
+      refetch();
+    } catch (e: any) {
+      toast.error(e?.data?.message || "Güncellenemedi");
     }
   };
 
   return (
-    <>
-      <div className="mb-3 flex justify-end">
-        <Button size="sm" onClick={onCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          Yeni Ürün
-        </Button>
-      </div>
-
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-        <div className="grid grid-cols-12 items-center gap-4 border-b border-border bg-muted/50 px-4 py-3 text-[12px] uppercase tracking-wide text-muted-foreground">
-          <div className="col-span-5 sm:col-span-4">Başlık</div>
-          <div className="col-span-3 sm:col-span-2">Kategori</div>
-          <div className="col-span-3 sm:col-span-2">Alt Kategori</div>
-          <div className="hidden sm:block sm:col-span-2">Durum</div>
-          <div className="col-span-4 sm:col-span-2 justify-self-end">İşlemler</div>
-        </div>
-
-        <div className="divide-y">
-          {isFetching && <div className="px-4 py-6 text-sm text-muted-foreground">Yükleniyor…</div>}
-
-          {isError && (
-            <div className="px-4 py-6 text-sm text-red-600">
-              Liste alınamadı. {String((error as any)?.data?.error?.message ?? "")}
-            </div>
-          )}
-
-          {!isFetching && !isError && rows.map((product) => {
-            const imgArr = Array.isArray(product.images) && product.images?.length
-              ? product.images
-              : (product.image_url ? [product.image_url] : []);
-            const firstImg = imgArr[0];
-
-            return (
-              <div key={String(product.id)} className="grid grid-cols-12 items-center gap-4 px-4 py-3 hover:bg-muted/30">
-                <div className="col-span-12 sm:col-span-4">
-                  <div className="min-w-0 flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      {imgArr.length ? (
-                        <>
-                          <div className="size-10 overflow-hidden rounded-lg bg-muted">
-                            <img
-                              src={firstImg}
-                              alt={product.title}
-                              className="h-full w-full object-cover"
-                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                            />
-                          </div>
-                          {imgArr.length > 1 && (
-                            <div className="-space-x-1 hidden sm:flex">
-                              {imgArr.slice(1, 3).map((img, idx) => (
-                                <div key={idx} className="size-6 overflow-hidden rounded border-2 border-card bg-muted">
-                                  <img src={img} alt="" className="h-full w-full object-cover" />
-                                </div>
-                              ))}
-                              {imgArr.length > 3 && (
-                                <div className="flex size-6 items-center justify-center rounded border-2 border-card bg-foreground/60 text-[10px] text-background">
-                                  +{imgArr.length - 3}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-                          <Image className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{product.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {typeof product.price === "number" ? product.price.toFixed(2) : String(product.price ?? "")}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-span-6 text-sm text-foreground/80 sm:col-span-2">
-                  {product.category_id ? (catNameById.get(String(product.category_id)) ?? String(product.category_id)) : "-"}
-                </div>
-                <div className="col-span-6 text-sm text-foreground/80 sm:col-span-2">
-                  {product.sub_category_id ? (
-                    <Badge variant="secondary" title={product.sub_category_id}>
-                      {subCatNameById.get(String(product.sub_category_id)) ?? `${String(product.sub_category_id).slice(0, 8)}…`}
-                    </Badge>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </div>
-
-                <div className="hidden sm:col-span-2 sm:flex">
-                  <Badge variant={product.is_active ? "default" : "secondary"}>
-                    <span className={`mr-2 inline-block size-2 rounded-full ${product.is_active ? "bg-green-500" : "bg-gray-400"}`} />
-                    {product.is_active ? "Aktif" : "Pasif"}
-                  </Badge>
-                </div>
-
-                <div className="col-span-12 flex justify-end gap-2 sm:col-span-2">
-                  <Button variant="outline" size="sm" onClick={() => onEdit(product)}>
-                    <Edit className="mr-1 h-4 w-4" />
-                    Düzenle
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => onDelete(product.id)} disabled={deleting}>
-                    <Trash2 className="mr-1 h-4 w-4" />
-                    Sil
-                  </Button>
-                </div>
+    <div className="space-y-4">
+      {/* Filters */}
+      <Card className="border-gray-200 shadow-none">
+        <CardContent className="p-4 sm:p-6">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
+            <div className="sm:col-span-2">
+              <Label className="sr-only">Ara</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Başlık/slug ara…"
+                  value={filters.q}
+                  onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
+                />
+                <Button variant="secondary" onClick={() => refetch()} disabled={isFetching}>
+                  <Search className="h-4 w-4" />
+                </Button>
               </div>
-            );
-          })}
+            </div>
 
-          {!isFetching && !isError && rows.length === 0 && (
-            <div className="px-4 py-6 text-sm text-muted-foreground">Kayıt bulunamadı.</div>
-          )}
+            <div>
+              <Label className="mb-1 block text-xs text-gray-500">Kategori</Label>
+              <select
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                value={filters.category_id ?? ""}
+                onChange={(e) =>
+                  setFilters((p) => ({
+                    ...p,
+                    category_id: e.target.value || null,
+                    sub_category_id: null,
+                    offset: 0,
+                  }))
+                }
+              >
+                <option value="">Tümü</option>
+                {categories?.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label className="mb-1 block text-xs text-gray-500">Alt Kategori</Label>
+              <select
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                value={filters.sub_category_id ?? ""}
+                onChange={(e) =>
+                  setFilters((p) => ({
+                    ...p,
+                    sub_category_id: e.target.value || null,
+                    offset: 0,
+                  }))
+                }
+                disabled={!filters.category_id}
+              >
+                <option value="">Tümü</option>
+                {subcats?.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label className="mb-1 block text-xs text-gray-500">Sıralama</Label>
+              <div className="flex gap-2">
+                <select
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                  value={filters.sort}
+                  onChange={(e) => setFilters((p) => ({ ...p, sort: e.target.value as Filters["sort"] }))}
+                >
+                  <option value="created_at">Oluşturulma</option>
+                  <option value="title">Başlık</option>
+                  <option value="price">Fiyat</option>
+                  <option value="rating">Puan</option>
+                  <option value="review_count">Yorum</option>
+                </select>
+                <select
+                  className="w-28 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                  value={filters.order}
+                  onChange={(e) => setFilters((p) => ({ ...p, order: e.target.value as Filters["order"] }))}
+                >
+                  <option value="desc">Desc</option>
+                  <option value="asc">Asc</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Durum filtresi: Hepsi / Aktif / Pasif */}
+            <div className="flex items-end">
+              <div className="ml-auto flex items-center gap-1 rounded-md bg-gray-100 p-1">
+                {(["all", "active", "inactive"] as StatusFilter[]).map((opt) => (
+                  <Button
+                    key={opt}
+                    type="button"
+                    size="sm"
+                    variant={filters.status === opt ? "default" : "secondary"}
+                    className={cn(
+                      "h-8",
+                      opt === "active" && filters.status === opt && "bg-emerald-600 text-white",
+                      opt === "inactive" && filters.status === opt && "bg-rose-600 text-white"
+                    )}
+                    onClick={() => setFilters((p) => ({ ...p, status: opt, offset: 0 }))}
+                  >
+                    {opt === "all" ? "Hepsi" : opt === "active" ? "Aktif" : "Pasif"}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end">
+              <Button onClick={() => navigate("/admin/products/new")} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Yeni Ürün
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Bulk actions */}
+      <div className="flex items-center gap-2">
+        <Button variant="secondary" onClick={() => doBulkActive(true)} disabled={!selectedIds.length}>
+          Hepsini Aktif Yap
+        </Button>
+        <Button variant="secondary" onClick={() => doBulkActive(false)} disabled={!selectedIds.length}>
+          Hepsini Pasif Yap
+        </Button>
+        <div className="ml-auto text-sm text-gray-500">
+          {isFetching ? "Yükleniyor…" : `${items.length} kayıt`}
         </div>
       </div>
-    </>
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-md border border-gray-200">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-gray-50">
+            <tr className="text-xs">
+              <th className="w-10 p-3">
+                <Checkbox
+                  checked={items.length > 0 && selectedIds.length === items.length}
+                  onCheckedChange={(v) => toggleSelectAll(!!v)}
+                />
+              </th>
+              <th className="w-16 p-3">Kapak</th>
+              <th className="p-3">Başlık</th>
+              <th className="p-3">Slug</th>
+              <th className="p-3 text-right">Fiyat</th>
+              <th className="w-40 p-3 text-center">Durum</th>
+              <th className="w-40 p-3 text-center">Anasayfa</th>
+              <th className="w-40 p-3 text-right">İşlemler</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((r) => {
+              const dim = !viewActive(r.id, r.is_active) ? "opacity-60" : "";
+              const checkedActive = viewActive(r.id, r.is_active);
+              const checkedFeatured = viewFeatured(r.id, r.is_featured);
+
+              return (
+                <tr key={r.id} className={cn("border-t transition-opacity", dim)}>
+                  <td className="p-3">
+                    <Checkbox
+                      checked={!!selected[r.id]}
+                      onCheckedChange={(v) => setSelected((s) => ({ ...s, [r.id]: !!v }))}
+                    />
+                  </td>
+                  <td className="p-3">
+                    {r.image_url ? (
+                      <img src={r.image_url} alt={r.alt ?? ""} className="h-10 w-12 rounded object-cover" />
+                    ) : (
+                      <div className="h-10 w-12 rounded bg-gray-100" />
+                    )}
+                  </td>
+                  <td className="p-3">
+                    <div className="max-w-[26rem] truncate">{r.title}</div>
+                  </td>
+                  <td className="p-3 text-gray-500">{r.slug}</td>
+                  <td className="p-3 text-right tabular-nums">
+                    {Number(r.price).toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
+                  </td>
+
+                  {/* Durum (renkli switch) */}
+                  <td className="p-3">
+                    <div className="flex items-center justify-center">
+                      <Switch
+                        checked={checkedActive}
+                        onCheckedChange={(v) => handleToggleActive(r.id, v)}
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn("bg-gray-300 data-[state=checked]:bg-emerald-600", "h-5 w-10")}
+                        aria-label="Aktif / Pasif"
+                      />
+                    </div>
+                  </td>
+
+                  {/* Anasayfa (renkli switch) */}
+                  <td className="p-3">
+                    <div className="flex items-center justify-center">
+                      <Switch
+                        checked={checkedFeatured}
+                        onCheckedChange={(v) => handleToggleHomepage(r.id, v)}
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn("bg-gray-300 data-[state=checked]:bg-sky-600", "h-5 w-10")}
+                        aria-label="Anasayfada göster"
+                      />
+                    </div>
+                  </td>
+
+                  <td className="p-3">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => navigate(`/admin/products/${r.id}`)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                        Düzenle
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleDelete(r.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Sil
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+
+            {!items.length && !isFetching && (
+              <tr>
+                <td colSpan={8} className="p-6 text-center text-gray-500">Kayıt bulunamadı</td>
+              </tr>
+            )}
+            {isFetching && (
+              <tr>
+                <td colSpan={8} className="p-6 text-center text-gray-500">
+                  <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                  Yükleniyor…
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-500">
+          Sayfa: {Math.floor((filters.offset ?? 0) / (filters.limit ?? DEFAULT_LIMIT)) + 1}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            disabled={(filters.offset ?? 0) <= 0 || isFetching}
+            onClick={() =>
+              setFilters((p) => ({ ...p, offset: Math.max((p.offset ?? 0) - (p.limit ?? DEFAULT_LIMIT), 0) }))
+            }
+          >
+            Önceki
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={isFetching || items.length < (filters.limit ?? DEFAULT_LIMIT)}
+            onClick={() =>
+              setFilters((p) => ({ ...p, offset: (p.offset ?? 0) + (p.limit ?? DEFAULT_LIMIT) }))
+            }
+          >
+            Sonraki
+          </Button>
+        </div>
+      </div>
+    </div>
   );
-};
+}

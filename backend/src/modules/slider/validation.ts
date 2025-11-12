@@ -1,4 +1,6 @@
-// src/modules/slider/validation.ts
+// =============================================================
+// FILE: src/modules/slider/validation.ts
+// =============================================================
 import { z } from "zod";
 
 /** Ortak: id param */
@@ -32,7 +34,9 @@ export const createSchema = z.object({
   description: z.string().optional().nullable(),
 
   image_url: z.string().url().optional().nullable(),
-  storage_asset_id: z.string().uuid().optional().nullable(),
+  /** ✅ standart alan adı */
+  image_asset_id: z.string().uuid().optional().nullable(),
+
   alt: z.string().max(255).optional(),
   buttonText: z.string().max(100).optional(),
   buttonLink: z.string().max(255).optional(),
@@ -56,16 +60,14 @@ export const setStatusSchema = z.object({
   is_active: z.coerce.boolean(),
 });
 
-/** Görsel bağlama/çıkarma */
-export const attachImageSchema = z.object({
-  storage_asset_id: z.string().uuid().optional(),
-  image_url: z.string().url().optional(),
-}).refine(
-  (v) => !!v.storage_asset_id || !!v.image_url,
-  { message: "storage_asset_id veya image_url zorunlu (en az biri)" }
-);
+/** ✅ Görsel bağlama/çıkarma (kategori ve subCategory ile aynı isim) */
+export const setImageSchema = z.object({
+  /** null/undefined ⇒ görseli kaldır */
+  asset_id: z.string().uuid().nullable().optional(),
+});
 
 export type PublicListQuery = z.infer<typeof publicListQuerySchema>;
 export type AdminListQuery  = z.infer<typeof adminListQuerySchema>;
 export type CreateBody      = z.infer<typeof createSchema>;
 export type UpdateBody      = z.infer<typeof updateSchema>;
+export type SetImageBody    = z.infer<typeof setImageSchema>;

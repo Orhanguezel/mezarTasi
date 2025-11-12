@@ -1,5 +1,4 @@
 // src/modules/announcements/admin.routes.ts
-
 import type { FastifyInstance } from "fastify";
 import {
   listAdmin,
@@ -8,6 +7,7 @@ import {
   patchAdmin,
   removeAdmin,
   reorderAdmin,
+  setImageAdmin, // 👈 ekle
 } from "./admin.controller";
 
 const BASE = "/announcements";
@@ -19,6 +19,6 @@ export async function registerAnnouncementsAdmin(app: FastifyInstance) {
   app.patch(`${BASE}/:id`,  { config: { auth: true } }, patchAdmin);
   app.delete(`${BASE}/:id`, { config: { auth: true } }, removeAdmin);
 
-  // Sıralama
-  app.post(`${BASE}/reorder`, { config: { auth: true } }, reorderAdmin);
+  app.post(`${BASE}/reorder`,        { config: { auth: true } }, reorderAdmin);
+  app.patch(`${BASE}/:id/image`,     { config: { auth: true } }, setImageAdmin); // ✅ yeni
 }

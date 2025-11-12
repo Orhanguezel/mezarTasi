@@ -2,6 +2,9 @@ import { baseApi } from "../../baseApi";
 import type { FetchArgs } from "@reduxjs/toolkit/query";
 import type { UserRoleName } from "../../../db/types/users";
 
+export type AdminSetUserEmailBody = { email: string };
+export type AdminSetUserPasswordBody = { password: string; force_logout?: boolean };
+
 /* ---------- helpers (type-safe) ---------- */
 const toIso = (x: unknown): string => new Date(x as string | number | Date).toISOString();
 const toBool = (x: unknown): boolean =>
@@ -337,6 +340,44 @@ export const usersAdminApi = baseApi.injectEndpoints({
           : [],
     }),
 
+/** EMAIL değiştir (PATCH /admin/users/:id/email) */
+    adminSetUserEmail: b.mutation<
+      { ok: true; email: string },
+      { id: string; body: AdminSetUserEmailBody }
+    >({
+      query: ({ id, body }): FetchArgs => ({
+        url: `/admin/users/${encodeURIComponent(id)}/email`,
+        method: "PATCH",
+        body,
+      }),
+      transformResponse: (r: unknown): { ok: true; email: string } => {
+        const rec = (r ?? {}) as Record<string, unknown>;
+        const emailVal =
+          typeof rec.email === "string" ? rec.email :
+          typeof rec.new_email === "string" ? rec.new_email :
+          "";
+        return { ok: true as const, email: emailVal };
+      },
+      invalidatesTags: (_r, _e, arg) => [{ type: "User", id: arg.id }, { type: "Users", id: "LIST" }],
+    }),
+
+    /** ŞİFRE değiştir (PATCH /admin/users/:id/password) */
+    adminSetUserPassword: b.mutation<
+      { ok: true },
+      { id: string; body: AdminSetUserPasswordBody }
+    >({
+      query: ({ id, body }): FetchArgs => ({
+        url: `/admin/users/${encodeURIComponent(id)}/password`,
+        method: "PATCH",
+        body,
+      }),
+      transformResponse: () => ({ ok: true as const }),
+      invalidatesTags: (_r, _e, arg) => [{ type: "User", id: arg.id }],
+    }),
+
+
+
+
     deleteUserAdmin: b.mutation<{ ok: true }, { id: string }>({
       query: ({ id }) => ({
         url: `/admin/users/${encodeURIComponent(id)}`,
@@ -362,4 +403,6 @@ export const {
   useSetUserRolesAdminMutation,
   useListUsersAdminMiniQuery,
   useDeleteUserAdminMutation,
+  useAdminSetUserEmailMutation,
+  useAdminSetUserPasswordMutation,
 } = usersAdminApi;

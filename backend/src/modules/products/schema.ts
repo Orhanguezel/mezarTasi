@@ -1,10 +1,12 @@
-// src/modules/products/schema.ts
-
+// =============================================================
+// FILE: src/modules/products/schema.ts
+// =============================================================
 import {
   mysqlTable,
   char,
   varchar,
   text,
+  longtext,
   int,
   tinyint,
   decimal,
@@ -19,14 +21,6 @@ import { sql } from "drizzle-orm";
 import { categories } from "../categories/schema";
 import { subCategories } from "../subcategories/schema";
 
-/**
- * PRODUCTS
- * FE Admin Product tipine uyumlu alanlar:
- * - title, price, description, image_url, images(json), status -> is_active
- * - category_id (üst), sub_category_id (alt)
- * - specifications(json): { dimensions?, weight?, thickness?, surfaceFinish?, warranty?, installationTime? }
- * Ek: product_code (unique), slug (unique), tags(json), rating/review_count, stock_quantity
- */
 export const products = mysqlTable(
   "products",
   {
@@ -38,13 +32,15 @@ export const products = mysqlTable(
     price: decimal("price", { precision: 10, scale: 2 }).notNull(),
     description: text("description"),
 
-    /** Üst kategori (categories) */
     category_id: char("category_id", { length: 36 }).notNull(),
-    /** Alt kategori (sub_categories) */
     sub_category_id: char("sub_category_id", { length: 36 }),
 
-    image_url: varchar("image_url", { length: 500 }),
+    // ✅ Görseller (tekil kapak + çoklu galeri)
+    image_url: longtext("image_url"),
+    storage_asset_id: char("storage_asset_id", { length: 36 }),
+    alt: varchar("alt", { length: 255 }),
     images: json("images").$type<string[]>().default(sql`JSON_ARRAY()`),
+    storage_image_ids: json("storage_image_ids").$type<string[]>().default(sql`JSON_ARRAY()`),
 
     is_active: tinyint("is_active").notNull().default(1).$type<boolean>(),
     is_featured: tinyint("is_featured").notNull().default(0).$type<boolean>(),
@@ -81,8 +77,8 @@ export const products = mysqlTable(
     index("products_category_id_idx").on(t.category_id),
     index("products_sub_category_id_idx").on(t.sub_category_id),
     index("products_active_idx").on(t.is_active),
+    index("products_asset_idx").on(t.storage_asset_id),
 
-    /** FK: Üst kategori */
     foreignKey({
       columns: [t.category_id],
       foreignColumns: [categories.id],
@@ -91,7 +87,6 @@ export const products = mysqlTable(
       .onDelete("restrict")
       .onUpdate("cascade"),
 
-    /** FK: Alt kategori (AYRI TABLO: sub_categories) */
     foreignKey({
       columns: [t.sub_category_id],
       foreignColumns: [subCategories.id],
@@ -102,7 +97,8 @@ export const products = mysqlTable(
   ]
 );
 
-/** CatalogProduct.technicalSpecs */
+// ========== SPECS / FAQS / REVIEWS / OPTIONS / STOCK ==========
+
 export const productSpecs = mysqlTable(
   "product_specs",
   {
@@ -151,6 +147,7 @@ export const productFaqs = mysqlTable(
   },
   (t) => [
     index("product_faqs_product_id_idx").on(t.product_id),
+    index("product_faqs_order_idx").on(t.display_order),
     foreignKey({
       columns: [t.product_id],
       foreignColumns: [products.id],
@@ -161,10 +158,6 @@ export const productFaqs = mysqlTable(
   ]
 );
 
-
-// -------------------------------------------------------------
-// PRODUCT REVIEWS
-// -------------------------------------------------------------
 export const productReviews = mysqlTable(
   "product_reviews",
   {
@@ -200,9 +193,6 @@ export const productReviews = mysqlTable(
   ]
 );
 
-// -------------------------------------------------------------
-// PRODUCT OPTIONS
-// -------------------------------------------------------------
 export const productOptions = mysqlTable(
   "product_options",
   {
@@ -230,9 +220,6 @@ export const productOptions = mysqlTable(
   ]
 );
 
-// -------------------------------------------------------------
-// PRODUCT STOCK
-// -------------------------------------------------------------
 export const productStock = mysqlTable(
   "product_stock",
   {
@@ -260,29 +247,21 @@ export const productStock = mysqlTable(
   ]
 );
 
-// -------------------------------------------------------------
-// Alias export'lar (snake_case bekleyen import'lar için)
-// -------------------------------------------------------------
+// Alias
 export { productReviews as product_reviews };
 export { productOptions as product_options };
 export { productStock as product_stock };
 
-// -------------------------------------------------------------
-// Tipler
-// -------------------------------------------------------------
-export type ProductReviewRow = typeof productReviews.$inferSelect;
-export type NewProductReviewRow = typeof productReviews.$inferInsert;
-
-export type ProductOptionRow = typeof productOptions.$inferSelect;
-export type NewProductOptionRow = typeof productOptions.$inferInsert;
-
-export type ProductStockRow = typeof productStock.$inferSelect;
-export type NewProductStockRow = typeof productStock.$inferInsert;
-
-
+// Types
 export type ProductRow = typeof products.$inferSelect;
 export type NewProductRow = typeof products.$inferInsert;
 export type ProductSpecRow = typeof productSpecs.$inferSelect;
 export type NewProductSpecRow = typeof productSpecs.$inferInsert;
 export type ProductFaqRow = typeof productFaqs.$inferSelect;
 export type NewProductFaqRow = typeof productFaqs.$inferInsert;
+export type ProductReviewRow = typeof productReviews.$inferSelect;
+export type NewProductReviewRow = typeof productReviews.$inferInsert;
+export type ProductOptionRow = typeof productOptions.$inferSelect;
+export type NewProductOptionRow = typeof productOptions.$inferInsert;
+export type ProductStockRow = typeof productStock.$inferSelect;
+export type NewProductStockRow = typeof productStock.$inferInsert;

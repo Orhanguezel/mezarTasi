@@ -1,98 +1,141 @@
+// =============================================================
+// FILE: src/components/admin/AdminPanel/Tabs/CampaignsTab.tsx
+// =============================================================
 "use client";
 
 import * as React from "react";
-import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 import {
   useListCampaignsAdminQuery,
-  useUpdateCampaignAdminMutation,
   useDeleteCampaignAdminMutation,
+  useUpdateCampaignAdminMutation,
 } from "@/integrations/metahub/rtk/endpoints/admin/campaigns_admin.endpoints";
-import type { SimpleCampaignView, AdminListParams } from "@/integrations/metahub/db/types/campaigns";
-import { toast } from "sonner";
+import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
 
-export function TabsCampaigns() {
+type Row = {
+  id: string;
+  title: string;
+  description: string;
+  is_active: boolean;
+  image_effective_url?: string | null;
+  image_url?: string | null;
+  alt?: string | null;
+  updated_at?: string;
+  created_at?: string;
+};
+
+export default function CampaignsTab() {
   const navigate = useNavigate();
 
-  const [q, setQ] = useState("");
-  const [onlyActive, setOnlyActive] = useState(true);
+  const [q, setQ] = React.useState("");
+  const [onlyActive, setOnlyActive] = React.useState<boolean>(false);
 
-  // 🔧 exactOptionalPropertyTypes → objeye sadece DOLU alanları koy
-  const params = useMemo<AdminListParams>(() => {
-    const o: AdminListParams = {
-      sort: "updated_at",
-      order: "desc",
-      limit: 50,
-      offset: 0,
-    };
-    const qv = q.trim();
-    if (qv) o.q = qv;
-    if (onlyActive) o.is_active = true;
-    return o;
-  }, [q, onlyActive]);
+  const { data, isFetching, refetch } = useListCampaignsAdminQuery({ limit: 200, sort: "updated_at", order: "desc" });
+  const [rows, setRows] = React.useState<Row[]>([]);
 
-  const { data, isFetching, refetch } = useListCampaignsAdminQuery(params);
-  const [updateCampaign, { isLoading: updating }] = useUpdateCampaignAdminMutation();
-  const [deleteCampaign, { isLoading: deleting }] = useDeleteCampaignAdminMutation();
+  const [delOne, { isLoading: deleting }] = useDeleteCampaignAdminMutation();
+  const [patchOne] = useUpdateCampaignAdminMutation();
 
-  async function handleToggleActive(row: SimpleCampaignView) {
+  React.useEffect(() => {
+  if (!data) return;
+
+  setRows(
+    data.map((c) => {
+      const base: Row = {
+        id: c.id,
+        title: c.title,
+        description: c.description,
+        is_active: !!c.is_active,
+        image_effective_url: c.image_effective_url ?? null,
+        image_url: c.image_url ?? null,
+        alt: c.alt ?? null,
+      };
+
+      return {
+        ...base,
+        ...(c.updated_at ? { updated_at: c.updated_at } : {}),
+        ...(c.created_at ? { created_at: c.created_at } : {}),
+      };
+    })
+  );
+}, [data]);
+
+  const visible = React.useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (onlyActive && !r.is_active) return false;
+      if (!t) return true;
+      return (
+        r.title.toLowerCase().includes(t) ||
+        r.description.toLowerCase().includes(t) ||
+        (r.updated_at ?? "").toLowerCase().includes(t) ||
+        (r.created_at ?? "").toLowerCase().includes(t)
+      );
+    });
+  }, [rows, q, onlyActive]);
+
+  const onAdd = () => navigate("/admin/campaigns/new");
+  const onEdit = (id: string) => navigate(`/admin/campaigns/${id}`);
+
+  const doDelete = async (id: string) => {
+    if (!confirm("Silmek istediğinize emin misiniz?")) return;
     try {
-      await updateCampaign({ id: row.id, body: { is_active: !row.is_active } }).unwrap();
-      toast.success(row.is_active ? "Pasifleştirildi." : "Aktifleştirildi.");
-      refetch();
+      await delOne(id).unwrap();
+      toast.success("Kampanya silindi");
+      await refetch();
     } catch (e: any) {
-      toast.error(e?.data?.error?.message || "Güncellenemedi.");
+      toast.error(e?.data?.message || "Silme başarısız");
     }
-  }
-
-  async function handleDelete(row: SimpleCampaignView) {
-    if (!confirm(`"${row.title}" kampanyasını silmek istiyor musunuz?`)) return;
-    try {
-      await deleteCampaign(row.id).unwrap();
-      toast.success("Silindi.");
-      refetch();
-    } catch (e: any) {
-      toast.error(e?.data?.error?.message || "Silinemedi.");
-    }
-  }
+  };
 
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-        <div className="flex flex-1 items-center gap-3">
-          <div className="flex-1">
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Kampanya ara..."
-            />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-end max-w-3xl">
+          <div className="space-y-1">
+            <Label>Ara</Label>
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Başlık/açıklama ile ara…" />
           </div>
-          <div className="flex items-center gap-2 rounded-md border px-3 h-10">
-            <Label htmlFor="onlyActive" className="text-sm text-gray-600">
-              Sadece aktif
-            </Label>
-            <Switch id="onlyActive" checked={onlyActive} onCheckedChange={setOnlyActive} />
+
+          <div className="space-y-1">
+            <Label>Yalnızca Aktif</Label>
+            <div className="flex h-10 items-center">
+              <Switch
+                checked={onlyActive}
+                onCheckedChange={setOnlyActive}
+                className="data-[state=checked]:bg-emerald-600"
+              />
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={() => navigate("/admin/campaigns/new")}>Yeni Kampanya</Button>
-          <Button variant="secondary" onClick={() => refetch()}>
-            Yenile
-          </Button>
+
+          <div className="space-y-1">
+            <Label>&nbsp;</Label>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => refetch()} disabled={isFetching}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Yenile
+              </Button>
+              <Button onClick={onAdd} className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Plus className="h-4 w-4 mr-2" />
+                Yeni Kampanya
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Table */}
       <div className="overflow-x-auto rounded-md border">
-        <table className="min-w-full text-sm">
+        <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-600">
             <tr>
-              <th className="px-3 py-2 text-left w-16">Görsel</th>
+              <th className="px-3 py-2 text-left">Görsel</th>
               <th className="px-3 py-2 text-left">Başlık</th>
               <th className="px-3 py-2 text-left">Açıklama</th>
               <th className="px-3 py-2 text-left">Aktif</th>
@@ -101,67 +144,53 @@ export function TabsCampaigns() {
             </tr>
           </thead>
           <tbody>
-            {(data ?? []).map((row) => (
-              <tr key={row.id} className="border-t">
+            {visible.map((r) => (
+              <tr key={r.id} className="border-t">
                 <td className="px-3 py-2">
-                  {row.image_effective_url || row.image_url ? (
+                  {(r.image_effective_url ?? r.image_url) ? (
                     <img
-                      src={(row.image_effective_url || row.image_url) as string}
-                      alt={row.alt || "campaign"}
-                      className="h-12 w-12 rounded object-cover border"
+                      src={r.image_effective_url ?? (r.image_url as string)}
+                      alt={r.title}
+                      className="h-10 w-14 rounded object-cover border"
                     />
                   ) : (
-                    <div className="h-12 w-12 rounded bg-gray-100 grid place-items-center text-[10px] text-gray-400">
-                      —
-                    </div>
+                    <div className="h-10 w-14 rounded border bg-gray-50" />
                   )}
                 </td>
+                <td className="px-3 py-2">{r.title}</td>
+                <td className="px-3 py-2 text-gray-600 truncate max-w-[280px]">{r.description}</td>
                 <td className="px-3 py-2">
-                  <div className="font-medium">{row.title}</div>
-                  <div className="text-xs text-gray-500 line-clamp-1">
-                    {(row.seo_keywords || []).slice(0, 4).join(", ")}
-                  </div>
+                  <Switch
+                    checked={!!r.is_active}
+                    onCheckedChange={async (v) => {
+                      setRows((arr) => arr.map((x) => (x.id === r.id ? { ...x, is_active: v } : x)));
+                      try {
+                        await patchOne({ id: r.id, body: { is_active: v } }).unwrap();
+                      } catch {
+                        setRows((arr) => arr.map((x) => (x.id === r.id ? { ...x, is_active: !v } : x)));
+                        toast.error("Aktiflik güncellenemedi");
+                      }
+                    }}
+                    className="data-[state=checked]:bg-emerald-600"
+                  />
                 </td>
-                <td className="px-3 py-2">
-                  <div className="max-w-[360px] text-gray-700 line-clamp-2">{row.description}</div>
-                </td>
-                <td className="px-3 py-2">
-                  <Button
-                    size="sm"
-                    variant={row.is_active ? "secondary" : "outline"}
-                    disabled={isFetching || updating}
-                    onClick={() => handleToggleActive(row)}
-                  >
-                    {row.is_active ? "Aktif" : "Pasif"}
-                  </Button>
-                </td>
-                <td className="px-3 py-2 text-gray-600">
-                  <div className="text-xs">{row.updated_at || "—"}</div>
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex items-center justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/admin/campaigns/${encodeURIComponent(row.id)}`)}
-                    >
-                      Düzenle
+                <td className="px-3 py-2">{r.updated_at ? new Date(r.updated_at).toLocaleString() : "—"}</td>
+                <td className="px-3 py-2 text-right">
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" onClick={() => onEdit(r.id)} title="Düzenle">
+                      <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      disabled={isFetching || deleting}
-                      onClick={() => handleDelete(row)}
-                    >
-                      Sil
+                    <Button variant="ghost" onClick={() => doDelete(r.id)} disabled={deleting} title="Sil">
+                      <Trash2 className="h-4 w-4 text-rose-600" />
                     </Button>
                   </div>
                 </td>
               </tr>
             ))}
-            {!isFetching && (data ?? []).length === 0 && (
+
+            {!isFetching && visible.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-10 text-center text-gray-500">
+                <td colSpan={6} className="px-3 py-8 text-center text-sm text-gray-500">
                   Kayıt bulunamadı.
                 </td>
               </tr>
@@ -169,8 +198,8 @@ export function TabsCampaigns() {
           </tbody>
         </table>
       </div>
+
+      {isFetching && <div className="text-xs text-gray-500">Yükleniyor…</div>}
     </div>
   );
 }
-
-export default TabsCampaigns;

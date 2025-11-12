@@ -6,7 +6,8 @@ import {
   createPageAdmin,
   updatePageAdmin,
   removePageAdmin,
-  setFeaturedImageAdmin, // 👈 EKLENDİ
+  adminSetCustomPageImage,
+
 } from "./admin.controller";
 
 const BASE = "/custom_pages";
@@ -18,6 +19,6 @@ export async function registerCustomPagesAdmin(app: FastifyInstance) {
 
   app.post(`${BASE}`,              { config: { auth: true } }, createPageAdmin);
   app.patch(`${BASE}/:id`,         { config: { auth: true } }, updatePageAdmin);
-  app.patch(`${BASE}/:id/featured-image`, { config: { auth: true } }, setFeaturedImageAdmin); // 👈 YENİ
+  app.patch(`${BASE}/:id/image`, { config: { auth: true } }, adminSetCustomPageImage);
   app.delete(`${BASE}/:id`,        { config: { auth: true } }, removePageAdmin);
 }

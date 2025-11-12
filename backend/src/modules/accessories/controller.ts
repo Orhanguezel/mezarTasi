@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/accessories/controller.ts (PUBLIC)
+// =============================================================
 import type { RouteHandler } from "fastify";
 import {
   listQuerySchema,
@@ -5,6 +8,7 @@ import {
   idOrSlugParamSchema,
 } from "./validation";
 import { repoGetBySlug, repoListPublic } from "./repository";
+import { env } from "@/core/env";
 
 /* FE’nin beklediği minimal AccessoryModel struct */
 type PublicAccessory = {
@@ -24,16 +28,30 @@ type PublicAccessory = {
   installationTime?: string;
 };
 
+/* same effective helper as repo */
+function encSeg(s: string) { return encodeURIComponent(s); }
+function encPath(p: string) { return p.split("/").map(encSeg).join("/"); }
+function effectiveUrl(asset_url?: string | null, bucket?: string | null, path?: string | null, legacy?: string | null) {
+  if (asset_url) return asset_url;
+  if (bucket && path) {
+    const cdnBase = (env.CDN_PUBLIC_BASE || "").replace(/\/+$/, "");
+    if (cdnBase) return `${cdnBase}/${encSeg(bucket)}/${encPath(path)}`;
+    const apiBase = (env.PUBLIC_API_BASE || "").replace(/\/+$/, "");
+    return `${apiBase || ""}/storage/${encSeg(bucket)}/${encPath(path)}`;
+  }
+  return legacy ?? "";
+}
+
 function rowToPublic(row: any): PublicAccessory {
   const a = row.acc;
-  const url = row.asset_url ?? a.image_url ?? "";
+  const url = effectiveUrl(row.asset_url, row.asset_bucket, row.asset_path, a.image_url);
   return {
     id: a.id,
     name: a.name,
-    category: a.category as PublicAccessory["category"], // ← cast
+    category: a.category as PublicAccessory["category"],
     material: a.material,
     price: a.price,
-    image: url,
+    image: url || "",
     description: a.description || "",
     featured: !!a.featured,
     dimensions: a.dimensions || undefined,
@@ -62,7 +80,7 @@ export const getPublicAccessory: RouteHandler<{ Params: { idOrSlug: string } }> 
   if (!v.success) return reply.code(400).send({ error: { message: "invalid_params" } });
 
   const arg = v.data.idOrSlug;
-  // public detail'i slug üstünden veriyoruz (id desteklemek istersen repoGetById ekleyebilirsin)
+  // public detail'i slug üstünden veriyoruz
   const row = await repoGetBySlug(arg, true);
   if (!row) return reply.code(404).send({ error: { message: "not_found" } });
 

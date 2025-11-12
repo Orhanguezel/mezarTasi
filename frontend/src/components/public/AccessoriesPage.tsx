@@ -27,7 +27,7 @@ import type {
 
 // — RTK PUBLIC endpoints
 import { useListAccessoriesPublicQuery } from "@/integrations/metahub/rtk/endpoints/accessories.endpoints";
-import { useListSlidesPublicQuery } from "@/integrations/metahub/rtk/endpoints/slider.endpoints";
+import { useListSlidesPublicQuery } from "@/integrations/metahub/rtk/endpoints/slider_public.endpoints";
 
 // — Üretim Süreci (ayrı dosya)
 import ProcessSection from "./ProcessSection";
@@ -279,13 +279,12 @@ export function AccessoriesPage({ onNavigate }: AccessoriesPageProps) {
             {slides.map((slide, index) => (
               <div
                 key={slide.id}
-                className={`absolute inset-0 transition-transform duration-700 ease-in-out ${
-                  index === currentSlide
+                className={`absolute inset-0 transition-transform duration-700 ease-in-out ${index === currentSlide
                     ? "translate-x-0"
                     : index < currentSlide
-                    ? "-translate-x-full"
-                    : "translate-x-full"
-                }`}
+                      ? "-translate-x-full"
+                      : "translate-x-full"
+                  }`}
               >
                 <div className="relative w-full h-full">
                   <ImageWithFallback
@@ -335,11 +334,10 @@ export function AccessoriesPage({ onNavigate }: AccessoriesPageProps) {
                 <button
                   key={i}
                   onClick={() => setCurrentSlide(i)}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                    i === currentSlide
+                  className={`w-3 h-3 rounded-full transition-all duration-300 ${i === currentSlide
                       ? "bg-white scale-125"
                       : "bg-white/40 hover:bg-white/70"
-                  }`}
+                    }`}
                 />
               ))}
             </div>
@@ -363,20 +361,18 @@ export function AccessoriesPage({ onNavigate }: AccessoriesPageProps) {
                   key={category.id}
                   onClick={() => setSelectedCategory(category.id)}
                   variant={selectedCategory === category.id ? "default" : "outline"}
-                  className={`px-5 py-2.5 rounded-full transition-all duration-300 text-sm ${
-                    selectedCategory === category.id
+                  className={`px-5 py-2.5 rounded-full transition-all duration-300 text-sm ${selectedCategory === category.id
                       ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
                       : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
-                  }`}
+                    }`}
                 >
                   {category.name}
                   <Badge
                     variant="secondary"
-                    className={`ml-2 text-xs ${
-                      selectedCategory === category.id
+                    className={`ml-2 text-xs ${selectedCategory === category.id
                         ? "bg-teal-400 text-teal-900"
                         : "bg-teal-100 text-teal-700"
-                    }`}
+                      }`}
                   >
                     {category.count}
                   </Badge>
@@ -390,11 +386,10 @@ export function AccessoriesPage({ onNavigate }: AccessoriesPageProps) {
                   key={category.id}
                   onClick={() => setSelectedCategory(category.id)}
                   variant={selectedCategory === category.id ? "default" : "outline"}
-                  className={`px-3 py-3 h-auto rounded-lg transition-all duration-300 text-center ${
-                    selectedCategory === category.id
+                  className={`px-3 py-3 h-auto rounded-lg transition-all duration-300 text-center ${selectedCategory === category.id
                       ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
                       : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
-                  }`}
+                    }`}
                 >
                   <span className="text-base font-bold leading-tight">
                     {category.name}
@@ -565,7 +560,7 @@ export function AccessoriesPage({ onNavigate }: AccessoriesPageProps) {
       {/* Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent
-          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          className="max-w-2xl  bg-gray-50  max-h-[90vh] overflow-y-auto"
           aria-describedby={
             selectedModel ? `accessory-description-${selectedModel.id}` : "modal-content"
           }

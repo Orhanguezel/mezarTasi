@@ -2,23 +2,22 @@
 // FILE: src/integrations/metahub/db/types/slider.ts
 // -------------------------------------------------------------
 
-/** Public model (FE'nin beklediği minimal yapı) */
+/** Public model (FE) */
 export interface SliderPublic {
   id: number;
   title: string;
   description: string;
-  image: string;                // effective url (storage → url | image_url)
+  image: string;                // effective url
   alt?: string | null;
   buttonText?: string | null;
   buttonLink?: string | null;
 
-  // opsiyoneller (public list için gerekmez ama ileride kullanışlı)
   featured?: boolean;
   isActive?: boolean;
   order?: number;
 }
 
-/** DB satırı tipini yansıtan raw model (admin controller {...sl} döndürüyor) */
+/** DB satırı tipini yansıtan raw model (admin controller {...sl}) */
 export interface SliderRow {
   id: number;
   uuid: string;
@@ -27,7 +26,8 @@ export interface SliderRow {
   description: string | null;
 
   image_url: string | null;
-  storage_asset_id: string | null;
+  /** ✅ backend ile aynı isim */
+  image_asset_id: string | null;
   alt: string | null;
   buttonText: string | null;
   buttonLink: string | null;
@@ -40,12 +40,12 @@ export interface SliderRow {
   updated_at: string;
 }
 
-/** Admin list/get yanıtında eklenen alan */
+/** Admin yanıtında ek alan */
 export interface SliderAdminRow extends SliderRow {
   image_effective_url: string | null;
 }
 
-/** Admin UI için normalize edilmiş görünüm (booleans) */
+/** Admin UI görünümü */
 export interface SliderAdminView {
   id: number;
   uuid: string;
@@ -54,7 +54,7 @@ export interface SliderAdminView {
   description: string | null;
 
   image_url: string | null;
-  storage_asset_id: string | null;
+  image_asset_id: string | null;
   image_effective_url: string | null;
 
   alt: string | null;
@@ -78,19 +78,20 @@ export interface SliderListParams {
   order?: "asc" | "desc";
 }
 
-/** Admin list query (is_active opsiyonel) */
+/** Admin list query */
 export interface SliderAdminListParams extends SliderListParams {
   is_active?: boolean;
 }
 
-/** Create / Update inputları (controller zod ile parse ediyor) */
+/** Create / Update inputları (backend zod ile parse ediyor) */
 export interface SliderCreateInput {
   name: string;
   slug?: string;
-  description?: string;
+  description?: string | null;
 
   image_url?: string | null;
-  storage_asset_id?: string | null;
+  /** ✅ backend ile aynı isim */
+  image_asset_id?: string | null;
   alt?: string | null;
   buttonText?: string | null;
   buttonLink?: string | null;
@@ -106,7 +107,8 @@ export interface SliderUpdateInput {
   description?: string | null;
 
   image_url?: string | null;
-  storage_asset_id?: string | null;
+  /** ✅ backend ile aynı isim */
+  image_asset_id?: string | null;
   alt?: string | null;
   buttonText?: string | null;
   buttonLink?: string | null;
@@ -116,18 +118,9 @@ export interface SliderUpdateInput {
   display_order?: number;
 }
 
-/** Yardımcı: status body */
-export interface SliderStatusBody {
-  is_active: boolean;
-}
+/** Yardımcı body’ler */
+export interface SliderStatusBody { is_active: boolean; }
+export interface SliderReorderBody { ids: number[]; }
 
-/** Yardımcı: reorder body */
-export interface SliderReorderBody {
-  ids: number[];
-}
-
-/** Yardımcı: görsel bağlama body */
-export interface SliderAttachImageBody {
-  storage_asset_id?: string;
-  image_url?: string;
-}
+/** ✅ Yeni: tek uç sözleşmesi */
+export interface SliderSetImageBody { asset_id?: string | null; }

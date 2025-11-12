@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/customPages/validation.ts
+// =============================================================
 import { z } from "zod";
 
 export const boolLike = z.union([
@@ -21,21 +24,20 @@ export const customPageListQuerySchema = z.object({
 });
 export type CustomPageListQuery = z.infer<typeof customPageListQuerySchema>;
 
-/** CREATE / UPSERT body */
+/** CREATE / UPSERT body (storage ile hizalı görsel alanları) */
 export const upsertCustomPageBodySchema = z.object({
   title: z.string().min(1).max(255).trim(),
-  slug: z
-    .string()
+  slug: z.string()
     .min(1).max(255)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "slug sadece küçük harf, rakam ve tire içermelidir")
     .trim(),
   /** düz HTML (repo.packContent ile {"html": "..."}’a sarılır) */
   content: z.string().min(1),
 
-  /** Görsel alanları */
-  featured_image: z.string().url().nullable().optional(),
-  featured_image_asset_id: z.string().length(36).nullable().optional(),
-  featured_image_alt: z.string().max(255).nullable().optional(),
+  /** Görsel alanları (standart) */
+  image_url: z.string().url().nullable().optional(),
+  storage_asset_id: z.string().uuid().nullable().optional(),
+  alt: z.string().max(255).nullable().optional(),
 
   meta_title: z.string().max(255).nullable().optional(),
   meta_description: z.string().max(500).nullable().optional(),
@@ -50,13 +52,13 @@ export type UpsertCustomPageBody = z.infer<typeof upsertCustomPageBodySchema>;
 export const patchCustomPageBodySchema = upsertCustomPageBodySchema.partial();
 export type PatchCustomPageBody = z.infer<typeof patchCustomPageBodySchema>;
 
-/** Sadece featured image bağlamak için küçük schema */
-export const setFeaturedImageBodySchema = z.object({
-  /** Storage asset id — null ise bağ kaldır */
-  asset_id: z.string().length(36).nullable(),
-  /** FE yükleme cevabından gelen direkt URL — opsiyonel */
+/** ✅ Tek uç: storage patern ile uyumlu set image */
+export const setImageBodySchema = z.object({
+  asset_id: z.string().uuid().nullable().optional(),
   image_url: z.string().url().nullable().optional(),
-  /** Alt metin — opsiyonel */
-  alt: z.string().max(255).nullable().optional(),
+  alt: z.string().min(0).max(255).nullable().optional(),
+}).refine(v => typeof v.asset_id !== "undefined" || typeof v.image_url !== "undefined" || typeof v.alt !== "undefined", {
+  message: "No-op body",
 });
-export type SetFeaturedImageBody = z.infer<typeof setFeaturedImageBodySchema>;
+
+export type SetImageBody = z.infer<typeof setImageBodySchema>;

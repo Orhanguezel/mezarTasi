@@ -1,11 +1,13 @@
-// src/modules/slider/controller.ts
+// =============================================================
+// FILE: src/modules/slider/controller.ts  (PUBLIC)
+// =============================================================
 import type { RouteHandler } from "fastify";
 import {
   publicListQuerySchema,
   idOrSlugParamSchema,
   type PublicListQuery,
 } from "./validation";
-import { repoListPublic, repoGetBySlug } from "./repository";
+import { repoListPublic, repoGetBySlug, type RowWithAsset } from "./repository";
 
 /** FE SlideData (public) */
 type SlideData = {
@@ -23,7 +25,7 @@ type SlideData = {
   showOnDesktop?: boolean;
 };
 
-const rowToPublic = (row: any): SlideData => {
+const rowToPublic = (row: RowWithAsset): SlideData => {
   const a = row.sl;
   const url = row.asset_url ?? a.image_url ?? "";
   return {
@@ -36,14 +38,13 @@ const rowToPublic = (row: any): SlideData => {
     buttonLink: a.buttonLink ?? "",
     isActive: !!a.is_active,
     order: a.display_order ?? 0,
-    // basit mapping: featured → high, değilse medium
     priority: a.featured ? "high" : "medium",
     showOnMobile: true,
     showOnDesktop: true,
   };
 };
 
-/** GET /slider (public, sadece aktifler) */
+/** GET /sliders (public, sadece aktifler) */
 export const listPublicSlides: RouteHandler<{ Querystring: unknown }> = async (req, reply) => {
   const parsed = publicListQuerySchema.safeParse(req.query);
   if (!parsed.success) {
@@ -54,7 +55,7 @@ export const listPublicSlides: RouteHandler<{ Querystring: unknown }> = async (r
   return rows.map(rowToPublic);
 };
 
-/** GET /slider/:idOrSlug (opsiyonel public detail) */
+/** GET /sliders/:idOrSlug (opsiyonel public detail) */
 export const getPublicSlide: RouteHandler<{ Params: { idOrSlug: string } }> = async (req, reply) => {
   const v = idOrSlugParamSchema.safeParse(req.params);
   if (!v.success) return reply.code(400).send({ error: { message: "invalid_params" } });

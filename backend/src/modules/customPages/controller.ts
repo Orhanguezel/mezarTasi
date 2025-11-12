@@ -1,49 +1,38 @@
+// =============================================================
+// FILE: src/modules/customPages/controller.ts  (PUBLIC)
+// =============================================================
 import type { RouteHandler } from "fastify";
-import { randomUUID } from "crypto";
 import {
   listCustomPages,
   getCustomPageById,
   getCustomPageBySlug,
 } from "./repository";
+import { customPageListQuerySchema, type CustomPageListQuery } from "./validation";
 
-type ListQuery = {
-  order?: string;
-  sort?: "created_at" | "updated_at";
-  orderDir?: "asc" | "desc";
-  limit?: string;
-  offset?: string;
-  is_published?: "0" | "1" | "true" | "false";
-  q?: string;
-  slug?: string;
-  select?: string;
-};
-
-export const listPages: RouteHandler<{ Querystring: ListQuery }> = async (req, reply) => {
-  try {
-    const { select: _select, ...q } = req.query ?? {};
-    const limitNum  = q.limit  ? Number(q.limit)  : undefined;
-    const offsetNum = q.offset ? Number(q.offset) : undefined;
-
-    const { items, total } = await listCustomPages({
-      orderParam: typeof q.order === "string" ? q.order : undefined,
-      sort: q.sort,
-      order: q.orderDir,
-      limit: Number.isFinite(limitNum as number) ? (limitNum as number) : undefined,
-      offset: Number.isFinite(offsetNum as number) ? (offsetNum as number) : undefined,
-      is_published: q.is_published,
-      q: q.q,
-      slug: q.slug,
-    });
-
-    reply.header("x-total-count", String(total ?? 0));
-    return reply.send(items);
-  } catch (err) {
-    req.log.error({ err }, "custom_pages_list_failed");
-    return reply.code(500).send({ error: { message: "custom_pages_list_failed" } });
+/** LIST (public) */
+export const listPages: RouteHandler<{ Querystring: CustomPageListQuery }> = async (req, reply) => {
+  const parsed = customPageListQuerySchema.safeParse(req.query ?? {});
+  if (!parsed.success) {
+    return reply.code(400).send({ error: { message: "invalid_query", issues: parsed.error.issues } });
   }
+  const q = parsed.data;
+
+  const { items, total } = await listCustomPages({
+    orderParam: typeof q.order === "string" ? q.order : undefined,
+    sort: q.sort,
+    order: q.orderDir,
+    limit: q.limit,
+    offset: q.offset,
+    is_published: q.is_published,
+    q: q.q,
+    slug: q.slug,
+  });
+
+  reply.header("x-total-count", String(total ?? 0));
+  return reply.send(items);
 };
 
-/** GET BY ID */
+/** GET BY ID (public) */
 export const getPage: RouteHandler<{ Params: { id: string } }> = async (req, reply) => {
   const row = await getCustomPageById(req.params.id);
   if (!row) return reply.code(404).send({ error: { message: "not_found" } });

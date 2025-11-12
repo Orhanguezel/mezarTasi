@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/accessories/validation.ts
+// =============================================================
 import { z } from "zod";
 
 /* ---------- ortak enum & tipler ---------- */
@@ -34,11 +37,10 @@ export const createAccessorySchema = z
     description: z.string().max(2000).optional().default(""),
     featured: z.coerce.boolean().optional().default(false),
 
-    // eski alan (legacy/opsiyonel)
-    image_url: z.string().url().optional(),
-
-    // yeni ilişki (opsiyonel)
-    storage_asset_id: z.string().length(36).optional(),
+    // ✅ storage pattern terimleri
+    image_url: z.string().url().nullable().optional(),
+    storage_asset_id: z.string().length(36).nullable().optional(),
+    alt: z.string().max(255).nullable().optional(),
 
     dimensions: z.string().max(127).optional(),
     weight: z.string().max(127).optional(),
@@ -54,6 +56,20 @@ export const createAccessorySchema = z
 
 export type CreateAccessoryInput = z.infer<typeof createAccessorySchema>;
 
+
+/* ✅ Kapak görseli ayarla/kaldır (asset_id + alt) */
+export const accessorySetImageSchema = z.object({
+  /** null/undefined ⇒ görseli kaldır */
+  asset_id: z.string().uuid().nullable().optional(),
+  /** alt verildiyse güncellenir; ""/null ⇒ temizlenir */
+  alt: z.preprocess((v) => (v === "" ? null : v), z.string().max(255).nullable().optional()),
+}).strict();
+
+export type AccessorySetImageInput = z.infer<typeof accessorySetImageSchema>;
+
+
+
+
 export const updateAccessorySchema = createAccessorySchema
   .partial()
   .refine((v) => Object.keys(v).length > 0, { message: "no_fields_to_update" });
@@ -64,7 +80,5 @@ export type UpdateAccessoryInput = z.infer<typeof updateAccessorySchema>;
 export const idParamSchema = z.object({ id: z.coerce.number().int().min(1) }).strict();
 export type IdParam = z.infer<typeof idParamSchema>;
 
-export const idOrSlugParamSchema = z
-  .object({ idOrSlug: z.string().min(1) })
-  .strict();
+export const idOrSlugParamSchema = z.object({ idOrSlug: z.string().min(1) }).strict();
 export type IdOrSlugParam = z.infer<typeof idOrSlugParamSchema>;

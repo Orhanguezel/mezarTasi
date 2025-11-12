@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/recent-works/schema.ts
+// =============================================================
 import {
   mysqlTable, char, varchar, tinyint, datetime, uniqueIndex, longtext, index, int, json,
 } from "drizzle-orm/mysql-core";
@@ -17,11 +20,9 @@ export const recentWorks = mysqlTable(
 
     title: varchar("title", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 255 }).notNull(),
-
-    // kısa açıklama (varchar 500)
     description: varchar("description", { length: 500 }).notNull(),
 
-    // Tek görsel (campaign/services pattern)
+    // Tek görsel (storage ile hizalı adlar)
     image_url: varchar("image_url", { length: 500 }),
     storage_asset_id: char("storage_asset_id", { length: 36 }),
     alt: varchar("alt", { length: 255 }),
@@ -31,7 +32,7 @@ export const recentWorks = mysqlTable(
     // SEO: JSON-string string[]
     seo_keywords: longtext("seo_keywords").notNull(),
 
-    date: varchar("date", { length: 64 }).notNull(), // "2024"
+    date: varchar("date", { length: 64 }).notNull(),
     location: varchar("location", { length: 255 }).notNull(),
     material: varchar("material", { length: 255 }).notNull(),
     price: varchar("price", { length: 255 }),

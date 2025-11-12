@@ -47,24 +47,20 @@ function resolveBaseUrl(): string {
   const apiBase = (env.VITE_API_BASE ?? env.NEXT_PUBLIC_API_BASE ?? "") as string;
   const publicOrigin = (env.VITE_PUBLIC_API_ORIGIN ?? env.NEXT_PUBLIC_PUBLIC_API_ORIGIN ?? "") as string;
 
-  // 1) Tam URL öncelikli (BE kökteyse ideal)
+  // 1) Tam URL öncelikli
   if (typeof apiUrl === "string" && apiUrl.trim() && isAbsUrl(apiUrl)) {
     return trimSlash(apiUrl.trim());
   }
-
-  // 2) Origin + Base birlikte verildiyse birleştir
+  // 2) Origin + Base birlikte verildiyse
   if (publicOrigin && apiBase) {
     return joinOriginAndBase(publicOrigin, apiBase);
   }
-
   // 3) Sadece base verilmişse
   if (apiBase && apiBase.trim()) {
     const val = apiBase.trim();
     if (isAbsUrl(val)) return trimSlash(val);
-    // path base
     return ensureLeadingSlash(trimSlash(val));
   }
-
   // 4) Dev → 8083, Prod → /api
   if ((import.meta as any).env?.DEV) return guessDevBackend();
   return "/api";
@@ -176,6 +172,7 @@ const rawBaseQuery: RBQ = fetchBaseQuery({
     const ct = response.headers.get("content-type") || "";
     if (ct.includes("application/json")) return response.json();
     if (ct.includes("text/")) return response.text();
+    // Binary/unknown tipte bile text dene (çoğu hata body’si text)
     try {
       const t = await response.text();
       return t || null;
@@ -186,10 +183,33 @@ const rawBaseQuery: RBQ = fetchBaseQuery({
   validateStatus: (res) => res.ok,
 }) as RBQ;
 
-/* ---------- 401 → refresh → retry ---------- */
-type RawResult = Awaited<ReturnType<typeof rawBaseQuery>>;
+/* ---------- Hata gövdesini serileştir ---------- */
+async function coerceSerializableError(
+  result: Awaited<ReturnType<typeof rawBaseQuery>>
+) {
+  const err = (result as any)?.error as FetchBaseQueryError | undefined;
+  if (!err) return result;
 
-// Body tipine göre doğru Content-Type davranışı
+  const d: any = (err as any).data;
+  try {
+    // Blob → string
+    if (typeof Blob !== "undefined" && d instanceof Blob) {
+      let text = "";
+      try { text = await d.text(); } catch {}
+      (err as any).data = text || `[binary ${d.type || "unknown"} ${d.size ?? ""}B]`;
+    }
+    // ArrayBuffer → string
+    else if (d instanceof ArrayBuffer) {
+      const dec = new TextDecoder();
+      (err as any).data = dec.decode(new Uint8Array(d));
+    }
+  } catch {
+    (err as any).data = String(d ?? "");
+  }
+  return result;
+}
+
+/* ---------- Body tipine göre doğru Content-Type ---------- */
 function ensureProperHeaders(fa: FetchArgs): FetchArgs {
   const next: FetchArgs = { ...fa };
   const hdr = (next.headers as Record<string, string>) ?? {};
@@ -197,7 +217,7 @@ function ensureProperHeaders(fa: FetchArgs): FetchArgs {
   if (isJsonLikeBody(next.body)) {
     next.headers = { ...hdr, "Content-Type": "application/json" };
   } else {
-    // FormData/Blob ise, boundary'yi fetch ayarlasın diye Content-Type'ı zorlamayalım
+    // FormData/Blob ise boundary'yi fetch ayarlasın
     if (hdr["Content-Type"]) {
       const { ["Content-Type"]: _omit, ...rest } = hdr;
       next.headers = rest;
@@ -206,6 +226,7 @@ function ensureProperHeaders(fa: FetchArgs): FetchArgs {
   return next;
 }
 
+/* ---------- 401 → refresh → retry ---------- */
 const baseQueryWithReauth: RBQ = async (args, _api, extra) => {
   let req: AnyArgs = normalizeUrlArg(args);
   const path = typeof req === "string" ? req : req.url || "";
@@ -219,8 +240,11 @@ const baseQueryWithReauth: RBQ = async (args, _api, extra) => {
     req = ensureProperHeaders(req);
   }
 
-  let result: RawResult = await rawBaseQuery(req, _api, extra);
+  // İlk istek
+  let result = await rawBaseQuery(req, _api, extra);
+  result = await coerceSerializableError(result);
 
+  // 401 → refresh → retry
   if (result.error?.status === 401 && !AUTH_SKIP_REAUTH.has(cleanPath)) {
     const refreshRes = await rawBaseQuery(
       {
@@ -250,6 +274,7 @@ const baseQueryWithReauth: RBQ = async (args, _api, extra) => {
           retry = ensureProperHeaders(retry);
         }
         result = await rawBaseQuery(retry, _api, extra);
+        result = await coerceSerializableError(result);
       } else {
         tokenStore.set(null);
         try {

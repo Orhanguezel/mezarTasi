@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/components/admin/AdminPanel/Tabs/SlidersTab.tsx
+// =============================================================
 "use client";
 
 import * as React from "react";
@@ -7,191 +10,248 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardContent } from "@/components/ui/card";
+import { RefreshCw, Plus, Pencil, Trash2, ArrowUp, ArrowDown, Save } from "lucide-react";
+
 import {
   useAdminListSlidesQuery,
   useAdminDeleteSlideMutation,
+  useAdminUpdateSlideMutation,
   useAdminReorderSlidesMutation,
   useAdminSetSlideStatusMutation,
-} from "@/integrations/metahub/rtk/endpoints/slider.endpoints";
-import type { SliderAdminListParams, SliderAdminView } from "@/integrations/metahub/db/types/slider";
+} from "@/integrations/metahub/rtk/endpoints/admin/sliders_admin.endpoints";
+import type { SliderAdminListParams } from "@/integrations/metahub/db/types/slider";
 
-export function TabsSliders() {
+type Row = {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  is_active: boolean;
+  featured: boolean;
+  display_order: number;
+  image: string | null;
+  updated_at?: string | null;
+};
+
+export default function SlidersTab() {
   const navigate = useNavigate();
-  const [q, setQ] = React.useState("");
-  const [onlyActive, setOnlyActive] = React.useState<boolean>(true);
 
-  const params = React.useMemo<SliderAdminListParams>(() => {
-    const p: SliderAdminListParams = { sort: "display_order", order: "asc", limit: 200, offset: 0 };
-    if (q.trim()) p.q = q.trim();
-    if (onlyActive) p.is_active = true;
-    return p;
+  // filters
+  const [q, setQ] = React.useState("");
+  const [onlyActive, setOnlyActive] = React.useState(false);
+
+  /** ⚠ exactOptionalPropertyTypes uyumu: undefined atama YOK, alanı hiç koyma */
+  const listParams = React.useMemo<SliderAdminListParams>(() => {
+    return {
+      sort: "display_order",
+      order: "asc",
+      limit: 200,
+      ...(q.trim() ? { q: q.trim() } : {}),
+      ...(onlyActive ? { is_active: true } : {}),
+    };
   }, [q, onlyActive]);
 
-  const { data, isFetching, refetch } = useAdminListSlidesQuery(params);
-  const [removeRow, { isLoading: deleting }] = useAdminDeleteSlideMutation();
-  const [reorder, { isLoading: reordering }] = useAdminReorderSlidesMutation();
-  const [setStatus, { isLoading: toggling }] = useAdminSetSlideStatusMutation();
+  const { data, isFetching, refetch } = useAdminListSlidesQuery(listParams);
 
-  const onDelete = async (row: SliderAdminView) => {
-    if (!window.confirm(`Silinsin mi?\n${row.name}`)) return;
+  const [rows, setRows] = React.useState<Row[]>([]);
+  const [delOne] = useAdminDeleteSlideMutation();
+  const [patchOne] = useAdminUpdateSlideMutation();
+  const [reorder] = useAdminReorderSlidesMutation();
+  const [setStatus] = useAdminSetSlideStatusMutation();
+
+  React.useEffect(() => {
+    if (!data) return;
+    const mapped: Row[] = data.map((s) => ({
+      id: s.id,
+      name: s.name,
+      slug: s.slug,
+      description: s.description ?? null,
+      is_active: !!s.is_active,
+      featured: !!s.featured,
+      display_order: Number(s.display_order ?? 0),
+      image: (s.image_effective_url ?? s.image_url) ?? null,
+      updated_at: s.updated_at ?? null,
+    }));
+    mapped.sort((a, b) => a.display_order - b.display_order);
+    setRows(mapped);
+  }, [data]);
+
+  const filtered = React.useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (onlyActive && !r.is_active) return false;
+      if (!t) return true;
+      return (
+        r.name.toLowerCase().includes(t) ||
+        r.slug.toLowerCase().includes(t) ||
+        (r.description || "").toLowerCase().includes(t)
+      );
+    });
+  }, [rows, q, onlyActive]);
+
+  const onAdd = () => navigate("/admin/sliders/new");
+  const onEdit = (id: number) => navigate(`/admin/sliders/${id}`);
+
+  const doDelete = async (id: number) => {
+    if (!confirm("Silmek istediğinize emin misiniz?")) return;
     try {
-      await removeRow(String(row.id)).unwrap();
-      toast.success("Silindi");
-      refetch();
+      await delOne(id).unwrap();
+      toast.success("Slider silindi");
+      await refetch();
     } catch (e: any) {
-      toast.error(e?.data?.error || "Silme hatası");
+      toast.error(e?.data?.message || "Silme başarısız");
     }
   };
 
-  const applyReorder = async (next: SliderAdminView[]) => {
+  /** ⚠ noUncheckedIndexedAccess uyumu: swap'ta non-null assertion kullan */
+  const move = (id: number, dir: "up" | "down") => {
+    setRows((arr) => {
+      const idx = arr.findIndex((x) => x.id === id);
+      if (idx < 0) return arr;
+      const j = dir === "up" ? idx - 1 : idx + 1;
+      if (j < 0 || j >= arr.length) return arr;
+
+      const copy = [...arr];
+      const a = copy[idx]!;
+      const b = copy[j]!;
+      copy[idx] = b;
+      copy[j] = a;
+
+      copy.forEach((r, i) => { r.display_order = i + 1; });
+      return copy;
+    });
+  };
+
+  const saveOrder = async () => {
     try {
-      const ids = next.map((x) => x.id);
+      const ids = [...rows].sort((a, b) => a.display_order - b.display_order).map((r) => r.id);
       await reorder({ ids }).unwrap();
-      toast.success("Sıralama güncellendi");
-      refetch();
+      toast.success("Sıra kaydedildi");
+      await refetch();
     } catch (e: any) {
-      toast.error(e?.data?.error || "Sıralama hatası");
-    }
-  };
-
-  // ✅ TS: noUncheckedIndexedAccess güvenli swap
-  const move = (row: SliderAdminView, dir: -1 | 1) => {
-    const base = (data ?? []).slice().sort((a, b) => a.display_order - b.display_order);
-    const i = base.findIndex((x) => x.id === row.id);
-    const j = i + dir;
-    if (i < 0 || j < 0 || j >= base.length) return;
-    const a = base[i];
-    const b = base[j];
-    if (!a || !b) return;
-    const next = base.slice();
-    next[i] = b;
-    next[j] = a;
-    applyReorder(next);
-  };
-
-  const onToggleActive = async (row: SliderAdminView, v: boolean) => {
-    try {
-      await setStatus({ id: String(row.id), body: { is_active: v } }).unwrap();
-      toast.success(v ? "Aktif edildi" : "Pasif edildi");
-      refetch();
-    } catch (e: any) {
-      toast.error(e?.data?.error || "Durum güncelleme hatası");
+      toast.error(e?.data?.message || "Sıra kaydedilemedi");
     }
   };
 
   return (
     <div className="space-y-4">
-      <Card className="border border-gray-200 shadow-none">
-        <CardContent className="p-4 sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end">
-              <div className="grid gap-1">
-                <Label>Arama</Label>
-                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Başlıkla ara…" />
-              </div>
-              <div className="flex items-center gap-2 pt-5 sm:pt-0">
-                <Switch checked={onlyActive} onCheckedChange={setOnlyActive} />
-                <span className="text-sm">Sadece aktifler</span>
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <Button onClick={() => navigate("/admin/sliders/new")}>Yeni Slider</Button>
-            </div>
+      {/* Toolbar */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-end max-w-4xl">
+          <div className="space-y-1 sm:col-span-2">
+            <Label>Ara</Label>
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ad, slug, açıklama…" />
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center gap-3 pt-6 sm:pt-0">
+            <label className="flex items-center gap-2 text-xs text-gray-600">
+              <Switch checked={onlyActive} onCheckedChange={setOnlyActive} className="data-[state=checked]:bg-emerald-600" />
+              Yalnız aktifler
+            </label>
+          </div>
+        </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
-            <tr className="text-left">
-              <th className="px-3 py-2 font-medium">Görsel</th>
-              <th className="px-3 py-2 font-medium">Ad</th>
-              <th className="px-3 py-2 font-medium">Slug</th>
-              <th className="px-3 py-2 font-medium">Aktif</th>
-              <th className="px-3 py-2 font-medium">Öne Çıkar</th>
-              <th className="px-3 py-2 font-medium">Sıra</th>
-              <th className="px-3 py-2 font-medium">Güncellendi</th>
-              <th className="px-3 py-2 font-medium text-right">İşlemler</th>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Yenile
+          </Button>
+          <Button onClick={onAdd} className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Plus className="h-4 w-4 mr-2" />
+            Yeni Slider
+          </Button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-md border">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-600">
+            <tr>
+              <th className="px-3 py-2 text-left">Görsel</th>
+              <th className="px-3 py-2 text-left">Ad</th>
+              <th className="px-3 py-2 text-left">Slug</th>
+              <th className="px-3 py-2 text-left">Aktif</th>
+              <th className="px-3 py-2 text-left">Öne Çık.</th>
+              <th className="px-3 py-2 text-left">Sıra</th>
+              <th className="px-3 py-2 text-left">Güncellendi</th>
+              <th className="px-3 py-2 text-right">İşlemler</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {(data ?? []).map((row) => (
-              <tr key={row.id}>
+          <tbody>
+            {filtered.map((r, i) => (
+              <tr key={r.id} className="border-t">
                 <td className="px-3 py-2">
-                  {row.image_effective_url ? (
-                    <img
-                      src={row.image_effective_url}
-                      crossOrigin="anonymous"
-                      className="h-10 w-16 rounded object-cover ring-1 ring-gray-200"
-                      alt={row.alt || row.name}
-                    />
+                  {r.image ? (
+                    <img src={r.image} alt={r.name} className="h-10 w-14 rounded object-cover border" />
                   ) : (
-                    <div className="h-10 w-16 rounded bg-gray-100 ring-1 ring-gray-200" />
+                    <div className="h-10 w-14 rounded border bg-gray-50" />
                   )}
                 </td>
-                <td className="px-3 py-2">
-                  <div className="min-w-0">
-                    <div className="truncate font-medium">{row.name}</div>
-                    <div className="truncate text-xs text-gray-500">{row.description || ""}</div>
-                  </div>
-                </td>
-                <td className="px-3 py-2">{row.slug}</td>
+                <td className="px-3 py-2">{r.name}</td>
+                <td className="px-3 py-2">{r.slug}</td>
                 <td className="px-3 py-2">
                   <Switch
-                    checked={row.is_active}
-                    onCheckedChange={(v) => onToggleActive(row, v)}
-                    disabled={toggling || isFetching}
+                    checked={!!r.is_active}
+                    onCheckedChange={async (v) => {
+                      const prev = r.is_active;
+                      setRows((arr) => arr.map((x) => (x.id === r.id ? { ...x, is_active: v } : x)));
+                      try {
+                        await setStatus({ id: r.id, body: { is_active: v } }).unwrap();
+                      } catch {
+                        setRows((arr) => arr.map((x) => (x.id === r.id ? { ...x, is_active: prev } : x)));
+                        toast.error("Aktiflik güncellenemedi");
+                      }
+                    }}
+                    className="data-[state=checked]:bg-emerald-600"
                   />
                 </td>
-                <td className="px-3 py-2">{row.featured ? "Evet" : "Hayır"}</td>
                 <td className="px-3 py-2">
-                  <div className="inline-flex items-center gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => move(row, -1)} disabled={reordering || isFetching}>
-                      ↑
-                    </Button>
-                    <span>{row.display_order}</span>
-                    <Button size="sm" variant="secondary" onClick={() => move(row, +1)} disabled={reordering || isFetching}>
-                      ↓
-                    </Button>
+                  <Switch
+                    checked={!!r.featured}
+                    onCheckedChange={async (v) => {
+                      const prev = r.featured;
+                      setRows((arr) => arr.map((x) => (x.id === r.id ? { ...x, featured: v } : x)));
+                      try {
+                        await patchOne({ id: r.id, body: { featured: v } }).unwrap();
+                      } catch {
+                        setRows((arr) => arr.map((x) => (x.id === r.id ? { ...x, featured: prev } : x)));
+                        toast.error("Öne çıkarma güncellenemedi");
+                      }
+                    }}
+                    className="data-[state=checked]:bg-amber-500"
+                  />
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" onClick={() => move(r.id, "up")} disabled={i === 0}><ArrowUp className="h-4 w-4" /></Button>
+                    <Button variant="ghost" onClick={() => move(r.id, "down")} disabled={i === filtered.length - 1}><ArrowDown className="h-4 w-4" /></Button>
+                    <span className="ml-1 text-xs text-gray-500">#{r.display_order}</span>
                   </div>
                 </td>
-                <td className="px-3 py-2">
-                  <time dateTime={row.updated_at}>{new Date(row.updated_at).toLocaleString()}</time>
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex justify-end gap-2">
-                    <Button variant="secondary" onClick={() => navigate(`/admin/sliders/${row.id}`)}>
-                      Düzenle
-                    </Button>
-                    <Button variant="destructive" onClick={() => onDelete(row)} disabled={deleting || isFetching}>
-                      Sil
-                    </Button>
+                <td className="px-3 py-2">{r.updated_at ? new Date(r.updated_at).toLocaleString() : "—"}</td>
+                <td className="px-3 py-2 text-right">
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" onClick={() => onEdit(r.id)}><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="ghost" onClick={() => doDelete(r.id)}><Trash2 className="h-4 w-4 text-rose-600" /></Button>
                   </div>
                 </td>
               </tr>
             ))}
-
-            {!isFetching && (data?.length ?? 0) === 0 && (
-              <tr>
-                <td className="px-3 py-6 text-center text-gray-500" colSpan={8}>
-                  Kayıt yok.
-                </td>
-              </tr>
-            )}
-            {isFetching && (
-              <tr>
-                <td className="px-3 py-6 text-center text-gray-500" colSpan={8}>
-                  Yükleniyor…
-                </td>
-              </tr>
+            {!isFetching && filtered.length === 0 && (
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-500">Kayıt yok.</td></tr>
             )}
           </tbody>
         </table>
       </div>
+
+      <div className="flex items-center justify-end gap-2">
+        <Button onClick={saveOrder} className="gap-2">
+          <Save className="h-4 w-4" />
+          Sırayı Kaydet
+        </Button>
+      </div>
+
+      {isFetching && <div className="text-xs text-gray-500">Yükleniyor…</div>}
     </div>
   );
 }
-
-export default TabsSliders;

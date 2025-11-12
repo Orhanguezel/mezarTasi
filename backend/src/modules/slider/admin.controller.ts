@@ -1,4 +1,6 @@
-// src/modules/slider/admin.controller.ts
+// =============================================================
+// FILE: src/modules/slider/admin.controller.ts
+// =============================================================
 import type { RouteHandler } from "fastify";
 import {
   adminListQuerySchema,
@@ -7,10 +9,11 @@ import {
   updateSchema,
   reorderSchema,
   setStatusSchema,
-  attachImageSchema,
+  setImageSchema,
   type AdminListQuery,
   type CreateBody,
   type UpdateBody,
+  type SetImageBody,
 } from "./validation";
 import {
   repoListAdmin,
@@ -20,8 +23,7 @@ import {
   repoDelete,
   repoReorder,
   repoSetStatus,
-  repoAttachImage,
-  repoDetachImage,
+  repoSetImage,
 } from "./repository";
 
 const toAdminView = (row: any) => {
@@ -34,7 +36,7 @@ const toAdminView = (row: any) => {
     description: a.description ?? null,
 
     image_url: a.image_url ?? null,
-    storage_asset_id: a.storage_asset_id ?? null,
+    image_asset_id: a.image_asset_id ?? null,
     image_effective_url: row.asset_url ?? a.image_url ?? null,
 
     alt: a.alt ?? null,
@@ -50,7 +52,7 @@ const toAdminView = (row: any) => {
   };
 };
 
-/** GET /admin/slider */
+/** GET /admin/sliders */
 export const adminListSlides: RouteHandler<{ Querystring: unknown }> = async (req, reply) => {
   const parsed = adminListQuerySchema.safeParse(req.query);
   if (!parsed.success) return reply.code(400).send({ error: { message: "invalid_query", issues: parsed.error.flatten() } });
@@ -59,7 +61,7 @@ export const adminListSlides: RouteHandler<{ Querystring: unknown }> = async (re
   return rows.map(toAdminView);
 };
 
-/** GET /admin/slider/:id */
+/** GET /admin/sliders/:id */
 export const adminGetSlide: RouteHandler<{ Params: { id: string } }> = async (req, reply) => {
   const v = idParamSchema.safeParse(req.params);
   if (!v.success) return reply.code(400).send({ error: { message: "invalid_params" } });
@@ -68,7 +70,7 @@ export const adminGetSlide: RouteHandler<{ Params: { id: string } }> = async (re
   return toAdminView(row);
 };
 
-/** POST /admin/slider */
+/** POST /admin/sliders */
 export const adminCreateSlide: RouteHandler<{ Body: unknown }> = async (req, reply) => {
   const b = createSchema.safeParse(req.body);
   if (!b.success) return reply.code(400).send({ error: { message: "invalid_body", issues: b.error.flatten() } });
@@ -76,7 +78,7 @@ export const adminCreateSlide: RouteHandler<{ Body: unknown }> = async (req, rep
   return reply.code(201).send(toAdminView(created));
 };
 
-/** PATCH /admin/slider/:id */
+/** PATCH /admin/sliders/:id */
 export const adminUpdateSlide: RouteHandler<{ Params: { id: string }; Body: unknown }> = async (req, reply) => {
   const p = idParamSchema.safeParse(req.params);
   if (!p.success) return reply.code(400).send({ error: { message: "invalid_params" } });
@@ -87,7 +89,7 @@ export const adminUpdateSlide: RouteHandler<{ Params: { id: string }; Body: unkn
   return toAdminView(updated);
 };
 
-/** DELETE /admin/slider/:id */
+/** DELETE /admin/sliders/:id */
 export const adminDeleteSlide: RouteHandler<{ Params: { id: string } }> = async (req, reply) => {
   const p = idParamSchema.safeParse(req.params);
   if (!p.success) return reply.code(400).send({ error: { message: "invalid_params" } });
@@ -95,7 +97,7 @@ export const adminDeleteSlide: RouteHandler<{ Params: { id: string } }> = async 
   return { ok: true };
 };
 
-/** POST /admin/slider/reorder */
+/** POST /admin/sliders/reorder */
 export const adminReorderSlides: RouteHandler<{ Body: unknown }> = async (req, reply) => {
   const b = reorderSchema.safeParse(req.body);
   if (!b.success) return reply.code(400).send({ error: { message: "invalid_body", issues: b.error.flatten() } });
@@ -103,7 +105,7 @@ export const adminReorderSlides: RouteHandler<{ Body: unknown }> = async (req, r
   return { ok: true };
 };
 
-/** POST /admin/slider/:id/status */
+/** POST /admin/sliders/:id/status */
 export const adminSetStatus: RouteHandler<{ Params: { id: string }; Body: unknown }> = async (req, reply) => {
   const p = idParamSchema.safeParse(req.params);
   if (!p.success) return reply.code(400).send({ error: { message: "invalid_params" } });
@@ -114,22 +116,13 @@ export const adminSetStatus: RouteHandler<{ Params: { id: string }; Body: unknow
   return toAdminView(updated);
 };
 
-/** POST /admin/slider/:id/attach-image */
-export const adminAttachImage: RouteHandler<{ Params: { id: string }; Body: unknown }> = async (req, reply) => {
+/** ✅ PATCH /admin/sliders/:id/image */
+export const adminSetSliderImage: RouteHandler<{ Params: { id: string }; Body: unknown }> = async (req, reply) => {
   const p = idParamSchema.safeParse(req.params);
   if (!p.success) return reply.code(400).send({ error: { message: "invalid_params" } });
-  const b = attachImageSchema.safeParse(req.body);
+  const b = setImageSchema.safeParse(req.body);
   if (!b.success) return reply.code(400).send({ error: { message: "invalid_body", issues: b.error.flatten() } });
-  const updated = await repoAttachImage(p.data.id, b.data);
-  if (!updated) return reply.code(404).send({ error: { message: "not_found" } });
-  return toAdminView(updated);
-};
-
-/** POST /admin/slider/:id/detach-image */
-export const adminDetachImage: RouteHandler<{ Params: { id: string } }> = async (req, reply) => {
-  const p = idParamSchema.safeParse(req.params);
-  if (!p.success) return reply.code(400).send({ error: { message: "invalid_params" } });
-  const updated = await repoDetachImage(p.data.id);
-  if (!updated) return reply.code(404).send({ error: { message: "not_found" } });
+  const updated = await repoSetImage(p.data.id, b.data as SetImageBody);
+  if (!updated) return reply.code(404).send({ error: { message: "not_found_or_asset_missing" } });
   return toAdminView(updated);
 };

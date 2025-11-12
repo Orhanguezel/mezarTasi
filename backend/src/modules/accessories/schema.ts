@@ -1,22 +1,23 @@
+// =============================================================
+// FILE: src/modules/accessories/schema.ts (GÜNCEL)
+// =============================================================
 import {
   mysqlTable,
   int,
   char,
   varchar,
-  text,
+  longtext, // ✅ LONGTEXT kullanalım
   tinyint,
   datetime,
   index,
   uniqueIndex,
-
 } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
 
 /**
  * accessories — public modül (id: int AI → FE için numeric)
- * image_url (legacy) + storage_asset_id (yeni ilişki) birlikte tutulur.
+ * storage patern: image_url + storage_asset_id + alt
  */
-// ...
 export const accessories = mysqlTable(
   "accessories",
   {
@@ -30,12 +31,15 @@ export const accessories = mysqlTable(
     material: varchar("material", { length: 127 }).notNull(),
     price: varchar("price", { length: 127 }).notNull(),
 
-    description: text("description"),
+    // ✅ SQL ile birebir: LONGTEXT
+    description: longtext("description"),
 
-    image_url: text("image_url"),
+    // ✅ storage pattern alanları (SQL: LONGTEXT + CHAR(36) + VARCHAR(255))
+    image_url: longtext("image_url"),
     storage_asset_id: char("storage_asset_id", { length: 36 }),
+    alt: varchar("alt", { length: 255 }),
 
-    // ❗ mode: "boolean" YOK → 0/1 numeric
+    // ✅ UNSIGNED tinyint
     featured: tinyint("featured", { unsigned: true }).notNull().default(0),
     is_active: tinyint("is_active", { unsigned: true }).notNull().default(1),
 
@@ -49,7 +53,9 @@ export const accessories = mysqlTable(
     display_order: int("display_order", { unsigned: true }).notNull().default(0),
 
     created_at: datetime("created_at", { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`),
-    updated_at: datetime("updated_at", { fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)`),
+    updated_at: datetime("updated_at", { fsp: 3 })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)`),
   },
   (t) => ({
     uniq_slug: uniqueIndex("uniq_accessories_slug").on(t.slug),
@@ -58,9 +64,12 @@ export const accessories = mysqlTable(
     idx_order: index("idx_accessories_order").on(t.display_order),
     idx_storage: index("idx_accessories_storage").on(t.storage_asset_id),
     idx_uuid: uniqueIndex("uniq_accessories_uuid").on(t.uuid),
+
+    // ✅ SQL’de vardı; Drizzle tarafına da ekledik:
+    idx_created: index("idx_accessories_created").on(t.created_at),
+    idx_updated: index("idx_accessories_updated").on(t.updated_at),
   })
 );
-
 
 export type AccessoryRow = typeof accessories.$inferSelect;
 export type NewAccessoryRow = typeof accessories.$inferInsert;

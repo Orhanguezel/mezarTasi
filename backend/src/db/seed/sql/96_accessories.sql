@@ -1,4 +1,6 @@
--- 0xx_accessories.sql
+-- =============================================================
+-- FILE: drizzle/sql/096_accessories.sql (GÜNCEL)
+-- =============================================================
 DROP TABLE IF EXISTS `accessories`;
 CREATE TABLE `accessories` (
   `id`                INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -8,12 +10,18 @@ CREATE TABLE `accessories` (
   `category`          VARCHAR(16)  NOT NULL,
   `material`          VARCHAR(127) NOT NULL,
   `price`             VARCHAR(127) NOT NULL,
+
+  -- ✅ Drizzle ile birebir LONGTEXT
   `description`       LONGTEXT,
+
+  -- ✅ storage pattern alanları + alt
   `image_url`         LONGTEXT,
   `storage_asset_id`  CHAR(36),
+  `alt`               VARCHAR(255),
 
-  `featured`          TINYINT(1)   NOT NULL DEFAULT 0,
-  `is_active`         TINYINT(1)   NOT NULL DEFAULT 1,
+  -- ✅ UNSIGNED tinyint
+  `featured`          TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
+  `is_active`         TINYINT(1) UNSIGNED NOT NULL DEFAULT 1,
 
   `dimensions`        VARCHAR(127),
   `weight`            VARCHAR(127),
@@ -34,10 +42,12 @@ CREATE TABLE `accessories` (
   KEY `idx_accessories_active` (`is_active`),
   KEY `idx_accessories_order`  (`display_order`),
   KEY `idx_accessories_storage`(`storage_asset_id`),
+  -- ✅ Drizzle’a da ekledik:
   KEY `idx_accessories_created`(`created_at`),
   KEY `idx_accessories_updated`(`updated_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- NOT: alt kolonunu NULL bıraktık → insert'lerde alanı atlayabilirsin
 INSERT INTO `accessories`
 (`id`,`uuid`,`name`,`slug`,`category`,`material`,`price`,`description`,`image_url`,`storage_asset_id`,
  `featured`,`is_active`,`dimensions`,`weight`,`thickness`,`finish`,`warranty`,`installation_time`,

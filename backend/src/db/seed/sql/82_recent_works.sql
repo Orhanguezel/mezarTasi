@@ -1,40 +1,52 @@
--- 82_recent_works.sql
+-- =============================================================
+-- FILE: 082_recent_works.sql  (GÜNCEL • Drizzle şemayla birebir)
+-- =============================================================
+
 DROP TABLE IF EXISTS `recent_works`;
+
 CREATE TABLE `recent_works` (
-  `id`              CHAR(36)      NOT NULL,
-  `title`           VARCHAR(255)  NOT NULL,
-  `slug`            VARCHAR(255)  NOT NULL,
-  `description`     VARCHAR(500)  NOT NULL,
+  `id`               CHAR(36)      NOT NULL,
+  `title`            VARCHAR(255)  NOT NULL,
+  `slug`             VARCHAR(255)  NOT NULL,
+  `description`      VARCHAR(500)  NOT NULL,
 
-  `image_url`       VARCHAR(500)  DEFAULT NULL,
-  `storage_asset_id` CHAR(36)     DEFAULT NULL,
-  `alt`             VARCHAR(255)  DEFAULT NULL,
+  -- ✅ Tek görsel (storage pattern)
+  `image_url`         VARCHAR(500)  DEFAULT NULL,
+  `storage_asset_id`  CHAR(36)      DEFAULT NULL,
+  `alt`               VARCHAR(255)  DEFAULT NULL,
 
-  `category`        VARCHAR(255)  NOT NULL,
-  `seo_keywords`    LONGTEXT      NOT NULL,
+  `category`         VARCHAR(255)  NOT NULL,
 
-  `date`            VARCHAR(64)   NOT NULL,  -- örn: '2024'
-  `location`        VARCHAR(255)  NOT NULL,
-  `material`        VARCHAR(255)  NOT NULL,
-  `price`           VARCHAR(255)  DEFAULT NULL,
+  -- JSON-string string[]  (LONGTEXT + JSON_VALID check)
+  `seo_keywords`     LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL
+                     CHECK (JSON_VALID(`seo_keywords`)),
 
-  `details`         JSON          NOT NULL,
+  `date`             VARCHAR(64)   NOT NULL,  -- örn: '2024'
+  `location`         VARCHAR(255)  NOT NULL,
+  `material`         VARCHAR(255)  NOT NULL,
+  `price`            VARCHAR(255)  DEFAULT NULL,
 
-  `is_active`       TINYINT(1)    NOT NULL DEFAULT 1,
-  `display_order`   INT           NOT NULL DEFAULT 0,
+  -- Drizzle json()
+  `details`          JSON          NOT NULL,
 
-  `created_at`      DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  `updated_at`      DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `is_active`        TINYINT(1)    NOT NULL DEFAULT 1,
+  `display_order`    INT           NOT NULL DEFAULT 0,
+
+  `created_at`       DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at`       DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
   PRIMARY KEY (`id`),
   UNIQUE KEY `ux_recent_works_slug` (`slug`),
   KEY `recent_works_category_idx` (`category`),
-  KEY `recent_works_active_idx` (`is_active`),
-  KEY `recent_works_updated_idx` (`updated_at`),
-  KEY `recent_works_display_idx` (`display_order`),
-  KEY `recent_works_asset_idx` (`storage_asset_id`)
+  KEY `recent_works_active_idx`   (`is_active`),
+  KEY `recent_works_updated_idx`  (`updated_at`),
+  KEY `recent_works_display_idx`  (`display_order`),
+  KEY `recent_works_asset_idx`    (`storage_asset_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- =============================================================
+-- SEED
+-- =============================================================
 INSERT INTO `recent_works`
 (`id`,`title`,`slug`,`description`,
  `image_url`,`storage_asset_id`,`alt`,

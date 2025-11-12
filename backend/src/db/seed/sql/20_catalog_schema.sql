@@ -2,25 +2,32 @@
 -- CATEGORIES (TOP LEVEL)
 -- =========================
 CREATE TABLE IF NOT EXISTS categories (
-  id            CHAR(36)      NOT NULL,
-  name          VARCHAR(255)  NOT NULL,
-  slug          VARCHAR(255)  NOT NULL,
-  description   TEXT          DEFAULT NULL,
-  image_url     VARCHAR(500)  DEFAULT NULL,
-  icon          VARCHAR(100)  DEFAULT NULL,
+  id              CHAR(36)      NOT NULL,
+  name            VARCHAR(255)  NOT NULL,
+  slug            VARCHAR(255)  NOT NULL,
 
-  is_active     TINYINT(1)    NOT NULL DEFAULT 1,
-  is_featured   TINYINT(1)    NOT NULL DEFAULT 0,
-  display_order INT(11)       NOT NULL DEFAULT 0,
+  description     TEXT          DEFAULT NULL,
 
-  created_at    DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  updated_at    DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  -- Tekil storage pattern (şema ile birebir)
+  image_url       LONGTEXT      DEFAULT NULL,
+  storage_asset_id CHAR(36)     DEFAULT NULL,
+  alt             VARCHAR(255)  DEFAULT NULL,
+
+  icon            VARCHAR(100)  DEFAULT NULL,
+
+  is_active       TINYINT(1)    NOT NULL DEFAULT 1,
+  is_featured     TINYINT(1)    NOT NULL DEFAULT 0,
+  display_order   INT(11)       NOT NULL DEFAULT 0,
+
+  created_at      DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at      DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
   PRIMARY KEY (id),
 
   UNIQUE KEY categories_slug_uq (slug),
   KEY categories_active_idx (is_active),
-  KEY categories_order_idx (display_order)
+  KEY categories_order_idx (display_order),
+  KEY categories_storage_asset_idx (storage_asset_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -28,22 +35,27 @@ CREATE TABLE IF NOT EXISTS categories (
 -- SUB CATEGORIES
 -- =========================
 CREATE TABLE IF NOT EXISTS sub_categories (
-  id            CHAR(36)      NOT NULL,
-  category_id   CHAR(36)      NOT NULL,
+  id               CHAR(36)      NOT NULL,
+  category_id      CHAR(36)      NOT NULL,
 
-  name          VARCHAR(255)  NOT NULL,
-  slug          VARCHAR(255)  NOT NULL,
+  name             VARCHAR(255)  NOT NULL,
+  slug             VARCHAR(255)  NOT NULL,
 
-  description   TEXT          DEFAULT NULL,
-  image_url     VARCHAR(500)  DEFAULT NULL,
-  icon          VARCHAR(100)  DEFAULT NULL,
+  description      TEXT          DEFAULT NULL,
 
-  is_active     TINYINT(1)    NOT NULL DEFAULT 1,
-  is_featured   TINYINT(1)    NOT NULL DEFAULT 0,
-  display_order INT(11)       NOT NULL DEFAULT 0,
+  -- Tekil storage pattern (şema ile birebir)
+  image_url        LONGTEXT      DEFAULT NULL,
+  storage_asset_id CHAR(36)      DEFAULT NULL,
+  alt              VARCHAR(255)  DEFAULT NULL,
 
-  created_at    DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  updated_at    DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  icon             VARCHAR(100)  DEFAULT NULL,
+
+  is_active        TINYINT(1)    NOT NULL DEFAULT 1,
+  is_featured      TINYINT(1)    NOT NULL DEFAULT 0,
+  display_order    INT(11)       NOT NULL DEFAULT 0,
+
+  created_at       DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at       DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
   PRIMARY KEY (id),
 
@@ -52,6 +64,7 @@ CREATE TABLE IF NOT EXISTS sub_categories (
   KEY sub_categories_category_id_idx (category_id),
   KEY sub_categories_active_idx (is_active),
   KEY sub_categories_order_idx (display_order),
+  KEY sub_categories_storage_asset_idx (storage_asset_id),
 
   CONSTRAINT fk_sub_categories_category
     FOREIGN KEY (category_id) REFERENCES categories(id)
@@ -60,38 +73,42 @@ CREATE TABLE IF NOT EXISTS sub_categories (
 
 
 -- =========================
--- PRODUCTS (Yeni şema)
+-- PRODUCTS (Drizzle ile birebir)
 -- =========================
 CREATE TABLE IF NOT EXISTS products (
-  id               CHAR(36)      NOT NULL,
-  title            VARCHAR(255)  NOT NULL,
-  slug             VARCHAR(255)  NOT NULL,
+  id                 CHAR(36)      NOT NULL,
+  title              VARCHAR(255)  NOT NULL,
+  slug               VARCHAR(255)  NOT NULL,
 
-  price            DECIMAL(10,2) NOT NULL,
-  description      TEXT          DEFAULT NULL,
+  price              DECIMAL(10,2) NOT NULL,
+  description        TEXT          DEFAULT NULL,
 
-  category_id      CHAR(36)      NOT NULL,
-  sub_category_id  CHAR(36)      DEFAULT NULL,
+  category_id        CHAR(36)      NOT NULL,
+  sub_category_id    CHAR(36)      DEFAULT NULL,
 
-  image_url        VARCHAR(500)  DEFAULT NULL,
-  images           JSON          DEFAULT (JSON_ARRAY()),
+  -- Kapak + galeri (tekil kapak + çoklu galeri)
+  image_url          LONGTEXT      DEFAULT NULL,
+  storage_asset_id   CHAR(36)      DEFAULT NULL,
+  alt                VARCHAR(255)  DEFAULT NULL,
+  images             JSON          DEFAULT (JSON_ARRAY()),
+  storage_image_ids  JSON          DEFAULT (JSON_ARRAY()),
 
-  is_active        TINYINT(1)    NOT NULL DEFAULT 1,
-  is_featured      TINYINT(1)    NOT NULL DEFAULT 0,
+  is_active          TINYINT(1)    NOT NULL DEFAULT 1,
+  is_featured        TINYINT(1)    NOT NULL DEFAULT 0,
 
-  tags             JSON          DEFAULT (JSON_ARRAY()),
-  specifications   JSON          DEFAULT NULL,
+  tags               JSON          DEFAULT (JSON_ARRAY()),
+  specifications     JSON          DEFAULT NULL,
 
-  product_code     VARCHAR(64)   DEFAULT NULL,
-  stock_quantity   INT(11)       NOT NULL DEFAULT 0,
-  rating           DECIMAL(3,2)  NOT NULL DEFAULT 5.00,
-  review_count     INT(11)       NOT NULL DEFAULT 0,
+  product_code       VARCHAR(64)   DEFAULT NULL,
+  stock_quantity     INT(11)       NOT NULL DEFAULT 0,
+  rating             DECIMAL(3,2)  NOT NULL DEFAULT 5.00,
+  review_count       INT(11)       NOT NULL DEFAULT 0,
 
-  meta_title       VARCHAR(255)  DEFAULT NULL,
-  meta_description VARCHAR(500)  DEFAULT NULL,
+  meta_title         VARCHAR(255)  DEFAULT NULL,
+  meta_description   VARCHAR(500)  DEFAULT NULL,
 
-  created_at       DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  updated_at       DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  created_at         DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at         DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
   PRIMARY KEY (id),
 
@@ -101,6 +118,7 @@ CREATE TABLE IF NOT EXISTS products (
   KEY products_category_id_idx (category_id),
   KEY products_sub_category_id_idx (sub_category_id),
   KEY products_active_idx (is_active),
+  KEY products_asset_idx (storage_asset_id),
 
   CONSTRAINT fk_products_category
     FOREIGN KEY (category_id) REFERENCES categories(id)
@@ -159,7 +177,7 @@ CREATE TABLE IF NOT EXISTS product_faqs (
 
 
 -- =========================
--- PRODUCT REVIEWS (korundu)
+-- PRODUCT REVIEWS
 -- =========================
 CREATE TABLE IF NOT EXISTS product_reviews (
   id            CHAR(36)     NOT NULL,
@@ -185,7 +203,7 @@ CREATE TABLE IF NOT EXISTS product_reviews (
 
 
 -- =========================
--- PRODUCT OPTIONS (korundu)
+-- PRODUCT OPTIONS
 -- =========================
 CREATE TABLE IF NOT EXISTS product_options (
   id            CHAR(36)     NOT NULL,
@@ -205,7 +223,7 @@ CREATE TABLE IF NOT EXISTS product_options (
 
 
 -- =========================
--- PRODUCT STOCK (korundu)
+-- PRODUCT STOCK
 -- =========================
 CREATE TABLE IF NOT EXISTS product_stock (
   id             CHAR(36)     NOT NULL,

@@ -7,26 +7,26 @@ import {
   adminCreateAccessory,
   adminUpdateAccessory,
   adminDeleteAccessory,
+  adminSetAccessoryImage, // ✅ yeni
 } from "./admin.controller";
+import type { AccessorySetImageInput } from "./validation";
 
-const BASE="/accessories";
+const BASE = "/accessories";
 
 export async function registerAccessoriesAdmin(app: FastifyInstance) {
-  // Querystring explicit (unknown) verelim
+  // ✅ LIST ⇒ /list
   app.get<{ Querystring: unknown }>(
-    `${BASE}`,
+    `${BASE}/list`,
     { preHandler: [requireAuth, requireAdmin] },
     adminListAccessories
   );
 
-  // Params generikleri ekle
   app.get<{ Params: { id: string } }>(
     `${BASE}/:id`,
     { preHandler: [requireAuth, requireAdmin] },
     adminGetAccessory
   );
 
-  // Body: unknown bırakman yeterli (controller Zod ile parse ediyor)
   app.post<{ Body: unknown }>(
     `${BASE}`,
     { preHandler: [requireAuth, requireAdmin] },
@@ -37,6 +37,13 @@ export async function registerAccessoriesAdmin(app: FastifyInstance) {
     `${BASE}/:id`,
     { preHandler: [requireAuth, requireAdmin] },
     adminUpdateAccessory
+  );
+
+  // ✅ Kapak görseli (asset_id + alt)
+  app.patch<{ Params: { id: string }; Body: AccessorySetImageInput }>(
+    `${BASE}/:id/image`,
+    { preHandler: [requireAuth, requireAdmin] },
+    adminSetAccessoryImage
   );
 
   app.delete<{ Params: { id: string } }>(

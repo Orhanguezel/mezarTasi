@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/customPages/admin.controller.ts
+// =============================================================
 import type { RouteHandler } from "fastify";
 import { randomUUID } from "crypto";
 import {
@@ -6,18 +9,19 @@ import {
   getCustomPageBySlug,
   createCustomPage,
   updateCustomPage,
-  deleteCustomPage,
+  deleteCustomPage,   // ✅ artık export ediliyor
   packContent,
-  setCustomPageFeaturedImage, // 👈 EKLENDİ
+  setCustomPageImage,
 } from "./repository";
 import {
   customPageListQuerySchema,
   upsertCustomPageBodySchema,
   patchCustomPageBodySchema,
+  setImageBodySchema,
   type CustomPageListQuery,
   type UpsertCustomPageBody,
   type PatchCustomPageBody,
-  setFeaturedImageBodySchema, // 👈 EKLENDİ
+  type SetImageBody,
 } from "./validation";
 
 const toBool = (v: unknown): boolean =>
@@ -75,9 +79,9 @@ export const createPageAdmin: RouteHandler<{ Body: UpsertCustomPageBody }> = asy
       slug: b.slug.trim(),
       content: packContent(b.content),
 
-      featured_image: b.featured_image ?? null,
-      featured_image_asset_id: b.featured_image_asset_id ?? null,
-      featured_image_alt: b.featured_image_alt ?? null,
+      image_url: b.image_url ?? null,
+      storage_asset_id: b.storage_asset_id ?? null,
+      alt: b.alt ?? null,
 
       meta_title: b.meta_title ?? null,
       meta_description: b.meta_description ?? null,
@@ -111,11 +115,10 @@ export const updatePageAdmin: RouteHandler<{ Params: { id: string }; Body: Patch
       slug: typeof b.slug === "string" ? b.slug.trim() : undefined,
       content: typeof b.content === "string" ? packContent(b.content) : undefined,
 
-      featured_image: typeof b.featured_image !== "undefined" ? (b.featured_image ?? null) : undefined,
-      featured_image_asset_id:
-        typeof b.featured_image_asset_id !== "undefined" ? (b.featured_image_asset_id ?? null) : undefined,
-      featured_image_alt:
-        typeof b.featured_image_alt !== "undefined" ? (b.featured_image_alt ?? null) : undefined,
+      image_url: typeof b.image_url !== "undefined" ? (b.image_url ?? null) : undefined,
+      storage_asset_id:
+        typeof b.storage_asset_id !== "undefined" ? (b.storage_asset_id ?? null) : undefined,
+      alt: typeof b.alt !== "undefined" ? (b.alt ?? null) : undefined,
 
       meta_title: typeof b.meta_title !== "undefined" ? (b.meta_title ?? null) : undefined,
       meta_description: typeof b.meta_description !== "undefined" ? (b.meta_description ?? null) : undefined,
@@ -137,24 +140,21 @@ export const updatePageAdmin: RouteHandler<{ Params: { id: string }; Body: Patch
   }
 };
 
+/** ✅ Tek uç: SET IMAGE (admin) */
+export const adminSetCustomPageImage: RouteHandler<{ Params: { id: string }; Body: SetImageBody }> =
+  async (req, reply) => {
+    const parsed = setImageBodySchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return reply.code(400).send({ error: { message: "invalid_body", issues: parsed.error.issues } });
+    }
+    const updated = await setCustomPageImage(req.params.id, parsed.data);
+    if (!updated) return reply.code(404).send({ error: { message: "not_found_or_asset_missing" } });
+    return reply.send(updated);
+  };
+
 /** DELETE (admin) */
 export const removePageAdmin: RouteHandler<{ Params: { id: string } }> = async (req, reply) => {
   const affected = await deleteCustomPage(req.params.id);
   if (!affected) return reply.code(404).send({ error: { message: "not_found" } });
   return reply.code(204).send();
-};
-
-export const setFeaturedImageAdmin: RouteHandler<{ Params: { id: string } }> = async (req, reply) => {
-  const parsed = setFeaturedImageBodySchema.safeParse(req.body ?? {});
-  if (!parsed.success) {
-    return reply.code(400).send({ error: { message: "invalid_body", issues: parsed.error.issues } });
-  }
-  const body = parsed.data;
-  const row = await setCustomPageFeaturedImage(req.params.id, {
-    asset_id: body.asset_id,
-    image_url: body.image_url,
-    alt: body.alt,
-  });
-  if (!row) return reply.code(404).send({ error: { message: "not_found" } });
-  return reply.send(row);
 };

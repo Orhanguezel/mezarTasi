@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/recent-works/controller.ts  (PUBLIC)
+// =============================================================
 import type { RouteHandler } from "fastify";
 import {
   listRecentWorks,

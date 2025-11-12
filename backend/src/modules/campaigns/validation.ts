@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/campaigns/validation.ts
+// =============================================================
 import { z } from "zod";
 
 export const boolLike = z.union([
@@ -15,26 +18,21 @@ export const simpleCampaignListQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).optional(),
   sort: z.enum(["updated_at", "created_at", "title"]).optional(),
   order: z.enum(["asc", "desc"]).optional(),
-})
-// Query’lerde bilinmeyen parametreleri tolere et
-.passthrough();
-
+}).passthrough();
 export type SimpleCampaignListQuery = z.infer<typeof simpleCampaignListQuerySchema>;
 
-/** === Tek görsel pattern’i (services ile aynı) === */
-/** Görsel bağlama: storage_asset_id XOR image_url (tam olarak biri zorunlu) */
-export const attachCampaignImageBodySchema = z
-  .object({
-    storage_asset_id: z.string().uuid().optional(),
-    image_url: z.string().url().optional(),
-  })
-  .strict() // ← ÖNCE strict
-  .refine(
-    (v) => (!!v.storage_asset_id) !== (!!v.image_url),
-    { message: "Provide exactly one of storage_asset_id or image_url" }
-  );
-
-export type AttachCampaignImageBody = z.infer<typeof attachCampaignImageBodySchema>;
+/** === Tek görsel: storage ile birebir “SET IMAGE” şeması ===
+ *  - Temizle: { storage_asset_id: null } veya { image_url: null }
+ *  - URL set: { image_url: "https://..." }
+ *  - Asset set: { storage_asset_id: "<uuid>" }
+ *  - Sadece alt güncelle: { alt: "..." }
+ */
+export const setCampaignImageBodySchema = z.object({
+  storage_asset_id: z.string().uuid().nullable().optional(),
+  image_url: z.string().url().nullable().optional(),
+  alt: z.string().max(255).nullable().optional(),
+}).strict();
+export type SetCampaignImageBody = z.infer<typeof setCampaignImageBodySchema>;
 
 /** === Ana kampanya şemaları === */
 export const upsertSimpleCampaignBodySchema = z.object({
@@ -42,14 +40,12 @@ export const upsertSimpleCampaignBodySchema = z.object({
   description: z.string().min(1).max(500).trim(),
   seoKeywords: z.array(z.string().min(1)).min(1),
 
-  // Opsiyonel görsel alanları
   image_url: z.string().url().nullable().optional(),
   storage_asset_id: z.string().uuid().nullable().optional(),
   alt: z.string().max(255).nullable().optional(),
 
   is_active: boolLike.optional().default(true),
 }).strict();
-
 export type UpsertSimpleCampaignBody = z.infer<typeof upsertSimpleCampaignBodySchema>;
 
 export const patchSimpleCampaignBodySchema = upsertSimpleCampaignBodySchema.partial();
@@ -60,5 +56,4 @@ export const bulkActiveSchema = z.object({
   ids: z.array(z.string().uuid()).min(1),
   is_active: boolLike,
 }).strict();
-
 export type BulkActiveBody = z.infer<typeof bulkActiveSchema>;

@@ -1,82 +1,24 @@
-import type { FastifyInstance } from 'fastify';
-import { requireAuth } from '@/common/middleware/auth';
-import { requireAdmin } from '@/common/middleware/roles';
-
+// =============================================================
+// FILE: src/modules/categories/router.ts   (PUBLIC ROUTES ONLY)
+// =============================================================
+import type { FastifyInstance } from "fastify";
 import {
   listCategories,
   getCategoryById,
   getCategoryBySlug,
-} from './controller';
-
-import type {
-  CategoryCreateInput,
-  CategoryUpdateInput,
-} from './validation';
-
-import {
-  adminCreateCategory,
-  adminPutCategory,
-  adminPatchCategory,
-  adminDeleteCategory,
-  adminReorderCategories,
-  adminToggleActive,
-  adminToggleFeatured,
-  adminSetCategoryImage, // ✅ EKLENDİ
-} from './admin.controller';
+} from "./controller";
 
 export async function registerCategories(app: FastifyInstance) {
   // PUBLIC READ
-  app.get('/categories', { config: { public: true } }, listCategories);
-  app.get<{ Params: { id: string } }>('/categories/:id', { config: { public: true } }, getCategoryById);
-  app.get<{ Params: { slug: string } }>('/categories/by-slug/:slug', { config: { public: true } }, getCategoryBySlug);
-
-  // ADMIN WRITE
-  app.post<{ Body: CategoryCreateInput }>(
-    '/categories',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminCreateCategory,
+  app.get("/categories", { config: { public: true } }, listCategories);
+  app.get<{ Params: { id: string } }>(
+    "/categories/:id",
+    { config: { public: true } },
+    getCategoryById
   );
-
-  app.put<{ Params: { id: string }; Body: CategoryUpdateInput }>(
-    '/categories/:id',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminPutCategory,
-  );
-
-  app.patch<{ Params: { id: string }; Body: CategoryUpdateInput }>(
-    '/categories/:id',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminPatchCategory,
-  );
-
-  app.delete<{ Params: { id: string } }>(
-    '/categories/:id',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminDeleteCategory,
-  );
-
-  app.post<{ Body: { items: Array<{ id: string; display_order: number }> } }>(
-    '/categories/reorder',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminReorderCategories,
-  );
-
-  app.patch<{ Params: { id: string }; Body: { is_active: boolean } }>(
-    '/categories/:id/active',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminToggleActive,
-  );
-
-  app.patch<{ Params: { id: string }; Body: { is_featured: boolean } }>(
-    '/categories/:id/featured',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminToggleFeatured,
-  );
-
-  /** ✅ Yeni: Storage asset’den kategori görselini ayarla/kaldır */
-  app.patch<{ Params: { id: string }; Body: { asset_id?: string | null } }>(
-    '/categories/:id/image',
-    { preHandler: [requireAuth, requireAdmin] },
-    adminSetCategoryImage,
+  app.get<{ Params: { slug: string } }>(
+    "/categories/by-slug/:slug",
+    { config: { public: true } },
+    getCategoryBySlug
   );
 }

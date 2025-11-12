@@ -39,6 +39,7 @@ export interface AccessoryRow {
 
   image_url: string | null;
   storage_asset_id: string | null;
+  alt: string | null; 
 
   // drizzle: tinyint(1) → number (0/1)
   featured: number;   // 0 | 1
@@ -77,6 +78,7 @@ export interface AccessoryAdminView {
   image_url: string | null;
   storage_asset_id: string | null;
   image_effective_url: string | null;
+  alt: string | null; 
 
   featured: boolean;
   is_active: boolean;

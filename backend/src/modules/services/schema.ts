@@ -1,3 +1,6 @@
+// =============================================================
+// FILE: src/modules/services/schema.ts
+// =============================================================
 import {
   mysqlTable,
   char,
@@ -14,7 +17,6 @@ import { sql } from "drizzle-orm";
 export const services = mysqlTable(
   "services",
   {
-    // UUID PK (mevcut yapıyı koruyoruz)
     id: char("id", { length: 36 }).primaryKey().notNull(),
 
     slug: varchar("slug", { length: 255 }).notNull(),
@@ -27,15 +29,15 @@ export const services = mysqlTable(
     price: varchar("price", { length: 128 }),
     description: text("description"),
 
-    // slider ile hizalı: tinyint(1) 0/1
+    // tinyint(1) 0/1 — slider/kategori ile uyumlu
     featured: tinyint("featured", { unsigned: true }).notNull().default(0),
     is_active: tinyint("is_active", { unsigned: true }).notNull().default(1),
 
     display_order: int("display_order", { unsigned: true }).notNull().default(1),
 
-    // Görsel alanları
+    // ✅ Görsel alanları (isim standardı)
     image_url: varchar("image_url", { length: 500 }),
-    storage_asset_id: char("storage_asset_id", { length: 36 }),
+    image_asset_id: char("image_asset_id", { length: 36 }),
     alt: varchar("alt", { length: 255 }),
 
     // legacy
@@ -69,8 +71,8 @@ export const services = mysqlTable(
     idxOrder: index("services_order_idx").on(t.display_order),
     idxType: index("services_type_idx").on(t.type),
     idxCategory: index("services_category_idx").on(t.category),
-    idxAsset: index("services_asset_idx").on(t.storage_asset_id),
-    idxCreated: index("services_created_idx").on(t.created_at), // ← migration ile hizalı
+    idxImageAsset: index("services_image_asset_idx").on(t.image_asset_id),
+    idxCreated: index("services_created_idx").on(t.created_at),
     idxUpdated: index("services_updated_idx").on(t.updated_at),
     idxActiveTypeOrder: index("services_active_type_order_idx").on(t.is_active, t.type, t.display_order),
   })

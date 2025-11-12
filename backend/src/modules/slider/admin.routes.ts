@@ -1,5 +1,10 @@
-// src/modules/slider/admin.routes.ts
+// =============================================================
+// FILE: src/modules/slider/admin.routes.ts  (ADMIN ROUTES)
+// =============================================================
 import type { FastifyInstance } from "fastify";
+import { requireAuth } from "@/common/middleware/auth";
+import { requireAdmin } from "@/common/middleware/roles";
+
 import {
   adminListSlides,
   adminGetSlide,
@@ -8,23 +13,65 @@ import {
   adminDeleteSlide,
   adminReorderSlides,
   adminSetStatus,
-  adminAttachImage,
-  adminDetachImage,
+  adminSetSliderImage,
 } from "./admin.controller";
 
 export async function registerSliderAdmin(app: FastifyInstance) {
-  const base = "/sliders";
+  const BASE = "/sliders";
 
-  app.get(base, {}, adminListSlides);
-  app.get(`${base}/:id`, {}, adminGetSlide);
-  app.post(base, {}, adminCreateSlide);
-  app.patch(`${base}/:id`, {}, adminUpdateSlide);
-  app.delete(`${base}/:id`, {}, adminDeleteSlide);
+  // LIST
+  app.get<{ Querystring: unknown }>(
+    `${BASE}`,
+    { preHandler: [requireAuth, requireAdmin] },
+    adminListSlides
+  );
 
-  app.post(`${base}/reorder`, {}, adminReorderSlides);
-  app.post(`${base}/:id/status`, {}, adminSetStatus);
+  // DETAIL
+  app.get<{ Params: { id: string } }>(
+    `${BASE}/:id`,
+    { preHandler: [requireAuth, requireAdmin] },
+    adminGetSlide
+  );
 
-  // Storage destekli görsel işlemleri
-  app.post(`${base}/:id/attach-image`, {}, adminAttachImage);
-  app.post(`${base}/:id/detach-image`, {}, adminDetachImage);
+  // CREATE
+  app.post<{ Body: unknown }>(
+    `${BASE}`,
+    { preHandler: [requireAuth, requireAdmin] },
+    adminCreateSlide
+  );
+
+  // UPDATE (partial)
+  app.patch<{ Params: { id: string }; Body: unknown }>(
+    `${BASE}/:id`,
+    { preHandler: [requireAuth, requireAdmin] },
+    adminUpdateSlide
+  );
+
+  // DELETE
+  app.delete<{ Params: { id: string } }>(
+    `${BASE}/:id`,
+    { preHandler: [requireAuth, requireAdmin] },
+    adminDeleteSlide
+  );
+
+  // REORDER
+  app.post<{ Body: unknown }>(
+    `${BASE}/reorder`,
+    { preHandler: [requireAuth, requireAdmin] },
+    adminReorderSlides
+  );
+
+  // STATUS
+  app.post<{ Params: { id: string }; Body: unknown }>(
+    `${BASE}/:id/status`,
+    { preHandler: [requireAuth, requireAdmin] },
+    adminSetStatus
+  );
+
+  // IMAGE (storage ile set/kaldır)
+  app.patch<{ Params: { id: string }; Body: unknown }>(
+    `${BASE}/:id/image`,
+    { preHandler: [requireAuth, requireAdmin] },
+    adminSetSliderImage
+  );
 }
