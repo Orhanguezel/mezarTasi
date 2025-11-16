@@ -173,11 +173,19 @@ export const adminExportSql: RouteHandler = async (req, reply) => {
     stream.on("error", () => rmSafe(tmpOut));
 
     return reply.send(stream);
-  } catch (err) {
-    req.log.error(err);
-    return reply.code(500).send({ error: { message: "export_failed" } });
+  } catch (err: any) {
+    req.log.error({ err }, "db export failed");
+
+    // 🧪 Debug için gerçek mesajı gönder
+    const msg = err?.message || "export_failed";
+    return reply.code(500).send({
+      error: {
+        message: msg,
+      },
+    });
   }
 };
+
 
 /* =======================================================================
  * IMPORT (JSON): POST /admin/db/import-sql

@@ -71,10 +71,27 @@ export const publicServe: RouteHandler<{
   const raw = req.params["*"] || "";
   const path = normalizePath(bucket, raw);
 
-  const row = await getByBucketPath(bucket, path);
-  if (!row) return reply.code(404).send({ message: "not_found" });
+  req.log.info(
+    { bucket, path, raw },
+    "storage_public_serve_request",
+  );
 
-  return reply.redirect(302, row.url || publicUrlOf(bucket, path, null));
+  const row = await getByBucketPath(bucket, path);
+  if (!row) {
+    req.log.warn(
+      { bucket, path },
+      "storage_public_serve_not_found",
+    );
+    return reply.code(404).send({ message: "not_found" });
+  }
+
+  const redirectUrl = row.url || publicUrlOf(bucket, path, null);
+  req.log.info(
+    { bucket, path, redirectUrl },
+    "storage_public_serve_redirect",
+  );
+
+  return reply.redirect(302, redirectUrl);
 };
 
 /** POST /storage/:bucket/upload (FormData) — server-side upload */
@@ -82,25 +99,85 @@ export const uploadToBucket: RouteHandler<{
   Params: { bucket: string };
   Querystring: { path?: string; upsert?: string };
 }> = async (req, reply) => {
+  const { bucket } = req.params;
+
+  // 🔍 Debug: kim, nereden, nasıl gelmiş?
+  req.log.info(
+    {
+      route: "uploadToBucket",
+      bucket,
+      query: req.query,
+      user: (req as any).user ?? null,
+      cookies: (req as any).cookies ?? null,
+      hasFileMethod: typeof (req as any).file === "function",
+      ip: (req as any).ip,
+      origin: req.headers.origin,
+      referer: req.headers.referer,
+    },
+    "storage_upload_start",
+  );
+
   const cfg = await getCloudinaryConfig();
   if (!cfg) {
+    req.log.error(
+      { route: "uploadToBucket" },
+      "storage_not_configured",
+    );
     return reply.code(501).send({ message: "storage_not_configured" });
   }
 
-  const mp: MultipartFile | undefined = await (req as any).file();
-  if (!mp) return reply.code(400).send({ message: "file_required" });
+  let mp: MultipartFile | undefined;
+  try {
+    mp = await (req as any).file();
+  } catch (err) {
+    req.log.error(
+      { err },
+      "storage_multipart_parse_error",
+    );
+    return reply.code(400).send({
+      error: {
+        code: "multipart_parse_error",
+        message: "invalid_multipart_body",
+      },
+    });
+  }
+
+  if (!mp) {
+    req.log.warn(
+      { bucket },
+      "storage_upload_no_file",
+    );
+    return reply.code(400).send({ message: "file_required" });
+  }
 
   const buf = await mp.toBuffer();
-  const { bucket } = req.params;
 
   const desiredRaw = (req.query?.path ?? mp.filename ?? "file").trim();
   const desired = normalizePath(bucket, desiredRaw);
 
-  const cleanName = desired.split("/").pop()!.replace(/[^\w.\-]+/g, "_");
+  const cleanName = desired
+    .split("/")
+    .pop()!
+    .replace(/[^\w.\-]+/g, "_");
+
   const folder = desired.includes("/")
     ? desired.split("/").slice(0, -1).join("/")
     : undefined;
+
   const publicIdBase = cleanName.replace(/\.[^.]+$/, "");
+
+  req.log.info(
+    {
+      bucket,
+      originalFilename: mp.filename,
+      mimetype: mp.mimetype,
+      size: buf.length,
+      folder,
+      publicIdBase,
+      driver: cfg.driver,
+    },
+    "storage_upload_pre_upload",
+  );
 
   let up: any;
   try {
@@ -111,6 +188,20 @@ export const uploadToBucket: RouteHandler<{
     });
   } catch (e: any) {
     const http = Number(e?.http_code) || 502;
+
+    req.log.error(
+      {
+        err: e,
+        bucket,
+        folder,
+        publicIdBase,
+        driver: cfg.driver,
+        http_code: e?.http_code,
+        cld_error: e?.error || e?.response || null,
+      },
+      "storage_upload_buffer_failed",
+    );
+
     return reply
       .code(http >= 400 && http < 500 ? http : 502)
       .send({
@@ -125,7 +216,6 @@ export const uploadToBucket: RouteHandler<{
   }
 
   const path = folder ? `${folder}/${cleanName}` : cleanName;
-
   const recId = randomUUID();
   const provider = cfg.driver === "local" ? "local" : "cloudinary";
 
@@ -159,6 +249,17 @@ export const uploadToBucket: RouteHandler<{
   try {
     await repoInsert(omitNullish(recordBase));
   } catch (e: any) {
+    req.log.error(
+      {
+        err: e,
+        bucket,
+        path,
+        upsert,
+        recordBase,
+      },
+      "storage_upload_db_insert_failed",
+    );
+
     if (repoIsDup(e)) {
       if (!upsert) {
         return reply.code(409).send({
@@ -171,6 +272,11 @@ export const uploadToBucket: RouteHandler<{
 
       const existing = await getByBucketPath(bucket, path);
       if (existing) {
+        req.log.info(
+          { bucket, path, existingId: existing.id },
+          "storage_upload_conflict_existing_returned",
+        );
+
         return reply.send({
           id: existing.id,
           bucket: existing.bucket,
@@ -196,7 +302,10 @@ export const uploadToBucket: RouteHandler<{
       }
 
       return reply.code(409).send({
-        error: { code: "storage_conflict", message: "asset_exists" },
+        error: {
+          code: "storage_conflict",
+          message: "asset_exists",
+        },
       });
     }
 
@@ -208,6 +317,17 @@ export const uploadToBucket: RouteHandler<{
       },
     });
   }
+
+  req.log.info(
+    {
+      id: recId,
+      bucket,
+      path,
+      provider,
+      user_id: recordBase.user_id,
+    },
+    "storage_upload_success",
+  );
 
   return reply.send({
     id: recId,
@@ -250,13 +370,22 @@ export const signMultipart: RouteHandler<{
   }
 
   const cfg = await getCloudinaryConfig();
-  if (!cfg || cfg.driver === "local")
+  if (!cfg || cfg.driver === "local") {
+    req.log.error(
+      { route: "signMultipart" },
+      "cloudinary_unsigned_not_configured",
+    );
     return reply
       .code(501)
       .send({ message: "cloudinary_not_configured" });
+  }
 
   const uploadPreset = cfg.unsignedUploadPreset;
   if (!uploadPreset) {
+    req.log.error(
+      { route: "signMultipart" },
+      "cloudinary_unsigned_preset_missing",
+    );
     return reply
       .code(501)
       .send({ message: "unsigned_upload_disabled" });
@@ -273,6 +402,16 @@ export const signMultipart: RouteHandler<{
     folder: folder ?? "",
     public_id: publicId,
   };
+
+  req.log.info(
+    {
+      route: "signMultipart",
+      folder,
+      publicId,
+      cloudName: cfg.cloudName,
+    },
+    "storage_sign_multipart_success",
+  );
 
   return reply.send({ upload_url, fields });
 };
