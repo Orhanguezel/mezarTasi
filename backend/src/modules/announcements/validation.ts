@@ -30,23 +30,20 @@ export const announcementListQuerySchema = z.object({
 });
 export type AnnouncementListQuery = z.infer<typeof announcementListQuerySchema>;
 
-/** CREATE / UPSERT body */
+/** CREATE / UPSERT body (ikon alanları kaldırıldı) */
 export const upsertAnnouncementBodySchema = z.object({
   title: z.string().min(1).max(255).trim(),
   description: z.string().min(1).max(500).trim(),
   /** düz HTML — repo.packContent ile {"html": "..."} olarak saklanır */
   content: z.string().min(1),
-
-  icon: z.string().min(1).max(32),
-  icon_type: z.enum(["emoji", "lucide"]),
-  lucide_icon: z.string().max(64).nullable().optional(),
   link: z.string().min(1).max(255),
 
-  bg_color: z.string().min(1).max(64),
-  hover_color: z.string().min(1).max(64),
-  icon_color: z.string().min(1).max(64),
-  text_color: z.string().min(1).max(64),
-  border_color: z.string().min(1).max(64),
+  // Renkler (BE default’ları da var; alan gelmezse defaults devreye girer)
+  bg_color: z.string().min(1).max(64).optional().default("#F8FAFC"),
+  hover_color: z.string().min(1).max(64).optional().default("#EFF6FF"),
+  icon_color: z.string().min(1).max(64).optional().default("#0EA5E9"),
+  text_color: z.string().min(1).max(64).optional().default("#0F172A"),
+  border_color: z.string().min(1).max(64).optional().default("#E2E8F0"),
 
   badge_text: z.string().max(64).nullable().optional(),
   badge_color: z.string().max(64).nullable().optional(),

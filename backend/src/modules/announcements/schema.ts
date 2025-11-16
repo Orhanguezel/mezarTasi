@@ -10,9 +10,6 @@ export const announcements = mysqlTable("announcements", {
   description: varchar("description", { length: 500 }).notNull(),
   /** JSON-string: {"html":"..."} */
   content: longtext("content").notNull(),
-  icon: varchar("icon", { length: 32 }).notNull(),
-  icon_type: varchar("icon_type", { length: 10 }).notNull(), // 'emoji' | 'lucide'
-  lucide_icon: varchar("lucide_icon", { length: 64 }),
   link: varchar("link", { length: 255 }).notNull(),
 
   bg_color: varchar("bg_color", { length: 64 }).notNull(),
@@ -26,7 +23,7 @@ export const announcements = mysqlTable("announcements", {
   button_text: varchar("button_text", { length: 64 }),
   button_color: varchar("button_color", { length: 64 }),
 
-  /** ✅ Görsel alanları (storage patern) */
+  /** storage patern */
   image_url: varchar("image_url", { length: 500 }),
   storage_asset_id: char("storage_asset_id", { length: 36 }),
   alt: varchar("alt", { length: 255 }),
@@ -47,7 +44,7 @@ export const announcements = mysqlTable("announcements", {
   index("announcements_active_idx").on(t.is_active, t.is_published),
   index("announcements_order_idx").on(t.display_order),
   index("announcements_expires_idx").on(t.expires_at),
-  index("announcements_asset_idx").on(t.storage_asset_id), // ✅
+  index("announcements_asset_idx").on(t.storage_asset_id),
 ]);
 
 export type AnnouncementRow = typeof announcements.$inferSelect;

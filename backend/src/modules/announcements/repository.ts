@@ -15,7 +15,7 @@ export function unpackContent(content: string | null | undefined): string {
   try {
     const o = JSON.parse(content);
     if (o && typeof o.html === "string") return o.html;
-  } catch {}
+  } catch { }
   return "";
 }
 
@@ -88,8 +88,8 @@ export async function listAnnouncements(params: ListParams = {}) {
     params.sort === "created_at"
       ? (params.order === "desc" ? desc(announcements.created_at) : asc(announcements.created_at))
       : params.sort === "updated_at"
-      ? (params.order === "desc" ? desc(announcements.updated_at) : asc(announcements.updated_at))
-      : (params.order === "desc" ? desc(announcements.display_order) : asc(announcements.display_order));
+        ? (params.order === "desc" ? desc(announcements.updated_at) : asc(announcements.updated_at))
+        : (params.order === "desc" ? desc(announcements.display_order) : asc(announcements.display_order));
 
   const items = await db
     .select()
@@ -125,18 +125,24 @@ export async function getNextDisplayOrder(): Promise<number> {
 }
 
 export async function createAnnouncement(v: NewAnnouncementRow) {
-  const withOrder = {
+  const withDefaults: NewAnnouncementRow = {
     ...v,
+    // güvenli default renkler (UI zaten gönderiyor ama eksik gelirse kurtarır)
+    bg_color: v.bg_color ?? "#F8FAFC",
+    hover_color: v.hover_color ?? "#EFF6FF",
+    icon_color: v.icon_color ?? "#0EA5E9",
+    text_color: v.text_color ?? "#0F172A",
+    border_color: v.border_color ?? "#E2E8F0",
     display_order: v.display_order ?? (await getNextDisplayOrder()),
   };
-  await db.insert(announcements).values(withOrder);
+  await db.insert(announcements).values(withDefaults);
   return getAnnouncement(v.id!);
 }
 
 export async function updateAnnouncement(id: string, patch: Partial<NewAnnouncementRow>) {
   await db
     .update(announcements)
-    .set({ ...patch, updated_at: new Date() }) // ✅ updated_at güncelle
+    .set({ ...patch, updated_at: new Date() })
     .where(andSQL(eq(announcements.id, id)));
   return getAnnouncement(id);
 }

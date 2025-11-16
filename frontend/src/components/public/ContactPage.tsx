@@ -1,32 +1,127 @@
 // -------------------------------------------------------------
 // FILE: src/.../ContactPage.tsx
 // -------------------------------------------------------------
-import { useState } from "react";
+import * as React from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import backgroundImage from "figma:asset/0a9012ca17bfb48233c0877277b7fb8427a12d4c.png";
+
 import { useCreateContactMutation } from "@/integrations/metahub/rtk/endpoints/contacts.endpoints";
 import type { ContactCreateInput } from "@/integrations/metahub/db/types/contacts";
+import {
+  useListSiteSettingsQuery,
+  type SiteSetting,
+} from "@/integrations/metahub/rtk/endpoints/site_settings.endpoints";
 
 interface ContactPageProps {
   onNavigate: (page: string) => void;
 }
 
+type FormState = {
+  name: string;
+  email: string;
+  phone: string;
+  subject: string;
+  message: string;
+  website: string; // honeypot
+};
+
+function toSettingsMap(settings?: SiteSetting[]) {
+  const map = new Map<string, unknown>();
+  if (settings) {
+    for (const s of settings) {
+      map.set(s.key, s.value);
+    }
+  }
+  return map;
+}
+
+const getStringFromSettings = (
+  map: Map<string, unknown>,
+  key: string,
+  fallback: string
+): string => {
+  const v = map.get(key);
+  return typeof v === "string" ? v : fallback;
+};
+
+/** 0 ile başlayan TR numarasını tel: için +90 formatına çevirir */
+const toTelHref = (phoneRaw: string): string => {
+  const clean = phoneRaw.replace(/\D/g, ""); // sadece rakam
+  if (!clean) return "";
+  // 0 ile başlıyorsa kırp: 0533... -> 533...
+  const withoutZero = clean.startsWith("0") ? clean.slice(1) : clean;
+  return `+90${withoutZero}`;
+};
+
 export function ContactPage({ onNavigate }: ContactPageProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = React.useState<FormState>({
     name: "",
     email: "",
     phone: "",
     subject: "",
     message: "",
-    website: "", // honeypot
+    website: "",
   });
 
   const [createContact, { isLoading }] = useCreateContactMutation();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  // 🔽 site_settings'ten contact + brand + whatsapp (ve SMTP) ayarlarını çek
+  const { data: settings } = useListSiteSettingsQuery({
+    keys: [
+      "brand_name",
+      "contact_phone_display",
+      "contact_phone_tel",
+      "contact_email",
+      "contact_address",
+      "contact_whatsapp_link",
+      // Bu üçü UI'da kullanılmıyor ama cache’te durması sorun değil
+      "smtp_host",
+      "smtp_port",
+      "smtp_from_email",
+    ],
+  });
+
+  const settingsMap = React.useMemo(() => toSettingsMap(settings), [settings]);
+
+  const brandName = getStringFromSettings(
+    settingsMap,
+    "brand_name",
+    "Mezarisim.com"
+  );
+  const contactPhoneDisplay = getStringFromSettings(
+    settingsMap,
+    "contact_phone_display",
+    "0533 483 89 71"
+  );
+  const contactPhoneTel = getStringFromSettings(
+    settingsMap,
+    "contact_phone_tel",
+    "05334838971"
+  );
+  const contactEmail = getStringFromSettings(
+    settingsMap,
+    "contact_email",
+    "mezarisim.com@gmail.com"
+  );
+  const contactAddress = getStringFromSettings(
+    settingsMap,
+    "contact_address",
+    "Hekimbaşı Mah. Yıldıztepe Cad. No:41 Ümraniye / İstanbul"
+  );
+  const contactWhatsappLink = getStringFromSettings(
+    settingsMap,
+    "contact_whatsapp_link",
+    "https://wa.me/905334838971?text=Merhaba,%20mezar%20yapımı%20hakkında%20bilgi%20almak%20istiyorum."
+  );
+
+  const telHref = `tel:${toTelHref(contactPhoneTel)}`;
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -46,7 +141,7 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
     const websiteTrim = formData.website.trim();
     const payload: ContactCreateInput = websiteTrim
       ? { ...basePayload, website: websiteTrim }
-      : { ...basePayload, website: null }; // <-- exactOptionalPropertyTypes uyumlu
+      : { ...basePayload, website: null };
 
     try {
       const res = await createContact(payload).unwrap();
@@ -106,7 +201,9 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
             {/* Left Column - Contact Information */}
             <div className="space-y-6 md:space-y-8">
               <div className="bg-gray-50 rounded-lg p-6 md:p-8">
-                <h2 className="text-lg md:text-xl text-teal-500 mb-6">Mezarisim.com</h2>
+                <h2 className="text-lg md:text-xl text-teal-500 mb-6">
+                  {brandName}
+                </h2>
                 <div className="space-y-4 md:space-y-6">
                   {/* Company Name */}
                   <div className="flex items-start space-x-3 md:space-x-4">
@@ -114,8 +211,12 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                       <span className="text-teal-500 text-sm md:text-lg">🏢</span>
                     </div>
                     <div>
-                      <h3 className="text-sm md:text-base text-gray-800 mb-1">Şirket Adı</h3>
-                      <p className="text-sm md:text-base text-gray-600">Mezarisim.com</p>
+                      <h3 className="text-sm md:text-base text-gray-800 mb-1">
+                        Şirket Adı
+                      </h3>
+                      <p className="text-sm md:text-base text-gray-600">
+                        {brandName}
+                      </p>
                     </div>
                   </div>
 
@@ -125,9 +226,11 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                       <span className="text-teal-500 text-sm md:text-lg">📍</span>
                     </div>
                     <div>
-                      <h3 className="text-sm md:text-base text-gray-800 mb-1">Adres</h3>
+                      <h3 className="text-sm md:text-base text-gray-800 mb-1">
+                        Adres
+                      </h3>
                       <p className="text-sm md:text-base text-gray-600 leading-relaxed">
-                        Hekimbaşı Mah. Yıldıztepe Cad. No:41 Ümraniye / İstanbul
+                        {contactAddress}
                       </p>
                     </div>
                   </div>
@@ -138,12 +241,14 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                       <span className="text-teal-500 text-sm md:text-lg">✉️</span>
                     </div>
                     <div>
-                      <h3 className="text-sm md:text-base text-gray-800 mb-1">E-posta</h3>
+                      <h3 className="text-sm md:text-base text-gray-800 mb-1">
+                        E-posta
+                      </h3>
                       <a
-                        href="mailto:mezarisim.com@gmail.com"
+                        href={`mailto:${contactEmail}`}
                         className="text-sm md:text-base text-teal-500 hover:text-teal-600 transition-colors break-all"
                       >
-                        mezarisim.com@gmail.com
+                        {contactEmail}
                       </a>
                     </div>
                   </div>
@@ -154,12 +259,14 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                       <span className="text-teal-500 text-sm md:text-lg">📞</span>
                     </div>
                     <div>
-                      <h3 className="text-sm md:text-base text-gray-800 mb-1">Telefon</h3>
+                      <h3 className="text-sm md:text-base text-gray-800 mb-1">
+                        Telefon
+                      </h3>
                       <a
-                        href="tel:+905334838971"
+                        href={telHref}
                         className="text-sm md:text-base text-teal-500 hover:text-teal-600 transition-colors"
                       >
-                        0533 483 89 71
+                        {contactPhoneDisplay}
                       </a>
                     </div>
                   </div>
@@ -168,14 +275,14 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                   <div className="pt-4 md:pt-6 border-t border-gray-200">
                     <div className="space-y-3">
                       <a
-                        href="tel:+905334838971"
+                        href={telHref}
                         className="w-full bg-teal-500 text-white px-4 md:px-6 py-3 rounded-lg hover:bg-teal-600 transition-colors flex items-center justify-center space-x-2 text-sm md:text-base"
                       >
                         <span>📞</span>
                         <span>Hemen Ara</span>
                       </a>
                       <a
-                        href="https://wa.me/905334838971?text=Merhaba,%20mezar%20yapımı%20hakkında%20bilgi%20almak%20istiyorum."
+                        href={contactWhatsappLink}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="w-full bg-green-600 text-white px-4 md:px-6 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 text-sm md:text-base"
@@ -194,7 +301,10 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
               <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
                 {/* Honeypot (gizli) */}
                 <div className="hidden">
-                  <Label htmlFor="website" className="text-gray-700 mb-2 block text-sm md:text-base">
+                  <Label
+                    htmlFor="website"
+                    className="text-gray-700 mb-2 block text-sm md:text-base"
+                  >
                     Website
                   </Label>
                   <Input
@@ -210,7 +320,10 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
 
                 {/* Name Field */}
                 <div>
-                  <Label htmlFor="name" className="text-gray-700 mb-2 block text-sm md:text-base">
+                  <Label
+                    htmlFor="name"
+                    className="text-gray-700 mb-2 block text-sm md:text-base"
+                  >
                     AD SOYAD
                   </Label>
                   <Input
@@ -227,7 +340,10 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
 
                 {/* Email Field */}
                 <div>
-                  <Label htmlFor="email" className="text-gray-700 mb-2 block text-sm md:text-base">
+                  <Label
+                    htmlFor="email"
+                    className="text-gray-700 mb-2 block text-sm md:text-base"
+                  >
                     EMAIL ADRESİNİZ
                   </Label>
                   <Input
@@ -244,7 +360,10 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
 
                 {/* Phone Field */}
                 <div>
-                  <Label htmlFor="phone" className="text-gray-700 mb-2 block text-sm md:text-base">
+                  <Label
+                    htmlFor="phone"
+                    className="text-gray-700 mb-2 block text-sm md:text-base"
+                  >
                     TELEFON NUMARANIZ
                   </Label>
                   <Input
@@ -261,7 +380,10 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
 
                 {/* Subject Field */}
                 <div>
-                  <Label htmlFor="subject" className="text-gray-700 mb-2 block text-sm md:text-base">
+                  <Label
+                    htmlFor="subject"
+                    className="text-gray-700 mb-2 block text-sm md:text-base"
+                  >
                     KONU
                   </Label>
                   <Input
@@ -278,7 +400,10 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
 
                 {/* Message Field */}
                 <div>
-                  <Label htmlFor="message" className="text-gray-700 mb-2 block text-sm md:text-base">
+                  <Label
+                    htmlFor="message"
+                    className="text-gray-700 mb-2 block text-sm md:text-base"
+                  >
                     MESAJINIZI BURAYA YAZINIZ
                   </Label>
                   <Textarea
@@ -324,7 +449,7 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                   allowFullScreen
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
-                  title="Mezarisi.com Konum - Hekimbaşı Mah. Yıldıztepe Cad. No:41 Ümraniye/İstanbul"
+                  title="Mezarisim.com Konum - Hekimbaşı Mah. Yıldıztepe Cad. No:41 Ümraniye/İstanbul"
                 ></iframe>
 
                 {/* Map overlay with directions link */}
@@ -346,8 +471,12 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
               <div className="bg-white p-4 md:p-6 border-t border-gray-200">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0">
                   <div>
-                    <h3 className="text-base md:text-lg text-gray-800 mb-1">Hekimbaşı Mezarlığı</h3>
-                    <p className="text-sm md:text-base text-gray-600">Hekimbaşı, 34766 Ümraniye/İstanbul</p>
+                    <h3 className="text-base md:text-lg text-gray-800 mb-1">
+                      Hekimbaşı Mezarlığı
+                    </h3>
+                    <p className="text-sm md:text-base text-gray-600">
+                      Hekimbaşı, 34766 Ümraniye/İstanbul
+                    </p>
                   </div>
                   <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
                     <a

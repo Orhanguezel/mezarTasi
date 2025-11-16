@@ -27,8 +27,28 @@ INSERT INTO `site_settings` (`id`,`key`,`value`,`created_at`,`updated_at`) VALUE
 (UUID(), 'contact_phone_display',  '"0533 483 89 71"', NOW(3), NOW(3)),
 (UUID(), 'contact_phone_tel',      '"05334838971"', NOW(3), NOW(3)),
 (UUID(), 'contact_email',          '"mezarisim.com@gmail.com"', NOW(3), NOW(3)),
+-- 🔹 Contact form’dan gelen maillerin düşeceği adres (mail servisi burayı da kullanabilir)
+(UUID(), 'contact_to_email',       '"mezarisim.com@gmail.com"', NOW(3), NOW(3)),
 (UUID(), 'contact_address',        '"Hekimbaşı Mah. Yıldıztepe Cad. No:41 Ümraniye/İstanbul"', NOW(3), NOW(3)),
 (UUID(), 'contact_whatsapp_link',  '"https://wa.me/905334838971"', NOW(3), NOW(3));
+
+/* ====== SMTP / MAIL CONFIG ====== */
+INSERT INTO `site_settings` (`id`,`key`,`value`,`created_at`,`updated_at`) VALUES
+-- SMTP sunucusu
+(UUID(), 'smtp_host',        'smtp.hostinger.com', NOW(3), NOW(3)),
+-- Port (587 → TLS, 465 → SSL). Burada 465 kullanıyorsan aşağıda ssl:true yapacaksın
+(UUID(), 'smtp_port',        '465', NOW(3), NOW(3)),
+-- Auth kullanıcı adı (çoğu zaman from email ile aynı)
+(UUID(), 'smtp_username',    'info@koenigsmassage.com', NOW(3), NOW(3)),
+-- Şifre
+(UUID(), 'smtp_password',    'Kaman@12!', NOW(3), NOW(3)),
+-- Gönderici e-posta (From header)
+(UUID(), 'smtp_from_email',  'info@koenigsmassage.com', NOW(3), NOW(3)),
+-- Gönderici görünen ad
+(UUID(), 'smtp_from_name',   'Mezarisim.com', NOW(3), NOW(3)),
+-- SSL/TLS flag: true → secure (465), false → STARTTLS (587)
+(UUID(), 'smtp_ssl',         'true', NOW(3), NOW(3));
+
 
 /* ====== HEADER METINLER ====== */
 INSERT INTO `site_settings` (`id`,`key`,`value`,`created_at`,`updated_at`) VALUES

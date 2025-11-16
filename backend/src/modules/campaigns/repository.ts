@@ -72,8 +72,8 @@ export async function listSimpleCampaigns(params: ListParams = {}) {
     params.sort === "created_at"
       ? (params.order === "desc" ? desc(simpleCampaigns.created_at) : asc(simpleCampaigns.created_at))
       : params.sort === "title"
-      ? (params.order === "desc" ? desc(simpleCampaigns.title) : asc(simpleCampaigns.title))
-      : (params.order === "asc" ? asc(simpleCampaigns.updated_at) : desc(simpleCampaigns.updated_at)); // default updated_at desc
+        ? (params.order === "desc" ? desc(simpleCampaigns.title) : asc(simpleCampaigns.title))
+        : (params.order === "asc" ? asc(simpleCampaigns.updated_at) : desc(simpleCampaigns.updated_at)); // default updated_at desc
 
   const items = await db
     .select()

@@ -14,6 +14,7 @@ export type ProductSpecifications = {
 };
 
 /** DB: products (Drizzle şemasıyla birebir) */
+/** DB: products (Drizzle şemasıyla birebir) */
 export type ProductRow = {
   id: string;
   title: string;
@@ -31,27 +32,28 @@ export type ProductRow = {
   alt?: string | null;
 
   /** Galeri */
-  images?: string[] | null;
-  storage_image_ids?: string[] | null;
+  images: string[];
+  storage_image_ids: string[];
 
   is_active: DbBool;
   is_featured: DbBool;
 
-  tags?: string[] | null;
+  tags: string[];
   specifications?: ProductSpecifications | null; // JSON object
 
   product_code?: string | null;
   stock_quantity: number;
 
-  rating: number;       // DECIMAL(3,2)
-  review_count: number; // INT
+  rating: number;
+  review_count: number;
 
   meta_title?: string | null;
   meta_description?: string | null;
 
-  created_at: string; // DATETIME(3)
-  updated_at: string; // DATETIME(3)
+  created_at: string;
+  updated_at: string;
 };
+
 
 /** DB: product_specs */
 export type ProductSpecRow = {

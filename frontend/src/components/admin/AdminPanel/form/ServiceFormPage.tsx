@@ -6,50 +6,68 @@
 import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Save, ArrowLeft } from "lucide-react";
+import { Save, ArrowLeft, Info } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import {
   useGetServiceAdminByIdQuery,
   useCreateServiceAdminMutation,
   useUpdateServiceAdminMutation,
   useSetServiceStatusAdminMutation,
-  // ✅ RTK endpoints dosyanıza şu mutasyonu eklediyseniz:
-  // setServiceImageAdmin (PATCH /admin/services/:id/image)
-  useSetServiceImageAdminMutation, // <-- ESM import ile ekledik
+  // ❌ BURADA useAttachServiceImageMutation / useDetachServiceImageMutation OLMAYACAK
 } from "@/integrations/metahub/rtk/endpoints/admin/services_admin.endpoints";
 
-// Storage upload
-import { useCreateAssetAdminMutation } from "@/integrations/metahub/rtk/endpoints/admin/storage_admin.endpoints";
+// ✅ Sadece bu storage hook kalsın
+import { useUploadToBucketMutation } from "@/integrations/metahub/rtk/endpoints/storage_public.endpoints";
 
-// Shared sections
 import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
 import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";
+
+import type { ServiceType } from "@/integrations/metahub/db/types/services.types";
+
 
 const slugifyTr = (s: string) =>
   s
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s")
-    .replace(/ı/g, "i").replace(/ö/g, "o").replace(/ç/g, "c")
-    .replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ı/g, "i")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "")
     .substring(0, 120);
 
-type ServiceType = "gardening" | "soil" | "other";
+const RequiredMark = () => (
+  <span className="ml-0.5 text-red-500" aria-hidden="true">
+    *
+  </span>
+);
 
 export default function ServiceFormPage() {
   const { id } = useParams() as { id?: string };
   const isNew = !id || id === "new";
   const navigate = useNavigate();
 
-  const { data: existing, isFetching } = useGetServiceAdminByIdQuery(String(id ?? ""), { skip: isNew });
+  const { data: existing, isFetching } = useGetServiceAdminByIdQuery(
+    String(id ?? ""),
+    { skip: isNew },
+  );
 
   // form state
   const [name, setName] = React.useState("");
@@ -82,22 +100,23 @@ export default function ServiceFormPage() {
   const [warranty, setWarranty] = React.useState("");
   const [includes, setIncludes] = React.useState("");
 
-  // image state (tek görsel patern)
+  // image state (tek kapak pattern)
   const [imageUrl, setImageUrl] = React.useState<string>("");
-  const [alt, setAlt] = React.useState<string>(""); // alt backend’de normal PATCH ile güncelleniyor
-  const [assetId, setAssetId] = React.useState<string | undefined>(undefined); // image_asset_id (staged)
-  const [stagedAssetId, setStagedAssetId] = React.useState<string | undefined>(undefined);
+  const [alt, setAlt] = React.useState<string>("");
+
+  // Supabase upload
+  const [uploadToBucket, { isLoading: uploading }] =
+    useUploadToBucketMutation();
 
   // mutations
-  const [createOne, { isLoading: creating }] = useCreateServiceAdminMutation();
-  const [updateOne, { isLoading: updating }] = useUpdateServiceAdminMutation();
+  const [createOne, { isLoading: creating }] =
+    useCreateServiceAdminMutation();
+  const [updateOne, { isLoading: updating }] =
+    useUpdateServiceAdminMutation();
   const [setStatus] = useSetServiceStatusAdminMutation();
-  const [uploadOne] = useCreateAssetAdminMutation();
 
-  // ✅ ESM hook
-  const [setImage, { isLoading: settingImage }] = useSetServiceImageAdminMutation();
-
-  const saving = creating || updating || settingImage;
+  const saving = creating || updating;
+  const savingImg = uploading;
 
   // hydrate
   React.useEffect(() => {
@@ -127,10 +146,10 @@ export default function ServiceFormPage() {
       setWarranty(existing.warranty ?? "");
       setIncludes(existing.includes ?? "");
 
-      setImageUrl(existing.image_effective_url ?? existing.image_url ?? "");
+      setImageUrl(
+        existing.image_effective_url ?? existing.image_url ?? "",
+      );
       setAlt(existing.alt ?? "");
-      setAssetId((existing as any).image_asset_id ?? undefined);
-      setStagedAssetId(undefined);
     }
   }, [existing, isNew]);
 
@@ -139,7 +158,9 @@ export default function ServiceFormPage() {
   }, [name, autoSlug]);
 
   const onBack = () =>
-    window.history.length ? window.history.back() : navigate("/admin/services");
+    window.history.length
+      ? window.history.back()
+      : navigate("/admin/services");
 
   /* ------------ payload builders ------------ */
   const buildCreateBody = () => ({
@@ -151,9 +172,8 @@ export default function ServiceFormPage() {
     price: price || null,
     description: description || null,
 
-    // görsel alanları create sırasında istersen set edebilirsin
     image_url: imageUrl || null,
-    image_asset_id: assetId ?? null,
+    image_asset_id: null,
     alt: alt || null,
 
     featured,
@@ -185,9 +205,8 @@ export default function ServiceFormPage() {
     price: price || null,
     description: description || null,
 
-    // normal PATCH ile image_url / image_asset_id / alt set edilebilir
     image_url: imageUrl || null,
-    image_asset_id: assetId ?? null,
+    image_asset_id: null,
     alt: alt || null,
 
     featured,
@@ -207,28 +226,18 @@ export default function ServiceFormPage() {
     includes: includes || null,
   });
 
-  // create/update sonrası görsel bağlama (prefer: PATCH /:id/image {asset_id})
-  const afterCreateOrUpdate = async (theId: string) => {
-    const chosen = assetId ?? stagedAssetId;
-    try {
-      if (chosen && setImage) {
-        await setImage({ id: theId, body: { asset_id: chosen } }).unwrap();
-      } else if (imageUrl) {
-        await updateOne({ id: theId, body: { image_url: imageUrl } }).unwrap();
-      }
-    } catch (e: any) {
-      toast.error(e?.data?.message || "Görsel ilişkilendirilemedi");
-    }
-  };
-
   /* ------------ actions ------------ */
   const doCreate = async () => {
     if (!name) return toast.error("Ad zorunlu");
+
     try {
       const created = await createOne(buildCreateBody()).unwrap();
-      await afterCreateOrUpdate(String((created as any).id));
-      toast.success("Servis oluşturuldu");
-      navigate("/admin/services");
+      const newId = String(created.id);
+
+      toast.success(
+        "Servis oluşturuldu. Şimdi kapak görselini ekleyebilirsiniz.",
+      );
+      navigate(`/admin/services/${newId}`);
     } catch (e: any) {
       const msg = e?.data?.error?.message || e?.data?.message;
       toast.error(msg || "Oluşturma başarısız");
@@ -238,14 +247,12 @@ export default function ServiceFormPage() {
   const doUpdate = async () => {
     if (isNew || !id) return;
     if (!name) return toast.error("Ad zorunlu");
-    try {
-      await updateOne({ id: String(id), body: buildUpdateBody() }).unwrap();
 
-      // ayrı set-image uçunu kullanmak istersen:
-      const chosen = assetId ?? stagedAssetId;
-      if (chosen && setImage) {
-        await setImage({ id: String(id), body: { asset_id: chosen } }).unwrap();
-      }
+    try {
+      await updateOne({
+        id: String(id),
+        body: buildUpdateBody(),
+      }).unwrap();
 
       toast.success("Servis güncellendi");
       navigate("/admin/services");
@@ -256,28 +263,44 @@ export default function ServiceFormPage() {
   };
 
   const uploadCover = async (file: File) => {
+    if (isNew || !id) {
+      toast.error("Önce servisi kaydedin, sonra kapak ekleyin.");
+      return;
+    }
+
     try {
-      const res = await uploadOne({
-        file,
+      const res = await uploadToBucket({
         bucket: "services",
-        folder: `services/${slug || id || Date.now()}/cover`,
+        files: file,
+        path: `services/${id}/cover/${file.name}`,
+        upsert: true,
       }).unwrap();
 
-      const newId = (res as any)?.id as string | undefined;
-      const publicUrl = (res as any)?.url || (res as any)?.public_url;
-
-      if (!newId) return toast.error("Yükleme cevabı beklenen formatta değil");
-
-      setAssetId(newId);
-      setStagedAssetId(newId);
-      if (publicUrl) setImageUrl(publicUrl);
-
-      if (!isNew && id && setImage) {
-        await setImage({ id: String(id), body: { asset_id: newId } }).unwrap();
-        toast.success("Kapak resmi güncellendi");
-      } else {
-        toast.success("Kapak yüklendi (kayıt sonrası ilişkilendirilecek)");
+      const item = (res as any)?.items?.[0];
+      if (!item || !item.url) {
+        toast.error("Yükleme cevabı beklenen formatta değil");
+        return;
       }
+
+      const publicUrl: string = item.url;
+
+      setImageUrl(publicUrl);
+
+      if (!alt) {
+        const base = file.name.replace(/\.[^.]+$/, "");
+        setAlt(name || base);
+      }
+
+      // image_url + alt’ı direkt servise yaz
+      await updateOne({
+        id: String(id),
+        body: {
+          image_url: publicUrl,
+          alt: alt || name || null,
+        },
+      }).unwrap();
+
+      toast.success("Kapak resmi güncellendi");
     } catch (e: any) {
       toast.error(e?.data?.message || "Kapak yüklenemedi");
     }
@@ -285,8 +308,12 @@ export default function ServiceFormPage() {
 
   const saveAltOnly = async () => {
     if (isNew || !id) return;
+
     try {
-      await updateOne({ id: String(id), body: { alt: alt || null } }).unwrap();
+      await updateOne({
+        id: String(id),
+        body: { alt: alt || name || null },
+      }).unwrap();
       toast.success("Alt metin güncellendi");
     } catch (e: any) {
       toast.error(e?.data?.message || "Alt metin güncellenemedi");
@@ -295,23 +322,21 @@ export default function ServiceFormPage() {
 
   const removeCover = async () => {
     if (isNew) {
-      setAssetId(undefined);
-      setStagedAssetId(undefined);
       setImageUrl("");
+      setAlt("");
       toast.info("Görsel yerelden kaldırıldı (kayıt yok).");
       return;
     }
     if (!id) return;
+
     try {
-      if (setImage) {
-        await setImage({ id: String(id), body: { asset_id: null } }).unwrap();
-      } else {
-        // fallback: normal patch ile temizle
-        await updateOne({ id: String(id), body: { image_url: null, image_asset_id: null } }).unwrap();
-      }
-      setAssetId(undefined);
-      setStagedAssetId(undefined);
+      await updateOne({
+        id: String(id),
+        body: { image_url: null, alt: null },
+      }).unwrap();
+
       setImageUrl("");
+      setAlt("");
       toast.success("Görsel kaldırıldı");
     } catch (e: any) {
       toast.error(e?.data?.message || "Görsel kaldırılamadı");
@@ -320,31 +345,43 @@ export default function ServiceFormPage() {
 
   const onUrlChange = (v: string) => {
     setImageUrl(v);
-    if (v) {
-      setAssetId(undefined);
-      setStagedAssetId(undefined);
-    }
   };
 
   if (!isNew && isFetching) {
-    return <div className="p-4 text-sm text-gray-500">Yükleniyor…</div>;
+    return (
+      <div className="p-4 text-sm text-gray-500">
+        Yükleniyor…
+      </div>
+    );
   }
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       {/* Header actions */}
       <div className="flex items-center justify-between">
-        <Button variant="secondary" onClick={() => onBack()} className="gap-2">
+        <Button
+          variant="secondary"
+          onClick={() => onBack()}
+          className="gap-2"
+        >
           <ArrowLeft className="h-4 w-4" />
           Geri
         </Button>
         {isNew ? (
-          <Button onClick={doCreate} disabled={saving} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+          <Button
+            onClick={doCreate}
+            disabled={saving}
+            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+          >
             <Save className="h-4 w-4" />
             Oluştur
           </Button>
         ) : (
-          <Button onClick={doUpdate} disabled={saving} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+          <Button
+            onClick={doUpdate}
+            disabled={saving}
+            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+          >
             <Save className="h-4 w-4" />
             Kaydet
           </Button>
@@ -354,30 +391,51 @@ export default function ServiceFormPage() {
       <Section title="Temel Bilgiler">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label>Ad</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Servis adı" />
+            <Label>
+              Ad
+              <RequiredMark />
+            </Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Servis adı"
+              required
+              aria-required="true"
+            />
           </div>
 
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <Label>Slug</Label>
               <label className="flex items-center gap-2 text-xs text-gray-500">
-                <Switch checked={autoSlug} onCheckedChange={setAutoSlug} className="data-[state=checked]:bg-indigo-600" />
+                <Switch
+                  checked={autoSlug}
+                  onCheckedChange={setAutoSlug}
+                  className="data-[state=checked]:bg-indigo-600"
+                />
                 otomatik
               </label>
             </div>
             <Input
               value={slug}
-              onChange={(e) => { setSlug(e.target.value); setAutoSlug(false); }}
+              onChange={(e) => {
+                setSlug(e.target.value);
+                setAutoSlug(false);
+              }}
               placeholder="servis-slug"
             />
           </div>
 
           <div className="space-y-2">
             <Label>Tür</Label>
-            <Select value={type} onValueChange={(v: ServiceType) => setType(v)}>
-              <SelectTrigger><SelectValue placeholder="Tür" /></SelectTrigger>
-              <SelectContent>
+            <Select
+              value={type}
+              onValueChange={(v) => setType(v as ServiceType)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Tür" />
+              </SelectTrigger>
+              <SelectContent className=" bg-amber-50 " >
                 <SelectItem value="gardening">Gardening</SelectItem>
                 <SelectItem value="soil">Soil</SelectItem>
                 <SelectItem value="other">Other</SelectItem>
@@ -387,28 +445,59 @@ export default function ServiceFormPage() {
 
           <div className="space-y-2">
             <Label>Kategori</Label>
-            <Input value={category} onChange={(e) => setCategory(e.target.value)} />
+            <Input
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            />
           </div>
 
           <div className="space-y-2">
             <Label>Malzeme (ops.)</Label>
-            <Input value={material} onChange={(e) => setMaterial(e.target.value)} />
+            <Input
+              value={material}
+              onChange={(e) => setMaterial(e.target.value)}
+            />
           </div>
 
           <div className="space-y-2">
             <Label>Fiyat (ops.)</Label>
-            <Input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="örn: 5.000 ₺" />
+            <Input
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="örn: 5.000 ₺"
+            />
           </div>
 
           <div className="sm:col-span-2 space-y-2">
             <Label>Açıklama (ops.)</Label>
-            <Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Textarea
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
           </div>
 
           <div className="space-y-2">
             <Label>Aktif</Label>
             <div className="flex h-10 items-center">
-              <Switch checked={isActive} onCheckedChange={(v) => { setIsActive(v); if (!isNew && id) setStatus({ id: String(id), body: { is_active: v } }); }} className="data-[state=checked]:bg-emerald-600" />
+              <Switch
+                checked={isActive}
+                onCheckedChange={(v) => {
+                  setIsActive(v);
+                  if (!isNew && id) {
+                    setStatus({
+                      id: String(id),
+                      body: { is_active: v },
+                    }).catch(() => {
+                      toast.error(
+                        "Aktiflik durumu güncellenemedi",
+                      );
+                      setIsActive(!v);
+                    });
+                  }
+                }}
+                className="data-[state=checked]:bg-emerald-600"
+              />
             </div>
           </div>
 
@@ -420,8 +509,15 @@ export default function ServiceFormPage() {
                 onCheckedChange={async (v) => {
                   setFeatured(v);
                   if (!isNew && id) {
-                    try { await updateOne({ id: String(id), body: { featured: v } }).unwrap(); }
-                    catch { toast.error("Öne çıkarma güncellenemedi"); setFeatured(!v); }
+                    try {
+                      await updateOne({
+                        id: String(id),
+                        body: { featured: v },
+                      }).unwrap();
+                    } catch {
+                      toast.error("Öne çıkarma güncellenemedi");
+                      setFeatured(!v);
+                    }
                   }
                 }}
                 className="data-[state=checked]:bg-amber-500"
@@ -431,7 +527,13 @@ export default function ServiceFormPage() {
 
           <div className="space-y-2">
             <Label>Sıra</Label>
-            <Input inputMode="numeric" value={String(displayOrder)} onChange={(e) => setDisplayOrder(Number(e.target.value) || 1)} />
+            <Input
+              inputMode="numeric"
+              value={String(displayOrder)}
+              onChange={(e) =>
+                setDisplayOrder(Number(e.target.value) || 1)
+              }
+            />
           </div>
         </div>
       </Section>
@@ -440,10 +542,34 @@ export default function ServiceFormPage() {
       {type === "gardening" && (
         <Section title="Gardening Bilgileri">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2"><Label>Alan</Label><Input value={area} onChange={(e) => setArea(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Süre</Label><Input value={duration} onChange={(e) => setDuration(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Bakım</Label><Input value={maintenance} onChange={(e) => setMaintenance(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Sezon</Label><Input value={season} onChange={(e) => setSeason(e.target.value)} /></div>
+            <div className="space-y-2">
+              <Label>Alan</Label>
+              <Input
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Süre</Label>
+              <Input
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Bakım</Label>
+              <Input
+                value={maintenance}
+                onChange={(e) => setMaintenance(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Sezon</Label>
+              <Input
+                value={season}
+                onChange={(e) => setSeason(e.target.value)}
+              />
+            </div>
           </div>
         </Section>
       )}
@@ -451,35 +577,77 @@ export default function ServiceFormPage() {
       {type === "soil" && (
         <Section title="Soil Bilgileri">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2"><Label>Toprak Türü</Label><Input value={soilType} onChange={(e) => setSoilType(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Kalınlık</Label><Input value={thickness} onChange={(e) => setThickness(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Ekipman</Label><Input value={equipment} onChange={(e) => setEquipment(e.target.value)} /></div>
+            <div className="space-y-2">
+              <Label>Toprak Türü</Label>
+              <Input
+                value={soilType}
+                onChange={(e) => setSoilType(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Kalınlık</Label>
+              <Input
+                value={thickness}
+                onChange={(e) => setThickness(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Ekipman</Label>
+              <Input
+                value={equipment}
+                onChange={(e) => setEquipment(e.target.value)}
+              />
+            </div>
           </div>
         </Section>
       )}
 
       <Section title="Genel Bilgiler (ops.)">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-2"><Label>Garanti</Label><Input value={warranty} onChange={(e) => setWarranty(e.target.value)} /></div>
-          <div className="space-y-2"><Label>Dahil Olanlar</Label><Input value={includes} onChange={(e) => setIncludes(e.target.value)} /></div>
+          <div className="space-y-2">
+            <Label>Garanti</Label>
+            <Input
+              value={warranty}
+              onChange={(e) => setWarranty(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Dahil Olanlar</Label>
+            <Input
+              value={includes}
+              onChange={(e) => setIncludes(e.target.value)}
+            />
+          </div>
         </div>
       </Section>
 
-      {/* Tek görsel patern */}
-      <CoverImageSection
-        title="Kapak Görseli"
-        coverId={assetId /* image_asset_id */}
-        stagedCoverId={stagedAssetId}
-        imageUrl={imageUrl}
-        alt={alt}
-        saving={saving}
-        onPickFile={uploadCover}
-        onRemove={removeCover}
-        onUrlChange={onUrlChange}
-        onAltChange={setAlt}
-        onSaveAlt={!isNew && !!id ? saveAltOnly : undefined}
-        accept="image/*"
-      />
+      {/* Kapak görseli: sadece EDIT modunda */}
+      {!isNew ? (
+        <CoverImageSection
+          title="Kapak Görseli"
+          coverId={undefined}
+          stagedCoverId={undefined}
+          imageUrl={imageUrl}
+          alt={alt}
+          saving={savingImg}
+          onPickFile={uploadCover}
+          onRemove={removeCover}
+          onUrlChange={onUrlChange}
+          onAltChange={setAlt}
+          onSaveAlt={!isNew && !!id ? saveAltOnly : undefined}
+          accept="image/*"
+        />
+      ) : (
+        <Section title="Kapak Görseli">
+          <div className="flex items-start gap-3 rounded-md border p-3 bg-amber-50 text-amber-800">
+            <Info className="mt-0.5 h-4 w-4" />
+            <div className="text-sm">
+              Önce <b>Temel Bilgileri</b> kaydedin. Kayıt oluşturulduktan
+              sonra kapak görselini ekleyebilirsiniz.
+            </div>
+          </div>
+        </Section>
+      )}
     </div>
   );
 }

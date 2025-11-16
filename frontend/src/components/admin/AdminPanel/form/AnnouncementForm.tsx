@@ -6,7 +6,7 @@
 import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Save, ArrowLeft } from "lucide-react";
+import { Save, ArrowLeft, Info } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,9 @@ import {
   useUpdateAnnouncementAdminMutation,
   useSetAnnouncementImageAdminMutation,
 } from "@/integrations/metahub/rtk/endpoints/admin/announcements_admin.endpoints";
-import { useCreateAssetAdminMutation } from "@/integrations/metahub/rtk/endpoints/admin/storage_admin.endpoints";
+
+// 🔸 Yeni public storage pattern
+import { useUploadToBucketMutation } from "@/integrations/metahub/rtk/endpoints/storage_public.endpoints";
 
 import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
 import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";
@@ -33,15 +35,14 @@ export default function AnnouncementForm() {
   const isNew = !id || id === "new";
   const navigate = useNavigate();
 
-  const { data: existing, isFetching } = useGetAnnouncementAdminByIdQuery(String(id ?? ""), { skip: isNew });
+  const { data: existing, isFetching } = useGetAnnouncementAdminByIdQuery(String(id ?? ""), {
+    skip: isNew,
+  });
 
   // ---- form state
   const [title, setTitle] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [content, setContent] = React.useState(""); // düz HTML
-  const [iconType, setIconType] = React.useState<"emoji" | "lucide">("emoji");
-  const [icon, setIcon] = React.useState("");           // emoji veya generic icon text
-  const [lucide, setLucide] = React.useState<string>(""); // icon_type=lucide iken kullan
   const [link, setLink] = React.useState("");
 
   const [bg, setBg] = React.useState("#F8FAFC");
@@ -59,7 +60,7 @@ export default function AnnouncementForm() {
   const [isPublished, setIsPublished] = React.useState(true);
   const [displayOrder, setDisplayOrder] = React.useState<number>(1);
 
-  // image state
+  // image state (sadece EDIT’te anlamlı)
   const [imageUrl, setImageUrl] = React.useState<string>("");
   const [alt, setAlt] = React.useState<string>("");
   const [coverId, setCoverId] = React.useState<string | undefined>(undefined);
@@ -69,26 +70,47 @@ export default function AnnouncementForm() {
   const [createOne, { isLoading: creating }] = useCreateAnnouncementAdminMutation();
   const [updateOne, { isLoading: updating }] = useUpdateAnnouncementAdminMutation();
   const [setImage, { isLoading: settingImg }] = useSetAnnouncementImageAdminMutation();
-  const [uploadOne] = useCreateAssetAdminMutation();
 
-  const saving = creating || updating || settingImg;
+  // 🔸 Public storage upload (yeni pattern)
+  const [uploadToBucket, { isLoading: uploading }] = useUploadToBucketMutation();
 
-  // hydrate
+  const saving = creating || updating || settingImg || uploading;
+
+  // ---- inline validation
+  const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const setField =
+    (key: string, updater: (v: string) => void) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      if (errors[key]) setErrors((prev) => ({ ...prev, [key]: "" }));
+      updater(e.target.value);
+    };
+
+  // Quill boş mu?
+  const isHtmlEmpty = (html: string) => {
+    if (!html) return true;
+    const stripped = html
+      .replace(/<\s*br\s*\/?>/gi, "")
+      .replace(/<\s*p[^>]*>\s*<\/\s*p>/gi, "")
+      .replace(/<\/?[^>]+(>|$)/g, "")
+      .replace(/&nbsp;|&#160;/g, "")
+      .replace(/\s+/g, "")
+      .trim();
+    return stripped.length === 0;
+  };
+
+  // hydrate (EDIT)
   React.useEffect(() => {
     if (!isNew && existing) {
       setTitle(existing.title ?? "");
       setDescription(existing.description ?? "");
-      setContent(existing.html ?? existing.content ?? ""); // güvenli
-      setIconType((existing.icon_type as any) === "lucide" ? "lucide" : "emoji");
-      setIcon(existing.icon ?? "");
-      setLucide((existing as any).lucide_icon ?? "");
+      setContent(existing.html ?? existing.content ?? "");
       setLink(existing.link ?? "");
 
-      setBg(existing.bg_color ?? "");
-      setHoverBg(existing.hover_color ?? "");
-      setIconColor(existing.icon_color ?? "");
-      setTextColor(existing.text_color ?? "");
-      setBorderColor(existing.border_color ?? "");
+      setBg(existing.bg_color ?? "#F8FAFC");
+      setHoverBg(existing.hover_color ?? "#EFF6FF");
+      setIconColor(existing.icon_color ?? "#0EA5E9");
+      setTextColor(existing.text_color ?? "#0F172A");
+      setBorderColor(existing.border_color ?? "#E2E8F0");
 
       setBadgeText(existing.badge_text ?? "");
       setBadgeColor(existing.badge_color ?? "");
@@ -109,15 +131,36 @@ export default function AnnouncementForm() {
   const onBack = () =>
     window.history.length ? window.history.back() : navigate("/admin/announcements");
 
+  // ---- içerik normalizasyonu (POST/PUT uyumluluğu)
+  const normalizeContent = (html: string) => {
+    try {
+      const maybe = JSON.parse(html);
+      if (maybe && typeof (maybe as any).html === "string") return html;
+    } catch {}
+    return JSON.stringify({ html });
+  };
+
+  const validate = () => {
+    const errs: Record<string, string> = {};
+    if (!title.trim()) errs.title = "Zorunlu alan.";
+    if (!description.trim()) errs.description = "Zorunlu alan.";
+    if (isHtmlEmpty(content)) errs.content = "Zorunlu alan.";
+    if (!link.trim()) errs.link = "Zorunlu alan.";
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      toast.error("Zorunlu alanları doldurun.");
+      return false;
+    }
+    return true;
+  };
+
   // build body for create/update
   const buildBody = () => ({
-    title,
-    description,
-    content, // DÜZ HTML
-    icon,
-    icon_type: iconType,
-    lucide_icon: iconType === "lucide" ? (lucide || null) : null,
-    link,
+    title: title.trim(),
+    description: description.trim(),
+    content: normalizeContent(content || ""), // BE bazen 'content' JSON-string, bazen 'html' okuyor → ikisini de gönder
+    html: content || "",
+    link: link.trim(),
 
     bg_color: bg,
     hover_color: hoverBg,
@@ -130,35 +173,15 @@ export default function AnnouncementForm() {
     button_text: buttonText || null,
     button_color: buttonColor || null,
 
-    is_active: isActive,
-    is_published: isPublished,
+    is_active: !!isActive,
+    is_published: !!isPublished,
     display_order: Number(displayOrder) || 1,
-
-    // görsel alanları opsiyonel patch'lerle ayrıca SET IMAGE uçlarından yönetilecek
-    // create/update’ye image göndermeye gerek yok ama istersen aynı isimlerle gönderebilirsin
   });
 
-  const afterCreateOrUpdate = async (theId: string) => {
-    const assocId = coverId ?? stagedCoverId;
-    try {
-      if (assocId) {
-        await setImage({ id: theId, body: { storage_asset_id: assocId, alt: alt || null } }).unwrap();
-      } else if (imageUrl) {
-        await setImage({ id: theId, body: { image_url: imageUrl, alt: alt || null } }).unwrap();
-      }
-    } catch (e: any) {
-      toast.error(e?.data?.message || "Görsel ilişkilendirilemedi");
-    }
-  };
-
   const doCreate = async () => {
-    if (!title || !description || !content || !icon || !link) {
-      toast.error("Başlık, açıklama, içerik, ikon ve link zorunlu.");
-      return;
-    }
+    if (!validate()) return;
     try {
-      const created = await createOne(buildBody()).unwrap();
-      await afterCreateOrUpdate(String(created.id));
+      await createOne(buildBody()).unwrap();
       toast.success("Duyuru oluşturuldu");
       navigate("/admin/announcements");
     } catch (e: any) {
@@ -168,18 +191,24 @@ export default function AnnouncementForm() {
 
   const doUpdate = async () => {
     if (isNew || !id) return;
-    if (!title || !description || !content || !icon || !link) {
-      toast.error("Başlık, açıklama, içerik, ikon ve link zorunlu.");
-      return;
-    }
+    if (!validate()) return;
     try {
       await updateOne({ id: String(id), patch: buildBody() }).unwrap();
 
+      // Görsel işlemleri sadece EDIT’te
       const assocId = coverId ?? stagedCoverId;
       if (assocId) {
-        await setImage({ id: String(id), body: { storage_asset_id: assocId, alt: alt || null } }).unwrap();
+        // storage_asset_id kullanılıyorsa (diğer modüllerle pattern uyumu)
+        await setImage({
+          id: String(id),
+          body: { storage_asset_id: assocId, alt: alt || null },
+        }).unwrap();
       } else if (imageUrl) {
-        await setImage({ id: String(id), body: { image_url: imageUrl, alt: alt || null } }).unwrap();
+        // Yeni public storage pattern → image_url üzerinden ilişkilendir
+        await setImage({
+          id: String(id),
+          body: { image_url: imageUrl, alt: alt || null },
+        }).unwrap();
       }
 
       toast.success("Duyuru güncellendi");
@@ -189,31 +218,42 @@ export default function AnnouncementForm() {
     }
   };
 
+  // ---- Edit’te kapak upload (create’de gösterilmiyor)
   const uploadCover = async (file: File) => {
+    if (!id) return;
     try {
-      const res = await uploadOne({
-        file,
+      const res = await uploadToBucket({
         bucket: "announcements",
-        folder: `announcements/${id || Date.now()}/cover`,
+        files: file,
+        path: `announcements/${id}/cover/${file.name}`,
+        upsert: true,
       }).unwrap();
 
-      const newCoverId = (res as any)?.id as string | undefined;
-      const publicUrl = (res as any)?.url || (res as any)?.public_url;
-
-      if (!newCoverId) {
-        toast.error("Yükleme cevabı beklenen formatta değil");
+      const item = res.items?.[0];
+      if (!item) {
+        toast.error("Yükleme sonrası dosya bulunamadı");
         return;
       }
-      setCoverId(newCoverId);
-      setStagedCoverId(newCoverId);
-      if (publicUrl) setImageUrl(publicUrl); // anlık önizleme
 
-      if (!isNew && id) {
-        await setImage({ id: String(id), body: { storage_asset_id: newCoverId, alt: alt || null } }).unwrap();
-        toast.success("Kapak resmi güncellendi");
-      } else {
-        toast.success("Kapak yüklendi (kayıt sonrası ilişkilendirilecek)");
-      }
+      // Public storage pattern → URL üzerinden çalış
+      setImageUrl(item.url);
+      // Artık id üzerinden çalışmak zorunlu değil
+      setCoverId(undefined);
+      setStagedCoverId(undefined);
+
+      await setImage({
+        id: String(id),
+        body: {
+          image_url: item.url,
+          alt:
+            alt ||
+            title ||
+            file.name.replace(/\.[^.]+$/, "") ||
+            null,
+        },
+      }).unwrap();
+
+      toast.success("Kapak resmi güncellendi");
     } catch (e: any) {
       toast.error(e?.data?.message || "Kapak yüklenemedi");
     }
@@ -239,7 +279,10 @@ export default function AnnouncementForm() {
     }
     if (!id) return;
     try {
-      await setImage({ id: String(id), body: { storage_asset_id: null, image_url: null, alt: alt || null } }).unwrap();
+      await setImage({
+        id: String(id),
+        body: { storage_asset_id: null, image_url: null, alt: alt || null },
+      }).unwrap();
       setCoverId(undefined);
       setStagedCoverId(undefined);
       setImageUrl("");
@@ -261,20 +304,34 @@ export default function AnnouncementForm() {
     return <div className="p-4 text-sm text-gray-500">Yükleniyor…</div>;
   }
 
+  const errCls = (hasErr: boolean) =>
+    hasErr ? "border-rose-500 focus-visible:ring-rose-500" : "";
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <Button variant="secondary" onClick={onBack} className="gap-2">
+        <Button type="button" variant="secondary" onClick={onBack} className="gap-2">
           <ArrowLeft className="h-4 w-4" />
           Geri
         </Button>
         {isNew ? (
-          <Button onClick={doCreate} disabled={saving} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+          <Button
+            type="button"
+            onClick={doCreate}
+            disabled={saving}
+            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+          >
             <Save className="h-4 w-4" />
             Oluştur
           </Button>
         ) : (
-          <Button onClick={doUpdate} disabled={saving} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+          <Button
+            type="button"
+            onClick={doUpdate}
+            disabled={saving}
+            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+          >
             <Save className="h-4 w-4" />
             Kaydet
           </Button>
@@ -283,102 +340,213 @@ export default function AnnouncementForm() {
 
       <Section title="Temel Bilgiler">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Başlık</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Duyuru başlığı" />
+          <div className="space-y-1">
+            <Label>
+              Başlık <span className="text-rose-600">*</span>
+            </Label>
+            <Input
+              value={title}
+              onChange={setField("title", setTitle)}
+              placeholder="Duyuru başlığı"
+              className={errCls(!!errors.title)}
+            />
+            {errors.title && (
+              <p className="text-xs text-rose-600">{errors.title}</p>
+            )}
           </div>
-          <div className="space-y-2">
+
+          <div className="space-y-1">
             <Label>Aktif</Label>
             <div className="flex h-10 items-center">
-              <Switch checked={isActive} onCheckedChange={setIsActive} className="data-[state=checked]:bg-emerald-600" />
+              <Switch
+                checked={isActive}
+                onCheckedChange={setIsActive}
+                className="data-[state=checked]:bg-emerald-600"
+              />
             </div>
           </div>
-          <div className="space-y-2">
+
+          <div className="space-y-1">
             <Label>Yayınlandı</Label>
             <div className="flex h-10 items-center">
-              <Switch checked={isPublished} onCheckedChange={setIsPublished} className="data-[state=checked]:bg-indigo-600" />
+              <Switch
+                checked={isPublished}
+                onCheckedChange={setIsPublished}
+                className="data-[state=checked]:bg-indigo-600"
+              />
             </div>
           </div>
-          <div className="space-y-2">
+
+          <div className="space-y-1">
             <Label>Sıra</Label>
-            <Input inputMode="numeric" value={String(displayOrder)} onChange={(e) => setDisplayOrder(Number(e.target.value) || 1)} />
+            <Input
+              inputMode="numeric"
+              value={String(displayOrder)}
+              onChange={(e) =>
+                setDisplayOrder(Number(e.target.value) || 1)
+              }
+            />
           </div>
 
-          <div className="sm:col-span-2 space-y-2">
-            <Label>Kısa Açıklama</Label>
-            <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
+          <div className="sm:col-span-2 space-y-1">
+            <Label>
+              Kısa Açıklama <span className="text-rose-600">*</span>
+            </Label>
+            <Textarea
+              rows={2}
+              value={description}
+              onChange={setField("description", setDescription)}
+              className={errCls(!!errors.description)}
+            />
+            {errors.description && (
+              <p className="text-xs text-rose-600">{errors.description}</p>
+            )}
           </div>
 
-          <div className="sm:col-span-2 space-y-2">
-            <Label>İçerik (HTML)</Label>
-            <ReactQuill theme="snow" value={content} onChange={setContent} />
+          <div className="sm:col-span-2 space-y-1">
+            <Label>
+              İçerik (HTML) <span className="text-rose-600">*</span>
+            </Label>
+            <div
+              className={
+                errors.content ? "ring-1 ring-rose-500 rounded" : ""
+              }
+            >
+              <ReactQuill
+                theme="snow"
+                value={content}
+                onChange={(v) => {
+                  if (errors.content)
+                    setErrors((p) => ({ ...p, content: "" }));
+                  setContent(v);
+                }}
+              />
+            </div>
+            {errors.content && (
+              <p className="text-xs text-rose-600 mt-1">
+                {errors.content}
+              </p>
+            )}
           </div>
         </div>
       </Section>
 
-      <Section title="İkon ve Link">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="space-y-2">
-            <Label>Icon Type</Label>
-            <select
-              className="h-10 w-full rounded border px-2"
-              value={iconType}
-              onChange={(e) => setIconType(e.target.value as any)}
-            >
-              <option value="emoji">emoji</option>
-              <option value="lucide">lucide</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <Label>{iconType === "emoji" ? "Emoji" : "Icon Name"}</Label>
-            <Input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder={iconType === "emoji" ? "🚀" : "Megaphone"} />
-          </div>
-          {iconType === "lucide" && (
-            <div className="space-y-2">
-              <Label>Lucide Icon</Label>
-              <Input value={lucide} onChange={(e) => setLucide(e.target.value)} placeholder="megaphone" />
-            </div>
-          )}
-          <div className="sm:col-span-3 space-y-2">
-            <Label>Link</Label>
-            <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="/kampanyalar" />
+      <Section title="Link">
+        <div className="grid grid-cols-1 gap-4">
+          <div className="space-y-1">
+            <Label>
+              Link <span className="text-rose-600">*</span>
+            </Label>
+            <Input
+              value={link}
+              onChange={setField("link", setLink)}
+              placeholder="/kampanyalar"
+              className={errCls(!!errors.link)}
+            />
+            {errors.link && (
+              <p className="text-xs text-rose-600">{errors.link}</p>
+            )}
           </div>
         </div>
       </Section>
 
       <Section title="Renkler">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-5">
-          <div className="space-y-2"><Label>BG</Label><Input value={bg} onChange={(e) => setBg(e.target.value)} /></div>
-          <div className="space-y-2"><Label>Hover</Label><Input value={hoverBg} onChange={(e) => setHoverBg(e.target.value)} /></div>
-          <div className="space-y-2"><Label>Icon</Label><Input value={iconColor} onChange={(e) => setIconColor(e.target.value)} /></div>
-          <div className="space-y-2"><Label>Text</Label><Input value={textColor} onChange={(e) => setTextColor(e.target.value)} /></div>
-          <div className="space-y-2"><Label>Border</Label><Input value={borderColor} onChange={(e) => setBorderColor(e.target.value)} /></div>
+          <div className="space-y-1">
+            <Label>BG</Label>
+            <Input value={bg} onChange={setField("bg_color", setBg)} />
+          </div>
+          <div className="space-y-1">
+            <Label>Hover</Label>
+            <Input
+              value={hoverBg}
+              onChange={setField("hover_color", setHoverBg)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Icon</Label>
+            <Input
+              value={iconColor}
+              onChange={setField("icon_color", setIconColor)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Text</Label>
+            <Input
+              value={textColor}
+              onChange={setField("text_color", setTextColor)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Border</Label>
+            <Input
+              value={borderColor}
+              onChange={setField("border_color", setBorderColor)}
+            />
+          </div>
         </div>
       </Section>
 
       <Section title="Badge / Button">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-2"><Label>Badge Text</Label><Input value={badgeText} onChange={(e) => setBadgeText(e.target.value)} /></div>
-          <div className="space-y-2"><Label>Badge Color</Label><Input value={badgeColor} onChange={(e) => setBadgeColor(e.target.value)} /></div>
-          <div className="space-y-2"><Label>Button Text</Label><Input value={buttonText} onChange={(e) => setButtonText(e.target.value)} /></div>
-          <div className="space-y-2"><Label>Button Color</Label><Input value={buttonColor} onChange={(e) => setButtonColor(e.target.value)} /></div>
+          <div className="space-y-1">
+            <Label>Badge Text</Label>
+            <Input
+              value={badgeText}
+              onChange={setField("badge_text", setBadgeText)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Badge Color</Label>
+            <Input
+              value={badgeColor}
+              onChange={setField("badge_color", setBadgeColor)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Button Text</Label>
+            <Input
+              value={buttonText}
+              onChange={setField("button_text", setButtonText)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Button Color</Label>
+            <Input
+              value={buttonColor}
+              onChange={setField("button_color", setButtonColor)}
+            />
+          </div>
         </div>
       </Section>
 
-      <CoverImageSection
-        title="Kapak Görseli"
-        coverId={coverId}
-        stagedCoverId={stagedCoverId}
-        imageUrl={imageUrl}
-        alt={alt}
-        saving={settingImg}
-        onPickFile={uploadCover}
-        onRemove={removeCover}
-        onUrlChange={onUrlChange}
-        onAltChange={setAlt}
-        onSaveAlt={!isNew && !!id ? saveAltOnly : undefined}
-        accept="image/*"
-      />
+      {/* Görsel bölümü: sadece EDIT modunda göster */}
+      {!isNew ? (
+        <CoverImageSection
+          title="Kapak Görseli"
+          coverId={coverId}
+          stagedCoverId={stagedCoverId}
+          imageUrl={imageUrl}
+          alt={alt}
+          saving={settingImg || uploading}
+          onPickFile={uploadCover}
+          onRemove={removeCover}
+          onUrlChange={onUrlChange}
+          onAltChange={setAlt}
+          onSaveAlt={id ? saveAltOnly : undefined}
+          accept="image/*"
+        />
+      ) : (
+        <Section title="Kapak Görseli">
+          <div className="flex items-start gap-3 rounded-md border p-3 bg-amber-50 text-amber-800">
+            <Info className="mt-0.5 h-4 w-4" />
+            <div className="text-sm">
+              İlk olarak <b>zorunlu alanları (*)</b> doldurup duyuruyu
+              oluşturun. Kayıt sonrası kapak görselini ekleyebilirsiniz.
+            </div>
+          </div>
+        </Section>
+      )}
     </div>
   );
 }

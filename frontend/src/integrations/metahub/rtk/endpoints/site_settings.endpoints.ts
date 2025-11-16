@@ -5,8 +5,12 @@ import { baseApi } from "../baseApi";
 
 /** Public JSON-like */
 export type JsonLike =
-  | string | number | boolean | null
-  | { [k: string]: JsonLike } | JsonLike[];
+  | string
+  | number
+  | boolean
+  | null
+  | { [k: string]: JsonLike }
+  | JsonLike[];
 
 export type SiteSetting = {
   key: string;
@@ -19,25 +23,45 @@ const PUBLIC_BASE = "/site_settings";
 const tryParse = <T = unknown>(x: unknown): T => {
   if (typeof x === "string") {
     const s = x.trim();
-    if ((s.startsWith("{") && s.endsWith("}")) || (s.startsWith("[") && s.endsWith("]"))) {
-      try { return JSON.parse(s) as T; } catch {}
+    if (
+      (s.startsWith("{") && s.endsWith("}")) ||
+      (s.startsWith("[") && s.endsWith("]"))
+    ) {
+      try {
+        return JSON.parse(s) as T;
+      } catch {
+        // swallow
+      }
     }
     if (s === "true") return true as unknown as T;
     if (s === "false") return false as unknown as T;
-    if (!Number.isNaN(Number(s)) && s !== "") return Number(s) as unknown as T;
+    if (!Number.isNaN(Number(s)) && s !== "") {
+      return Number(s) as unknown as T;
+    }
   }
   return x as T;
 };
 
-type ListArg = {
-  prefix?: string;
-  keys?: string[];
-  order?: "key.asc" | "key.desc" | "updated_at.asc" | "updated_at.desc" | "created_at.asc" | "created_at.desc";
-  limit?: number;
-  offset?: number;
-} | undefined;
+type ListArg =
+  | {
+      prefix?: string;
+      keys?: string[];
+      order?:
+        | "key.asc"
+        | "key.desc"
+        | "updated_at.asc"
+        | "updated_at.desc"
+        | "created_at.asc"
+        | "created_at.desc";
+      limit?: number;
+      offset?: number;
+    }
+  | undefined;
 
-const extendedApi = baseApi.enhanceEndpoints({ addTagTypes: ["SiteSettings"] as const });
+// SiteSettings tag'i ekliyoruz
+const extendedApi = baseApi.enhanceEndpoints({
+  addTagTypes: ["SiteSettings"] as const,
+});
 
 export const siteSettingsApi = extendedApi.injectEndpoints({
   endpoints: (b) => ({
@@ -68,7 +92,10 @@ export const siteSettingsApi = extendedApi.injectEndpoints({
       providesTags: (result) =>
         result
           ? [
-              ...result.map((s) => ({ type: "SiteSettings" as const, id: s.key })),
+              ...result.map((s) => ({
+                type: "SiteSettings" as const,
+                id: s.key,
+              })),
               { type: "SiteSettings" as const, id: "LIST" },
             ]
           : [{ type: "SiteSettings" as const, id: "LIST" }],
@@ -77,7 +104,9 @@ export const siteSettingsApi = extendedApi.injectEndpoints({
 
     /** GET /site_settings/:key */
     getSiteSettingByKey: b.query<SiteSetting | null, string>({
-      query: (key) => ({ url: `${PUBLIC_BASE}/${encodeURIComponent(key)}` }),
+      query: (key) => ({
+        url: `${PUBLIC_BASE}/${encodeURIComponent(key)}`,
+      }),
       transformResponse: (res: unknown): SiteSetting | null => {
         if (!res || typeof res !== "object") return null;
         const r = res as { key?: string; value?: unknown; updated_at?: string };

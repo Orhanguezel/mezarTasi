@@ -72,16 +72,13 @@ export const createAdmin: RouteHandler = async (req, reply) => {
     description: b.description,
     content: packContent(b.content),
 
-    icon: b.icon,
-    icon_type: b.icon_type,
-    lucide_icon: b.lucide_icon ?? null,
     link: b.link,
 
-    bg_color: b.bg_color,
-    hover_color: b.hover_color,
-    icon_color: b.icon_color,
-    text_color: b.text_color,
-    border_color: b.border_color,
+    bg_color: b.bg_color ?? "#F8FAFC",
+    hover_color: b.hover_color ?? "#EFF6FF",
+    icon_color: b.icon_color ?? "#0EA5E9",
+    text_color: b.text_color ?? "#0F172A",
+    border_color: b.border_color ?? "#E2E8F0",
 
     badge_text: b.badge_text ?? null,
     badge_color: b.badge_color ?? null,
@@ -123,9 +120,6 @@ export const patchAdmin: RouteHandler<{ Params: { id: string } }> = async (req, 
     description: b.description,
     content: typeof b.content === "string" ? packContent(b.content) : undefined,
 
-    icon: b.icon,
-    icon_type: b.icon_type,
-    lucide_icon: typeof b.lucide_icon !== "undefined" ? (b.lucide_icon ?? null) : undefined,
     link: b.link,
 
     bg_color: b.bg_color,

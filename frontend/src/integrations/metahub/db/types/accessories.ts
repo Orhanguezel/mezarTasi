@@ -112,8 +112,11 @@ export interface AccessoriesListParams {
 export interface AccessoriesAdminListParams extends AccessoriesListParams {
   is_active?: boolean;
 }
+// -------------------------------------------------------------
+// FILE: src/integrations/metahub/db/types/accessories.ts
+// -------------------------------------------------------------
+// ... üst kısımlar aynı
 
-/** Create / Update inputları (controller zod ile parse ediyor) */
 export interface AccessoryCreateInput {
   name: string;
   category: AccessoryKey;
@@ -122,6 +125,7 @@ export interface AccessoryCreateInput {
 
   description?: string;
   image_url?: string | null;
+  alt?: string | null;
   storage_asset_id?: string | null;
 
   featured?: boolean;
@@ -144,6 +148,7 @@ export interface AccessoryUpdateInput {
 
   description?: string | null;
   image_url?: string | null;
+  alt?: string | null;
   storage_asset_id?: string | null;
 
   featured?: boolean;

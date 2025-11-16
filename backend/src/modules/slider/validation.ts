@@ -34,12 +34,10 @@ export const createSchema = z.object({
   description: z.string().optional().nullable(),
 
   image_url: z.string().url().optional().nullable(),
-  /** ✅ standart alan adı */
   image_asset_id: z.string().uuid().optional().nullable(),
-
-  alt: z.string().max(255).optional(),
-  buttonText: z.string().max(100).optional(),
-  buttonLink: z.string().max(255).optional(),
+  alt: z.string().max(255).optional().nullable(),
+  buttonText: z.string().max(100).optional().nullable(),
+  buttonLink: z.string().max(255).optional().nullable(),
 
   featured: z.coerce.boolean().optional().default(false),
   is_active: z.coerce.boolean().optional().default(true),

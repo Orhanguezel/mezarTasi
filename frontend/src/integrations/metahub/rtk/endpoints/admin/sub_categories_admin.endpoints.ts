@@ -74,6 +74,7 @@ export type UpsertSubCategoryBody = {
   slug: string;
   description?: string | null;
   image_url?: string | null;
+  alt?: string | null;          // 🔹 eklendi – validation ve DB ile uyumlu
   icon?: string | null;
   is_active?: boolean;
   is_featured?: boolean;

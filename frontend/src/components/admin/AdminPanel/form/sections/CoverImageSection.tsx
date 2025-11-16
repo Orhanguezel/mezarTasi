@@ -12,36 +12,32 @@ import { ThumbById } from "./shared/ThumbById";
 import { ImagePlus, Trash2, X, Save as SaveIcon } from "lucide-react";
 
 export type CoverImageSectionProps = {
-  /** Başlık metni (default: "Görsel (tekli, storage destekli)") */
-  title?: string | undefined;
+  title?: string;
 
-  /** Storage tarafındaki mevcut kapak id'si (opsiyonel) */
-  coverId?: string | undefined;
-  /** Henüz kaydı yapılmamış "staged" kapak id'si (opsiyonel) */
-  stagedCoverId?: string | undefined;
+  coverId?: string;
+  stagedCoverId?: string;
 
-  /** Dış URL ve ALT (zorunlu) */
   imageUrl: string;
   alt: string;
 
-  /** Kaydetme/işlem sırasında gösterilecek durum (opsiyonel) */
-  saving?: boolean | undefined;
+  saving?: boolean;
 
-  /** Upload seçimi geldiğinde tetiklenecek handler (dosyayı parent yükler) */
-  onPickFile: (file: File) => void;
-
-  /** Storage kapak kaldırma */
+  onPickFile: (file: File) => void | Promise<void>;
   onRemove: () => void;
 
-  /** Dış URL ve ALT değişimleri */
   onUrlChange: (url: string) => void;
   onAltChange: (alt: string) => void;
 
-  /** Sadece ALT metnini kaydet (opsiyonel). Sağlanırsa bir "Alt'ı Kaydet" butonu çıkar */
-  onSaveAlt?: (() => void) | undefined;
+  onSaveAlt?: () => void;
 
-  /** Input accept (default: image/*) */
-  accept?: string | undefined;
+  /** Dosya input accept (default: image/*) */
+  accept?: string;
+
+  /** 🔸 Opsiyonel: tetikleme modu (varsayılan "label") */
+  trigger?: "label" | "button";
+
+  /** 🔸 Opsiyonel: input id (varsayılan "file-cover") */
+  inputId?: string;
 };
 
 export function CoverImageSection({
@@ -57,15 +53,21 @@ export function CoverImageSection({
   onAltChange,
   onSaveAlt,
   accept = "image/*",
+  trigger = "label",
+  inputId = "file-cover",
 }: CoverImageSectionProps) {
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const hasAnyStorage = Boolean(coverId || stagedCoverId);
 
   const handleFileChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const f = e.target.files?.[0];
-    if (f) onPickFile(f);
+    if (f) void onPickFile(f);
     // aynı dosyayı tekrar seçebilsin diye temizle
     e.currentTarget.value = "";
+  };
+
+  const openPicker = () => {
+    fileInputRef.current?.click();
   };
 
   return (
@@ -75,23 +77,40 @@ export function CoverImageSection({
         <div className="flex items-center gap-2">
           <input
             ref={fileInputRef}
-            id="file-cover"
+            id={inputId}
             type="file"
             className="hidden"
             accept={accept}
             onChange={handleFileChange}
           />
-          <label
-            htmlFor="file-cover"
-            className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700"
-          >
-            <ImagePlus className="h-4 w-4" />
-            Kapak Yükle
-          </label>
+
+          {trigger === "label" ? (
+            <label
+              htmlFor={inputId}
+              className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700"
+            >
+              <ImagePlus className="h-4 w-4" />
+              Kapak Yükle
+            </label>
+          ) : (
+            <Button
+              type="button"
+              onClick={openPicker}
+              className="inline-flex items-center gap-2 bg-rose-600 text-white hover:bg-rose-700"
+            >
+              <ImagePlus className="h-4 w-4" />
+              Kapak Yükle
+            </Button>
+          )}
 
           {hasAnyStorage && (
-            <Button variant="ghost" onClick={onRemove} className="text-rose-600">
-              <Trash2 className="h-4 w-4 mr-2" />
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onRemove}
+              className="text-rose-600"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
               Görseli Kaldır
             </Button>
           )}
@@ -109,7 +128,12 @@ export function CoverImageSection({
               onChange={(e) => onUrlChange(e.target.value)}
             />
             {imageUrl && (
-              <Button variant="ghost" onClick={() => onUrlChange("")} title="Temizle">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onUrlChange("")}
+                title="Temizle"
+              >
                 <X className="h-4 w-4" />
               </Button>
             )}
@@ -140,8 +164,8 @@ export function CoverImageSection({
                   onClick={onSaveAlt}
                   title="Sadece ALT bilgisini kaydet"
                 >
-                  <SaveIcon className="h-4 w-4 mr-2" />
-                  Alt'ı Kaydet
+                  <SaveIcon className="mr-2 h-4 w-4" />
+                  Alt&apos;ı Kaydet
                 </Button>
               )}
             </div>
@@ -150,15 +174,23 @@ export function CoverImageSection({
 
         {/* Storage Kapak Preview */}
         <div className="space-y-2">
-          <Label className="block">Storage Kapak (ID: {coverId ?? stagedCoverId ?? "—"})</Label>
+          <Label className="block">
+            Storage Kapak (ID: {coverId ?? stagedCoverId ?? "—"})
+          </Label>
           {hasAnyStorage ? (
             <div className="mt-2">
-              <ThumbById id={(coverId ?? stagedCoverId)!} />
+              <ThumbById id={(coverId ?? stagedCoverId)!} isCover />
             </div>
           ) : (
-            <div className="text-xs text-gray-500 mt-2">Henüz storage kapak seçilmedi.</div>
+            <div className="mt-2 text-xs text-gray-500">
+              Henüz storage kapak seçilmedi.
+            </div>
           )}
-          {saving && <div className="text-xs text-gray-500 mt-2">Görsel kaydediliyor…</div>}
+          {saving && (
+            <div className="mt-2 text-xs text-gray-500">
+              Görsel kaydediliyor…
+            </div>
+          )}
         </div>
       </div>
     </Section>

@@ -48,7 +48,7 @@ function publicUrlOf(bucket: string, path: string, providerUrl?: string | null) 
   return `${apiBase || ""}/storage/${encSeg(bucket)}/${encPath(path)}`;
 }
 const isDup = (e: any) => (e?.code ?? e?.errno) === "ER_DUP_ENTRY" || (e?.code ?? e?.errno) === 1062;
-const isFk  = (e: any) => (e?.code ?? e?.errno) === "ER_NO_REFERENCED_ROW_2" || (e?.code ?? e?.errno) === 1452;
+const isFk = (e: any) => (e?.code ?? e?.errno) === "ER_NO_REFERENCED_ROW_2" || (e?.code ?? e?.errno) === 1452;
 
 /* CREATE */
 export const adminCreateSubCategory: RouteHandler<{ Body: SubCategoryCreateInput }> = async (req, reply) => {
@@ -59,7 +59,7 @@ export const adminCreateSubCategory: RouteHandler<{ Body: SubCategoryCreateInput
     await db.insert(subCategories).values(payload);
   } catch (err: any) {
     if (isDup(err)) return reply.code(409).send({ error: { message: "duplicate_slug_in_category" } });
-    if (isFk(err))  return reply.code(400).send({ error: { message: "invalid_category_id" } });
+    if (isFk(err)) return reply.code(400).send({ error: { message: "invalid_category_id" } });
     return reply.code(500).send({ error: { message: "db_error", detail: String(err?.message ?? err) } });
   }
   const [row] = await db.select().from(subCategories).where(eq(subCategories.id, payload.id)).limit(1);
@@ -77,7 +77,7 @@ export const adminPutSubCategory: RouteHandler<{ Params: { id: string }; Body: S
       await db.update(subCategories).set(set as any).where(eq(subCategories.id, id));
     } catch (err: any) {
       if (isDup(err)) return reply.code(409).send({ error: { message: "duplicate_slug_in_category" } });
-      if (isFk(err))  return reply.code(400).send({ error: { message: "invalid_category_id" } });
+      if (isFk(err)) return reply.code(400).send({ error: { message: "invalid_category_id" } });
       return reply.code(500).send({ error: { message: "db_error", detail: String(err?.message ?? err) } });
     }
     const rows = await db.select().from(subCategories).where(eq(subCategories.id, id)).limit(1);
@@ -96,7 +96,7 @@ export const adminPatchSubCategory: RouteHandler<{ Params: { id: string }; Body:
       await db.update(subCategories).set(set as any).where(eq(subCategories.id, id));
     } catch (err: any) {
       if (isDup(err)) return reply.code(409).send({ error: { message: "duplicate_slug_in_category" } });
-      if (isFk(err))  return reply.code(400).send({ error: { message: "invalid_category_id" } });
+      if (isFk(err)) return reply.code(400).send({ error: { message: "invalid_category_id" } });
       return reply.code(500).send({ error: { message: "db_error", detail: String(err?.message ?? err) } });
     }
     const rows = await db.select().from(subCategories).where(eq(subCategories.id, id)).limit(1);
@@ -189,14 +189,14 @@ export const adminListSubCategories: RouteHandler<{ Querystring: AdminSubListQS 
     conds.push(or(like(subCategories.name, p), like(subCategories.slug, p)));
   }
   if (category_id) conds.push(eq(subCategories.category_id, category_id));
-  const a = toBool(is_active);  if (a !== undefined) conds.push(eq(subCategories.is_active, a));
-  const f = toBool(is_featured);if (f !== undefined) conds.push(eq(subCategories.is_featured, f));
+  const a = toBool(is_active); if (a !== undefined) conds.push(eq(subCategories.is_active, a));
+  const f = toBool(is_featured); if (f !== undefined) conds.push(eq(subCategories.is_featured, f));
 
   const col =
     sort === "name" ? subCategories.name :
-    sort === "created_at" ? subCategories.created_at :
-    sort === "updated_at" ? subCategories.updated_at :
-    subCategories.display_order;
+      sort === "created_at" ? subCategories.created_at :
+        sort === "updated_at" ? subCategories.updated_at :
+          subCategories.display_order;
 
   let qb = db.select().from(subCategories).$dynamic();
   if (conds.length) qb = qb.where(and(...conds));

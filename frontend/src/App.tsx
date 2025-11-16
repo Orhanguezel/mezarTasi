@@ -387,9 +387,9 @@ export default function App() {
             <Route path="/admin/faqs/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/faqs/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route path="/admin/recent-works" element={<AdminPanel onNavigate={onNavigateString} />} />
-            <Route path="/admin/recent-works/new" element={<AdminPanel onNavigate={onNavigateString} />} />
-            <Route path="/admin/recent-works/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/recent_works" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/recent_works/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/recent_works/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
             <Route path="/admin/settings" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/settings/:id" element={<AdminPanel onNavigate={onNavigateString} />} />

@@ -22,7 +22,8 @@ export const ContactUpdateSchema = z.object({
 export const ContactListParamsSchema = z.object({
   search: z.string().optional(),
   status: z.enum(["new", "in_progress", "closed"]).optional(),
-  resolved: z.boolean().optional(),
+  // 🔧 GET query string'ten geldiği için coerce et
+  resolved: z.coerce.boolean().optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
   offset: z.coerce.number().int().min(0).optional(),
   orderBy: z.enum(["created_at", "updated_at", "status", "name"]).optional(),

@@ -10,6 +10,7 @@ import type {
 
 export const contactsApi = baseApi.injectEndpoints({
   endpoints: (b) => ({
+    /** POST /contacts (public, honeypot'lu) */
     createContact: b.mutation<CreateContactPublicResponse, ContactCreateInput>({
       query: (body) => ({
         url: "/contacts",
@@ -17,6 +18,7 @@ export const contactsApi = baseApi.injectEndpoints({
         body,
         headers: { "x-skip-auth": "1" },
       }),
+      // Admin tarafında bir liste ekranı eklersen kullanılacak
       invalidatesTags: [{ type: "Contacts" as const, id: "LIST" }],
     }),
   }),

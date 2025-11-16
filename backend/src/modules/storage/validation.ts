@@ -34,5 +34,10 @@ export const signPutBodySchema = z.object({
 
 export type SignPutBody = z.infer<typeof signPutBodySchema>;
 
-export const signMultipartBodySchema = signPutBodySchema;
+export const signMultipartBodySchema = z.object({
+  filename: z.string().min(1),
+  folder: z.string().max(255).optional(),
+  content_type: z.string().min(1).optional(),
+}).strict();
+
 export type SignMultipartBody = z.infer<typeof signMultipartBodySchema>;

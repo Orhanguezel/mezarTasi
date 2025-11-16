@@ -1,4 +1,6 @@
-// src/components/public/CampaignAnnouncementDetailPanel.tsx
+// =============================================================
+// FILE: src/components/public/CampaignAnnouncementDetailPanel.tsx
+// =============================================================
 "use client";
 
 import React from "react";
@@ -6,6 +8,7 @@ import { ImageWithFallback } from "../figma/ImageWithFallback";
 import { useGetSimpleCampaignByIdQuery } from "@/integrations/metahub/rtk/endpoints/campaigns.endpoints";
 import { useGetAnnouncementByIdQuery } from "@/integrations/metahub/rtk/endpoints/announcements.endpoints";
 import type { SimpleCampaignView } from "@/integrations/metahub/db/types/campaigns";
+import type { AnnouncementView } from "@/integrations/metahub/db/types/announcements";
 
 const PLACEHOLDER =
   "https://images.unsplash.com/photo-1556740749-887f6717d7e4?w=800&h=500&fit=crop";
@@ -18,6 +21,19 @@ function campaignImageUrl(c: SimpleCampaignView): string {
     c.image_url ??
     PLACEHOLDER
   );
+}
+
+function firstImgFromHtml(html?: string | null): string | null {
+  if (!html) return null;
+  const tmp = typeof window !== "undefined" ? document.createElement("div") : null;
+  if (!tmp) return null;
+  tmp.innerHTML = html;
+  const img = tmp.querySelector("img");
+  return img?.getAttribute("src") || null;
+}
+
+function announcementImageUrl(a: AnnouncementView): string {
+  return a.image_url || firstImgFromHtml(a.html) || PLACEHOLDER;
 }
 
 export function DetailPanel({
@@ -33,7 +49,7 @@ export function DetailPanel({
   const isCampaign = kind === "campaign";
   const isAnnouncement = kind === "announcement";
 
-  // Sayısal/alfanümerik ayrımı YOK — BE ne veriyorsa o.
+  // Kampanya
   const {
     data: campaign,
     isFetching: isCampaignLoading,
@@ -44,6 +60,7 @@ export function DetailPanel({
     refetchOnMountOrArgChange: true,
   });
 
+  // Duyuru
   const {
     data: announcement,
     isFetching: isAnnouncementLoading,
@@ -94,19 +111,6 @@ export function DetailPanel({
         {!!campaign.description && (
           <p className="text-slate-700 leading-relaxed">{campaign.description}</p>
         )}
-
-        {campaign.seo_keywords?.length ? (
-          <div className="flex flex-wrap gap-2 pt-2">
-            {campaign.seo_keywords.map((k) => (
-              <span
-                key={k}
-                className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200"
-              >
-                #{k}
-              </span>
-            ))}
-          </div>
-        ) : null}
       </div>
     );
   }
@@ -119,15 +123,19 @@ export function DetailPanel({
     (announcement as any).updated_at ||
     (announcement as any).created_at ||
     "";
+  const when =
+    whenRaw && !Number.isNaN(Date.parse(whenRaw)) ? new Date(whenRaw).toLocaleString() : "";
 
-    const when = whenRaw && !Number.isNaN(Date.parse(whenRaw)) ? new Date(whenRaw).toLocaleString() : "";
+  // Renkler hex olarak geliyor → inline style ile uygula
+  const bg = (announcement as any).bg_color || "#ffffff";
+  const text = (announcement as any).text_color || "#0f172a";
+  const border = (announcement as any).border_color || "#e2e8f0";
 
-  const bg = (announcement as any).bg_color || "bg-white";
-  const text = (announcement as any).text_color || "text-slate-800";
-  const border = (announcement as any).border_color || "border-slate-200";
+  const imgSrc = announcementImageUrl(announcement);
+  const imgAlt = announcement.alt || announcement.title;
 
   return (
-    <div className={`p-6 ${bg} ${text} border-t ${border}`}>
+    <div className="p-6 border-t rounded-b-lg" style={{ backgroundColor: bg, color: text, borderColor: border }}>
       <div className="text-center space-y-2">
         <div className="inline-flex text-xs px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-200">
           Duyuru
@@ -136,8 +144,14 @@ export function DetailPanel({
         {when && <div className="text-xs opacity-80">{when}</div>}
       </div>
 
+      {/* Kapak görseli */}
+      <div className="w-full mt-6 rounded-lg overflow-hidden">
+        <ImageWithFallback src={imgSrc} alt={imgAlt} className="w-full h-60 md:h-72 object-cover" />
+      </div>
+
+      {/* HTML içerik */}
       <div className="prose max-w-none mt-6 prose-p:my-3 prose-headings:mt-6 prose-headings:mb-3">
-         <div dangerouslySetInnerHTML={{ __html: (announcement as any).html || "" }} />
+        <div dangerouslySetInnerHTML={{ __html: (announcement as any).html || "" }} />
       </div>
     </div>
   );

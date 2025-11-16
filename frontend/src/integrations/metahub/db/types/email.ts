@@ -4,21 +4,21 @@
 
 export type BoolLike = boolean | 0 | 1 | "0" | "1" | "true" | "false";
 
-export type EmailTemplateRow = {
+export type EmailRow = {
   id: string;
-  template_key: string;     // BE anahtar adı
-  template_name: string;    // İnsan-okur adı
+  template_key: string;      // BE anahtar adı
+  template_name: string;     // İnsan-okur adı
   subject: string;
-  content?: unknown;        // HTML string veya farklı form
+  content?: unknown;         // HTML string veya farklı form
   body_html?: string | null; // Bazı BE'ler bu adı kullanabilir
-  variables?: unknown;      // string[] | string (comma) | JSON-string | null
+  variables?: unknown;       // string[] | string (comma) | JSON-string | null
   is_active: BoolLike;
   locale?: string | null;
-  created_at?: string;
-  updated_at?: string;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
-export type EmailTemplateView = {
+export type EmailView = {
   id: string;
   key: string;
   name: string;
@@ -26,7 +26,7 @@ export type EmailTemplateView = {
   content_html: string;
   variables: string[];
   is_active: boolean;
-  locale?: string | null;
-  created_at?: string;
-  updated_at?: string;
+  locale: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 };

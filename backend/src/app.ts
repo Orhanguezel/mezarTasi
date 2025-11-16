@@ -21,7 +21,7 @@ import { registerCustomPages } from '@/modules/customPages/router';
 import { registerSiteSettings } from '@/modules/siteSettings/router';
 import { registerUserRoles } from "@/modules/userRoles/router";
 import { registerInfoCards } from "@/modules/info_cards/router";
-import { registerAnnouncements } from "@/modules/announcements/router"; 
+import { registerAnnouncements } from "@/modules/announcements/router";
 import { registerSimpleCampaigns } from "@/modules/campaigns/router";
 import { registerCemeteries } from "@/modules/cemeteries/router";
 import { registerRecentWorks } from "@/modules/recent_works/router";
@@ -31,6 +31,7 @@ import { registerReviews } from "@/modules/review/router";
 import { registerContacts } from "@/modules/contact/router";
 import { registerAccessories } from "@/modules/accessories/router";
 import { registerSlider } from "@/modules/slider/router";
+import { registerMail } from "@/modules/mail/router";
 
 // Admin modüller
 import { registerProductsAdmin } from "@/modules/products/admin.routes";
@@ -78,10 +79,10 @@ export async function createApp() {
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
-      'Content-Type','Authorization','Prefer','Accept','Accept-Language',
-      'x-skip-auth','Range',
+      'Content-Type', 'Authorization', 'Prefer', 'Accept', 'Accept-Language',
+      'x-skip-auth', 'Range',
     ],
-    exposedHeaders: ['x-total-count','content-range','range'],
+    exposedHeaders: ['x-total-count', 'content-range', 'range'],
   });
 
   // --- Cookie ---
@@ -123,30 +124,30 @@ export async function createApp() {
   // === TÜM ROUTER’LARI /api ALTINDA TOPLA ===
   await app.register(async (api) => {
     // --- Admin modüller → /api/admin/...
-    await api.register(registerProductsAdmin,    { prefix: "/admin" });
+    await api.register(registerProductsAdmin, { prefix: "/admin" });
     await api.register(registerCustomPagesAdmin, { prefix: "/admin" });
-    await api.register(registerSiteSettingsAdmin,{ prefix: "/admin" });
-    await api.register(registerUserAdmin,        { prefix: "/admin" });
-    await api.register(registerCampaignsAdmin,   { prefix: "/admin" });
-    await api.register(registerAnnouncementsAdmin,{ prefix: "/admin" });
-    await api.register(registerInfoCardsAdmin,   { prefix: "/admin" });
-    await api.register(registerCemeteriesAdmin,  { prefix: "/admin" });
+    await api.register(registerSiteSettingsAdmin, { prefix: "/admin" });
+    await api.register(registerUserAdmin, { prefix: "/admin" });
+    await api.register(registerCampaignsAdmin, { prefix: "/admin" });
+    await api.register(registerAnnouncementsAdmin, { prefix: "/admin" });
+    await api.register(registerInfoCardsAdmin, { prefix: "/admin" });
+    await api.register(registerCemeteriesAdmin, { prefix: "/admin" });
     await api.register(registerRecentWorksAdmin, { prefix: "/admin" });
-    await api.register(registerFaqsAdmin,        { prefix: "/admin" });
-    await api.register(registerServicesAdmin,    { prefix: "/admin" });
-    await api.register(registerReviewsAdmin,     { prefix: "/admin" });
-    await api.register(registerContactsAdmin,    { prefix: "/admin" });
+    await api.register(registerFaqsAdmin, { prefix: "/admin" });
+    await api.register(registerServicesAdmin, { prefix: "/admin" });
+    await api.register(registerReviewsAdmin, { prefix: "/admin" });
+    await api.register(registerContactsAdmin, { prefix: "/admin" });
     await api.register(registerAccessoriesAdmin, { prefix: "/admin" });
-    await api.register(registerSliderAdmin,      { prefix: "/admin" });
-    await api.register(registerStorageAdmin,     { prefix: "/admin" });
-    await api.register(registerCategoriesAdmin,  { prefix: "/admin" });
-    await api.register(registerSubCategoriesAdmin,{ prefix: "/admin" });
-    await api.register(registerDbAdmin,          { prefix: "/admin" });
+    await api.register(registerSliderAdmin, { prefix: "/admin" });
+    await api.register(registerStorageAdmin, { prefix: "/admin" });
+    await api.register(registerCategoriesAdmin, { prefix: "/admin" });
+    await api.register(registerSubCategoriesAdmin, { prefix: "/admin" });
+    await api.register(registerDbAdmin, { prefix: "/admin" });
 
 
     // --- Public modüller → /api/...
     await registerAuth(api);
-    await registerStorage(api);       
+    await registerStorage(api);
     await registerProfiles(api);
     await registerCategories(api);
     await registerSubCategories(api);
@@ -165,6 +166,7 @@ export async function createApp() {
     await registerContacts(api);
     await registerAccessories(api);
     await registerSlider(api);
+    await registerMail(api);
   }, { prefix: "/api" });
 
   registerErrorHandlers(app);

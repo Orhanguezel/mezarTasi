@@ -1,12 +1,8 @@
-// ---------------------------------------------------------------------
-// FILE: src/integrations/metahub/rtk/endpoints/admin/announcements_admin.endpoints.ts
-// ---------------------------------------------------------------------
 import { baseApi } from "../../baseApi";
 import type { AnnouncementRow, AnnouncementView } from "../../../db/types/announcements";
 
 const toBool = (x: any) => x === true || x === 1 || x === "1" || x === "true";
 
-// BE çoğunlukla content’i DÜZ HTML döner. Nadiren {"html": "..."} gelebilir → html’i çek.
 function extractHtmlAdmin(content?: unknown): string {
   if (typeof content === "string") {
     try {
@@ -44,9 +40,6 @@ export type AnnouncementAdminUpsertInput = Partial<
     AnnouncementRow,
     | "title"
     | "description"
-    | "icon"
-    | "icon_type"
-    | "lucide_icon"
     | "link"
     | "bg_color"
     | "hover_color"
@@ -68,7 +61,6 @@ export type AnnouncementAdminUpsertInput = Partial<
   published_at?: string | null;
   expires_at?: string | null;
 
-  // ✅ Görsel alanları (isimler birebir)
   image_url?: string | null;
   storage_asset_id?: string | null;
   alt?: string | null;
@@ -117,7 +109,6 @@ export const adminAnnouncementsApi = baseApi.injectEndpoints({
       invalidatesTags: [{ type: "Announcements" as const, id: "ADMIN_LIST" }],
     }),
 
-    // ✅ SINGLE IMAGE SET (storage pattern)
     setAnnouncementImageAdmin: b.mutation<
       AnnouncementView,
       { id: string; body: { storage_asset_id?: string | null; image_url?: string | null; alt?: string | null } }
@@ -144,5 +135,5 @@ export const {
   useUpdateAnnouncementAdminMutation,
   useDeleteAnnouncementAdminMutation,
   useReorderAnnouncementsAdminMutation,
-  useSetAnnouncementImageAdminMutation, // 👈
+  useSetAnnouncementImageAdminMutation,
 } = adminAnnouncementsApi;

@@ -46,7 +46,7 @@ export const serviceCreateSchema = z.object({
   // ✅ image alanları (isim standardı)
   image_url: z.string().url().max(500).optional().nullable(),
   image_asset_id: z.string().uuid().optional().nullable(),
-  alt: z.string().max(255).optional(),
+  alt: z.string().max(255).optional().nullable(),
 
   featured: z.coerce.boolean().optional().default(false),
   is_active: z.coerce.boolean().optional().default(true),

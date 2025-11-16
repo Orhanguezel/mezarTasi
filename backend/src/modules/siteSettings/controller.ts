@@ -1,12 +1,23 @@
-import type { RouteHandler } from "fastify";
-import { db } from "@/db/client";
-import { siteSettings } from "./schema";
-import { eq, like, inArray, asc, desc, and } from "drizzle-orm";
+// src/modules/siteSettings/controller.ts
+import type { RouteHandler } from 'fastify';
+import { randomUUID } from 'crypto';
+import { db } from '@/db/client';
+import { eq, like, inArray, asc, desc, and, sql } from 'drizzle-orm';
+import { siteSettings } from './schema';
+import {
+  siteSettingUpsertSchema,
+  siteSettingBulkUpsertSchema,
+  type JsonLike,
+} from './validation';
 
 function parseDbValue(s: string): unknown {
   try { return JSON.parse(s); } catch { return s; }
 }
+function stringifyValue(v: JsonLike): string {
+  return JSON.stringify(v);
+}
 
+/** Tek satırı FE'nin beklediği DTO'ya çevir */
 function rowToDto(r: typeof siteSettings.$inferSelect) {
   return {
     id: r.id,
@@ -20,17 +31,19 @@ function rowToDto(r: typeof siteSettings.$inferSelect) {
 /**
  * GET /site_settings
  * Query:
- * - key: eşitlik
- * - key_in/keys: "a,b,c" -> IN(...)
- * - prefix: LIKE 'prefix%'
- * - order: "updated_at.desc" | "key.asc" (default key.asc)
- * - limit, offset
+ * - select:   (yok sayılır; FE uyumu için var)
+ * - key:      eşitlik
+ * - key_in:   "a,b,c" -> IN(...)
+ * - prefix:   LIKE 'prefix%'
+ * - order:    "updated_at.desc" | "key.asc" (yoksa key.asc)
+ * - limit, offset: sayı
  */
 export const listSiteSettings: RouteHandler = async (req, reply) => {
   const q = (req.query || {}) as {
+    select?: string;
     key?: string;
-    key_in?: string;
-    keys?: string;
+    key_in?: string; // mevcut
+    keys?: string;   // <-- alias
     prefix?: string;
     order?: string;
     limit?: string | number;
@@ -38,33 +51,39 @@ export const listSiteSettings: RouteHandler = async (req, reply) => {
   };
 
   let qb = db.select().from(siteSettings).$dynamic();
-  const conds: any[] = [];
+  const conditions: unknown[] = [];
 
-  if (q.prefix) conds.push(like(siteSettings.key, `${q.prefix}%`));
-  if (q.key)    conds.push(eq(siteSettings.key, q.key));
+  if (q.prefix) conditions.push(like(siteSettings.key, `${q.prefix}%`));
+  if (q.key)    conditions.push(eq(siteSettings.key, q.key));
 
-  const inParam = q.key_in ?? q.keys;
-  if (inParam) {
-    const arr = inParam.split(",").map((s) => s.trim()).filter(Boolean);
-    if (arr.length) conds.push(inArray(siteSettings.key, arr));
+  const keyInParam = q.key_in ?? q.keys; // alias
+  if (keyInParam) {
+    const arr = keyInParam.split(',').map(s => s.trim()).filter(Boolean);
+    if (arr.length) conditions.push(inArray(siteSettings.key, arr));
   }
 
-  if (conds.length === 1) qb = qb.where(conds[0]);
-  else if (conds.length > 1) qb = qb.where(and(...conds));
+  if (conditions.length === 1) qb = qb.where(conditions[0] as any);
+  else if (conditions.length > 1) qb = qb.where(and(...(conditions as any)));
 
+  // order
   if (q.order) {
-    const [col, dir] = q.order.split(".");
+    const [col, dir] = q.order.split('.');
     const colRef = (siteSettings as any)[col];
-    qb = colRef ? qb.orderBy(dir === "desc" ? desc(colRef) : asc(colRef)) : qb.orderBy(asc(siteSettings.key));
+    if (colRef) {
+      qb = qb.orderBy(dir === 'desc' ? desc(colRef) : asc(colRef));
+    } else {
+      qb = qb.orderBy(asc(siteSettings.key));
+    }
   } else {
     qb = qb.orderBy(asc(siteSettings.key));
   }
 
-  if (q.limit != null && q.limit !== "") {
+  // limit/offset
+  if (q.limit != null && q.limit !== '') {
     const n = Number(q.limit);
     if (!Number.isNaN(n) && n > 0) qb = qb.limit(n);
   }
-  if (q.offset != null && q.offset !== "") {
+  if (q.offset != null && q.offset !== '') {
     const m = Number(q.offset);
     if (!Number.isNaN(m) && m >= 0) qb = qb.offset(m);
   }
@@ -76,7 +95,12 @@ export const listSiteSettings: RouteHandler = async (req, reply) => {
 /** GET /site_settings/:key */
 export const getSiteSettingByKey: RouteHandler = async (req, reply) => {
   const { key } = req.params as { key: string };
-  const rows = await db.select().from(siteSettings).where(eq(siteSettings.key, key)).limit(1);
-  if (!rows.length) return reply.code(404).send({ error: { message: "not_found" } });
+
+  const rows = await db.select().from(siteSettings)
+    .where(eq(siteSettings.key, key))
+    .limit(1);
+
+  if (!rows.length) return reply.code(404).send({ error: { message: 'not_found' } });
+
   return reply.send(rowToDto(rows[0]));
 };

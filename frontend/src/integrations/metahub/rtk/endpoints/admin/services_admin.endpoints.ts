@@ -7,9 +7,8 @@ import type {
   ServiceView,
   ServiceCreateInput,
   ServiceUpdateInput,
-  ServiceAttachImageBody, // { storage_asset_id?: string; image_url?: string }
-  ServiceReorderBody,     // { ids: string[] }
-  ServiceStatusBody,      // { is_active: boolean }
+  ServiceReorderBody,
+  ServiceStatusBody,
 } from "@/integrations/metahub/db/types/services.types";
 
 /** QueryString helper — void/undefined güvenli */
@@ -26,18 +25,20 @@ function qs(params?: Record<string, unknown>) {
 }
 
 /** FE -> BE admin list param eşlemesi (void/undefined güvenli) */
-function toAdminQuery(p: ServiceListParams | void | undefined): Record<string, unknown> | undefined {
+function toAdminQuery(
+  p: ServiceListParams | void | undefined,
+): Record<string, unknown> | undefined {
   if (!p) return undefined;
   const q: Record<string, unknown> = {};
-  if (p.search !== undefined)   q.q = p.search;
-  if (p.type !== undefined)     q.type = p.type;
+  if (p.search !== undefined) q.q = p.search;
+  if (p.type !== undefined) q.type = p.type;
   if (p.category !== undefined) q.category = p.category;
   if (p.featured !== undefined) q.featured = p.featured;
-  if (p.active !== undefined)   q.is_active = p.active;
-  if (p.limit !== undefined)    q.limit = p.limit;
-  if (p.offset !== undefined)   q.offset = p.offset;
-  if (p.orderBy !== undefined)  q.sort = p.orderBy;
-  if (p.order !== undefined)    q.order = p.order;
+  if (p.active !== undefined) q.is_active = p.active;
+  if (p.limit !== undefined) q.limit = p.limit;
+  if (p.offset !== undefined) q.offset = p.offset;
+  if (p.orderBy !== undefined) q.sort = p.orderBy;
+  if (p.order !== undefined) q.order = p.order;
   return q;
 }
 
@@ -55,48 +56,40 @@ const toBool = (x: unknown): boolean | null => {
   if (x === undefined || x === null) return null;
   if (typeof x === "boolean") return x;
   if (typeof x === "number") return x !== 0;
-  if (typeof x === "string") return ["1","true","TRUE","on","yes"].includes(x);
+  if (typeof x === "string")
+    return ["1", "true", "TRUE", "on", "yes"].includes(x);
   return null;
 };
 
-/** undefined alanları düşür (exactOptionalPropertyTypes uyumlu) */
-function compact<T extends object>(obj: T): Partial<T> {
-  const out: Partial<T> = {};
-  for (const k of Object.keys(obj) as Array<keyof T>) {
-    const v = obj[k];
-    if (v !== undefined) out[k] = v;
-  }
-  return out;
-}
-
-/** BE → FE normalize (storage ile hizalı isimler) */
+/** BE → FE normalize */
 function normalizeService(raw: any): ServiceView {
   const s: any = { ...raw };
 
-  const id   = toStr(s.id)!;
+  const id = toStr(s.id)!;
   const slug = toStr(s.slug)!;
   const name = toStr(s.name)!;
 
-  const type     = (toStr(s.type) ?? "other") as ServiceView["type"];
+  const type = (toStr(s.type) ?? "other") as ServiceView["type"];
   const category = toStr(s.category) ?? "general";
 
-  const material    = s.material == null ? null : toStr(s.material);
-  const price       = s.price == null ? null : toStr(s.price);
+  const material = s.material == null ? null : toStr(s.material);
+  const price = s.price == null ? null : toStr(s.price);
   const description = s.description == null ? null : toStr(s.description);
 
   const display_order = toNum(s.display_order) ?? 1;
-  const featured  = Boolean(toBool(s.featured) ?? s.featured ?? false);
+  const featured = Boolean(toBool(s.featured) ?? s.featured ?? false);
   const is_active = Boolean(toBool(s.is_active) ?? s.is_active ?? true);
 
-  const image_url        = toStr(s.image_url);
-  const storage_asset_id = toStr(s.storage_asset_id);
-  const alt              = toStr(s.alt);
-  const image_effective_url = toStr(s.image_effective_url) ?? image_url ?? null;
+  const image_url = toStr(s.image_url);
+  const image_asset_id = toStr(s.image_asset_id);
+  const alt = toStr(s.alt);
+  const image_effective_url =
+    toStr(s.image_effective_url) ?? image_url ?? null;
 
-  const area        = toStr(s.area);
-  const duration    = toStr(s.duration);
+  const area = toStr(s.area);
+  const duration = toStr(s.duration);
   const maintenance = toStr(s.maintenance);
-  const season      = toStr(s.season);
+  const season = toStr(s.season);
 
   const soil_type = toStr(s.soil_type);
   const thickness = toStr(s.thickness);
@@ -109,15 +102,32 @@ function normalizeService(raw: any): ServiceView {
   const updated_at = toStr(s.updated_at) ?? created_at;
 
   return {
-    id, slug, name,
-    type, category,
-    material, price, description,
-    featured, is_active, display_order,
-    image_url, storage_asset_id, alt, image_effective_url,
-    area, duration, maintenance, season,
-    soil_type, thickness, equipment,
-    warranty, includes,
-    created_at, updated_at,
+    id,
+    slug,
+    name,
+    type,
+    category,
+    material,
+    price,
+    description,
+    featured,
+    is_active,
+    display_order,
+    image_url,
+    image_asset_id,
+    alt,
+    image_effective_url,
+    area,
+    duration,
+    maintenance,
+    season,
+    soil_type,
+    thickness,
+    equipment,
+    warranty,
+    includes,
+    created_at,
+    updated_at,
   };
 }
 
@@ -142,7 +152,10 @@ export const servicesAdminApi = baseApi.injectEndpoints({
         result
           ? [
               { type: "Services", id: "LIST" },
-              ...result.map((s) => ({ type: "Services" as const, id: s.id })),
+              ...result.map((s) => ({
+                type: "Services" as const,
+                id: s.id,
+              })),
             ]
           : [{ type: "Services", id: "LIST" }],
     }),
@@ -166,7 +179,10 @@ export const servicesAdminApi = baseApi.injectEndpoints({
     }),
 
     /** UPDATE (partial) */
-    updateServiceAdmin: builder.mutation<ServiceView, { id: string; body: ServiceUpdateInput }>({
+    updateServiceAdmin: builder.mutation<
+      ServiceView,
+      { id: string; body: ServiceUpdateInput }
+    >({
       query: ({ id, body }) => ({
         url: `${ADMIN_BASE}/${encodeURIComponent(id)}`,
         method: "PATCH",
@@ -191,8 +207,6 @@ export const servicesAdminApi = baseApi.injectEndpoints({
       ],
     }),
 
-    /* --------- Ek işlemler (backend ile birebir) --------- */
-
     /** POST /admin/services/reorder  { ids: string[] } */
     reorderServicesAdmin: builder.mutation<{ ok: true }, ServiceReorderBody>({
       query: (body) => ({
@@ -205,54 +219,14 @@ export const servicesAdminApi = baseApi.injectEndpoints({
     }),
 
     /** POST /admin/services/:id/status  { is_active: boolean } */
-    setServiceStatusAdmin: builder.mutation<ServiceView, { id: string; body: ServiceStatusBody }>({
+    setServiceStatusAdmin: builder.mutation<
+      ServiceView,
+      { id: string; body: ServiceStatusBody }
+    >({
       query: ({ id, body }) => ({
         url: `${ADMIN_BASE}/${encodeURIComponent(id)}/status`,
         method: "POST",
         body,
-      }),
-      transformResponse: (res: unknown): ServiceView => normalizeService(res),
-      invalidatesTags: (_r, _e, arg) => [
-        { type: "Services", id: arg.id },
-        { type: "Services", id: "LIST" },
-      ],
-    }),
-
-    /** POST /admin/services/:id/attach-image  { storage_asset_id?, image_url? } */
-    attachServiceImage: builder.mutation<ServiceView, { id: string; body: ServiceAttachImageBody }>({
-      query: ({ id, body }) => ({
-        url: `${ADMIN_BASE}/${encodeURIComponent(id)}/attach-image`,
-        method: "POST",
-        body: compact(body),
-      }),
-      transformResponse: (res: unknown): ServiceView => normalizeService(res),
-      invalidatesTags: (_r, _e, arg) => [
-        { type: "Services", id: arg.id },
-        { type: "Services", id: "LIST" },
-      ],
-    }),
-
-    // services_admin.endpoints.ts içinde:
-setServiceImageAdmin: builder.mutation<ServiceView, { id: string; body: { asset_id?: string | null } }>({
-  query: ({ id, body }) => ({
-    url: `/admin/services/${encodeURIComponent(id)}/image`,
-    method: "PATCH",
-    body,
-  }),
-  transformResponse: (res: unknown): ServiceView => normalizeService(res),
-  invalidatesTags: (_r, _e, arg) => [
-    { type: "Services", id: arg.id },
-    { type: "Services", id: "LIST" },
-  ],
-}),
-// export { useSetServiceImageAdminMutation }
-
-
-    /** POST /admin/services/:id/detach-image  (body yok) */
-    detachServiceImage: builder.mutation<ServiceView, { id: string }>({
-      query: ({ id }) => ({
-        url: `${ADMIN_BASE}/${encodeURIComponent(id)}/detach-image`,
-        method: "POST",
       }),
       transformResponse: (res: unknown): ServiceView => normalizeService(res),
       invalidatesTags: (_r, _e, arg) => [
@@ -272,7 +246,4 @@ export const {
   useDeleteServiceAdminMutation,
   useReorderServicesAdminMutation,
   useSetServiceStatusAdminMutation,
-  useAttachServiceImageMutation,
-  useDetachServiceImageMutation,
-  useSetServiceImageAdminMutation
 } = servicesAdminApi;

@@ -11,9 +11,6 @@ CREATE TABLE `announcements` (
   `content`         LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL
                     CHECK (JSON_VALID(`content`)),
 
-  `icon`            VARCHAR(32)  NOT NULL,
-  `icon_type`       VARCHAR(10)  NOT NULL,  -- 'emoji' | 'lucide'
-  `lucide_icon`     VARCHAR(64)  DEFAULT NULL,
   `link`            VARCHAR(255) NOT NULL,
 
   `bg_color`        VARCHAR(64)  NOT NULL,
@@ -27,10 +24,9 @@ CREATE TABLE `announcements` (
   `button_text`     VARCHAR(64)  DEFAULT NULL,
   `button_color`    VARCHAR(64)  DEFAULT NULL,
 
-  -- storage pattern (şema ile aynı)
-  `image_url`       VARCHAR(500) DEFAULT NULL,
-  `storage_asset_id` CHAR(36)    DEFAULT NULL,
-  `alt`             VARCHAR(255) DEFAULT NULL,
+  `image_url`        VARCHAR(500) DEFAULT NULL,
+  `storage_asset_id` CHAR(36)     DEFAULT NULL,
+  `alt`              VARCHAR(255) DEFAULT NULL,
 
   `is_active`       TINYINT(1)   NOT NULL DEFAULT 1,
   `is_published`    TINYINT(1)   NOT NULL DEFAULT 1,
@@ -52,9 +48,9 @@ CREATE TABLE `announcements` (
   KEY `announcements_asset_idx`  (`storage_asset_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Seed örnekleri
+-- (Opsiyonel) Basit seed örnekleri
 INSERT INTO `announcements`
-(`id`,`title`,`description`,`content`,`icon`,`icon_type`,`lucide_icon`,`link`,
+(`id`,`title`,`description`,`content`,`link`,
  `bg_color`,`hover_color`,`icon_color`,`text_color`,`border_color`,
  `badge_text`,`badge_color`,`button_text`,`button_color`,
  `is_active`,`is_published`,`display_order`,
@@ -63,34 +59,17 @@ INSERT INTO `announcements`
 VALUES
 (UUID(),'Ramazan Kampanyası','Ramazan ayına özel mezar yapımı ve işçilik kampanyası',
  JSON_OBJECT('html','<h2>Ramazan Ayına Özel Mezar Yapımı Kampanyası</h2>...'),
- '🌙','emoji',NULL,'ramadanCampaign',
+ '/kampanyalar/ramazan',
  'bg-amber-50','hover:bg-amber-100','text-amber-600','text-amber-700','border-amber-200',
  'Kampanya','bg-amber-500','Kampanya Detayları','bg-amber-600 hover:bg-amber-700',
  1,1,1,'2024-01-15 00:00:00.000','2024-01-15 00:00:00.000','2024-01-15 00:00:00.000','2024-05-15 00:00:00.000',
- 'Ramazan Kampanyası - %20 İndirim | Mezarisim.com','Ramazan ayına özel mezar yapımı kampanyası...'),
+ 'Ramazan Kampanyası - %20 İndirim','Ramazan ayına özel kampanya...'),
 
-(UUID(),'Mermer Koleksiyonu','Premium mermer mezar taşı koleksiyonu ve özel tasarımlar',
- JSON_OBJECT('html','<h2>Premium Mermer Mezar Taşı Koleksiyonu</h2>...'),
- '🏛️','emoji',NULL,'marbleCollection',
- 'bg-blue-50','hover:bg-blue-100','text-blue-600','text-blue-700','border-blue-200',
- 'Koleksiyon','bg-blue-500','Koleksiyonu İncele','bg-blue-600 hover:bg-blue-700',
- 1,1,2,'2024-01-10 00:00:00.000','2024-01-20 00:00:00.000','2024-01-10 00:00:00.000',NULL,
- 'Premium Mermer Koleksiyonu | Afyon, Carrara, Thassos Mermer','Premium mermer mezar taşı koleksiyonu...'),
-
-(UUID(),'Ücretsiz Keşif','Ücretsiz mezar keşif hizmeti ve fiyat teklifi almak',
- JSON_OBJECT('html','<h2>Ücretsiz Mezar Keşif Hizmeti</h2>...'),
- '🔍','emoji',NULL,'freeInspection',
+(UUID(),'Ücretsiz Keşif','Ücretsiz keşif ve fiyat teklifi alın',
+ JSON_OBJECT('html','<h2>Ücretsiz Keşif Hizmeti</h2>...'),
+ '/ucretsiz-kesif',
  'bg-green-50','hover:bg-green-100','text-green-600','text-green-700','border-green-200',
  'Hizmet','bg-green-500','Keşif Talep Et','bg-green-600 hover:bg-green-700',
- 1,1,3,'2024-01-05 00:00:00.000','2024-01-25 00:00:00.000','2024-01-05 00:00:00.000',NULL,
- 'Ücretsiz Mezar Keşif Hizmeti | İstanbul Mezar Yapımı','Ücretsiz mezar keşif hizmeti...')
-ON DUPLICATE KEY UPDATE
-  `title`=VALUES(`title`),`description`=VALUES(`description`),`content`=VALUES(`content`),
-  `icon`=VALUES(`icon`),`icon_type`=VALUES(`icon_type`),`lucide_icon`=VALUES(`lucide_icon`),
-  `link`=VALUES(`link`),`bg_color`=VALUES(`bg_color`),`hover_color`=VALUES(`hover_color`),
-  `icon_color`=VALUES(`icon_color`),`text_color`=VALUES(`text_color`),`border_color`=VALUES(`border_color`),
-  `badge_text`=VALUES(`badge_text`),`badge_color`=VALUES(`badge_color`),
-  `button_text`=VALUES(`button_text`),`button_color`=VALUES(`button_color`),
-  `is_active`=VALUES(`is_active`),`is_published`=VALUES(`is_published`),
-  `display_order`=VALUES(`display_order`),`published_at`=VALUES(`published_at`),
-  `expires_at`=VALUES(`expires_at`),`meta_title`=VALUES(`meta_title`),`meta_description`=VALUES(`meta_description`);
+ 1,1,2,'2024-01-05 00:00:00.000','2024-01-25 00:00:00.000','2024-01-05 00:00:00.000',NULL,
+ 'Ücretsiz Keşif Hizmeti','Ücretsiz keşif hizmeti...')
+;

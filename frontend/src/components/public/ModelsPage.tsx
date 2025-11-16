@@ -1,4 +1,6 @@
 // FILE: src/pages/.../ModelsPage.tsx
+"use client";
+
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
@@ -160,7 +162,7 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
       category: "modeller",
       material: "Granit + Özel İşçilik",
       price: "Fiyat İçin Arayınız",
-      image: tombstoneImage2, // kullanarak import'u boşa çıkarmıyoruz
+      image: tombstoneImage2,
       description: "Müşteri isteklerine göre özel olarak tasarlanan granit mezar baş taşı modeli",
       featured: true,
       dimensions: "Müşteri İsteğine Göre",
@@ -651,14 +653,12 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Modal — AccessoriesPage ile aynı yapıda detaylı */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent
-          className="max-w-2xl bg-white/90 max-h-[90vh] overflow-y-auto"
+          className="max-w-2xl bg-gray-50 max-h-[90vh] overflow-y-auto"
           aria-describedby={
-            selectedModel
-              ? `product-description-${selectedModel.id}`
-              : "modal-content"
+            selectedModel ? `model-description-${selectedModel.id}` : "modal-content"
           }
         >
           {selectedModel && (
@@ -668,13 +668,115 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
                   {selectedModel.name}
                 </DialogTitle>
                 <DialogDescription
-                  id={`product-description-${selectedModel.id}`}
+                  id={`model-description-${selectedModel.id}`}
                   className="text-gray-600"
                 >
                   {selectedModel.description}
                 </DialogDescription>
               </DialogHeader>
-              {/* Görsel + specs vs. burada genişletilebilir */}
+
+              <div className="space-y-6">
+                {/* Görsel */}
+                <div className="relative bg-white rounded-lg overflow-hidden">
+                  <ImageWithFallback
+                    src={selectedModel.image}
+                    alt={selectedModel.name}
+                    className="w-full h-80 object-cover"
+                  />
+                  {selectedModel.featured && (
+                    <Badge className="absolute top-4 left-4 bg-teal-500 text-white">
+                      Öne Çıkan Model
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Etiketler + Fiyat */}
+                <div className="text-center space-y-3">
+                  <div className="flex items-center justify-center gap-2">
+                    <Badge variant="outline" className="text-teal-600 border-teal-600">
+                      {selectedModel.material}
+                    </Badge>
+                    <Badge variant="secondary" className="bg-teal-100 text-teal-700">
+                      {selectedModel.category.charAt(0).toUpperCase() +
+                        selectedModel.category.slice(1)}
+                    </Badge>
+                  </div>
+                  <div className="text-2xl text-teal-600">{selectedModel.price}</div>
+                </div>
+
+                {/* Aksiyonlar */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Button
+                    className="bg-teal-500 hover:bg-teal-600 text-white"
+                    onClick={() => onNavigate("contact")}
+                  >
+                    📞 Fiyat Teklifi Al
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="text-green-600 border-green-600 hover:bg-green-50"
+                    onClick={() => {
+                      const msg = `Merhaba, ${selectedModel.name} hakkında bilgi almak istiyorum.`;
+                      window.open(
+                        `https://wa.me/905334838971?text=${encodeURIComponent(msg)}`,
+                        "_blank"
+                      );
+                    }}
+                  >
+                    💬 WhatsApp'tan Sor
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="text-teal-600 border-teal-600 hover:bg-teal-50"
+                    onClick={() => onProductDetail?.(selectedModel.id)}
+                  >
+                    🔍 Ürün Sayfasına Git
+                  </Button>
+                </div>
+
+                {/* Teknik Özellikler */}
+                <div>
+                  <h3 className="text-lg text-gray-800 mb-4 text-center">Teknik Özellikler</h3>
+                  <div className="space-y-3">
+                    {selectedModel.dimensions && (
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Boyutlar:</span>
+                        <span className="text-gray-800">{selectedModel.dimensions}</span>
+                      </div>
+                    )}
+                    {selectedModel.weight && (
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Ağırlık:</span>
+                        <span className="text-gray-800">{selectedModel.weight}</span>
+                      </div>
+                    )}
+                    {selectedModel.thickness && (
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Kalınlık:</span>
+                        <span className="text-gray-800">{selectedModel.thickness}</span>
+                      </div>
+                    )}
+                    {selectedModel.finish && (
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Yüzey İşlemi:</span>
+                        <span className="text-gray-800">{selectedModel.finish}</span>
+                      </div>
+                    )}
+                    {selectedModel.warranty && (
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Garanti:</span>
+                        <span className="text-gray-800">{selectedModel.warranty}</span>
+                      </div>
+                    )}
+                    {selectedModel.installationTime && (
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-600">Kurulum Süresi:</span>
+                        <span className="text-gray-800">{selectedModel.installationTime}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </>
           )}
         </DialogContent>

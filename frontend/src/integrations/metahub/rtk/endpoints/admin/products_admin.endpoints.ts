@@ -158,33 +158,44 @@ type ApiProductInput = Omit<
 };
 
 const normalizeProduct = (p: ApiProductInput): ProductRow => {
-  // 🔽 Galeri alanlarını alias'larla topla
+  // 1) Galeri ID'leri (öncelik: storage_image_ids → image_ids → gallery_ids)
   const galleryIds =
     parseArr(p.storage_image_ids ?? null) ??
     parseArr((p as any).image_ids ?? null) ??
     parseArr((p as any).gallery_ids ?? null) ??
-    parseArr(p.images ?? null);
+    []; // fallback: boş dizi
 
-  // 🔽 Kapak alias
+  // 2) Görsel URL listesi (BE zaten array gönderiyor ama yine de normalize edelim)
+  const imageUrls =
+    Array.isArray(p.images) ? p.images.map(String) :
+    parseArr(p.images ?? null) ??
+    [];
+
+  // 3) Kapak alias’ları
   const storageAssetId = p.storage_asset_id ?? (p as any).cover_id ?? null;
   const imageUrl = p.image_url ?? (p as any).cover_url ?? null;
 
-  const tags = parseArr(p.tags ?? null);
+  // 4) Etiketler
+  const tagsArr = parseArr(p.tags ?? null) ?? [];
 
   return {
     ...p,
     image_url: imageUrl,
     storage_asset_id: storageAssetId,
-    storage_image_ids: galleryIds ?? null,
-    images: parseArr(p.images ?? null) ?? null, // (isterseniz tamamen kaldırılabilir)
+
+    // ❗ FE tipiyle birebir uyumlu
+    storage_image_ids: galleryIds,
+    images: imageUrls,
 
     price: asNumber(p.price, 0),
     rating: asNumber(p.rating, 5),
     review_count: toInt(p.review_count, 0),
     stock_quantity: toInt(p.stock_quantity, 0),
-    tags: tags ?? null,
+
+    tags: tagsArr,
   };
 };
+
 
 const ADMIN_BASE = "/admin/products";
 

@@ -45,18 +45,24 @@ function campaignImageUrl(c: SimpleCampaignView): string {
 
 const htmlToText = (html: string) => {
   if (!html) return "";
-  const tmp = document.createElement("div");
+  const tmp = typeof window !== "undefined" ? document.createElement("div") : null;
+  if (!tmp) return "";
   tmp.innerHTML = html;
   return tmp.textContent || tmp.innerText || "";
 };
 
-const firstImgFromHtml = (html: string): string | null => {
+const firstImgFromHtml = (html?: string | null): string | null => {
   if (!html) return null;
-  const tmp = document.createElement("div");
+  const tmp = typeof window !== "undefined" ? document.createElement("div") : null;
+  if (!tmp) return null;
   tmp.innerHTML = html;
   const img = tmp.querySelector("img");
   return img?.getAttribute("src") || null;
 };
+
+function announcementCardImage(a: AnnouncementView): string {
+  return a.image_url || firstImgFromHtml(a.html) || placeholderImg;
+}
 
 interface CampaignAnnouncementsPageProps {
   onNavigate: (page: string) => void;
@@ -92,10 +98,10 @@ const CampaignAnnouncementsPage: React.FC<CampaignAnnouncementsPageProps> = ({
 
     const fromAnnouncements: ListItem[] = (announcements as AnnouncementView[]).map((a) => ({
       kind: "announcement",
-      id: String((a as any).slug ?? (a as any).uuid ?? a.id), // 🔹 slug/uuid öncelikli
+      id: String(a.id), // 🔹 doğrudan id
       title: a.title,
       desc: a.html ? htmlToText(a.html).slice(0, 220) : a.description || "",
-      image: firstImgFromHtml(a.html || "") || placeholderImg,
+      image: announcementCardImage(a), // 🔹 kapak → html içi ilk img → placeholder
       tags: [],
       active: a.is_active !== false,
       label: "Duyuru",
@@ -161,7 +167,6 @@ const CampaignAnnouncementsPage: React.FC<CampaignAnnouncementsPageProps> = ({
                 placeholder="Başlık, açıklama veya etiket ara..."
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
-                onKeyDown={() => {}}
                 className="w-full pl-4 pr-12 py-3 text-lg border-2 border-emerald-200 focus:border-emerald-500 rounded-lg"
               />
               <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400 w-5 h-5" />
@@ -206,7 +211,7 @@ const CampaignAnnouncementsPage: React.FC<CampaignAnnouncementsPageProps> = ({
         </div>
       </div>
 
-      {/* Modal (standalone kullanım için) */}
+      {/* Modal */}
       <ModalWrapper
         isOpen={!!selected}
         onClose={() => setSelected(null)}

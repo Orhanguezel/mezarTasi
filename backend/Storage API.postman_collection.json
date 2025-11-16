@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "8b8b0e36-6e94-4c3a-9c3d-pt-products-storage",
-    "name": "BBB Mezartasi — Products + Storage (Images) [Cookie-only]",
-    "description": "Products modülü için storage destekli resim ekleme/çıkarma/güncelleme uçtan uca testleri. Auth tamamen Cookie Jar (login ile Set-Cookie). Header'da Bearer/Cookie kullanılmaz.",
+    "_postman_id": "mezartasi-contacts-mail-cookie-only",
+    "name": "BBB Mezartasi — Contacts + Mail [Cookie-only]",
+    "description": "Contact formu + admin contact yönetimi + mail modülü (SMTP, order-created) uçtan uca testleri. Auth tamamen Cookie Jar (login ile Set-Cookie). Header'da Bearer/Cookie kullanılmaz.",
     "schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
   },
   "event": [
@@ -11,8 +11,14 @@
       "script": {
         "type": "text/javascript",
         "exec": [
-          "// Global pre-request: sadece zaman damgası",
-          "if (!pm.environment.get('timestamp')) pm.environment.set('timestamp', Date.now().toString());"
+          "// Global pre-request: timestamp sadece 1 kere set edilsin",
+          "if (!pm.environment.get('timestamp')) {",
+          "  pm.environment.set('timestamp', Date.now().toString());",
+          "}",
+          "// Order number gibi yerlerde kullanılabilir",
+          "if (!pm.environment.get('order_number')) {",
+          "  pm.environment.set('order_number', 'ORD-' + pm.environment.get('timestamp'));",
+          "}"
         ]
       }
     }
@@ -30,7 +36,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
             },
             "url": "{{base_url}}/api/auth/login"
           },
@@ -41,7 +47,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200/204/302', () => pm.expect([200,204,302]).to.include(pm.response.code));",
-                  "// Postman otomatik olarak Set-Cookie'yi Cookie Jar'a ekler."
+                  "// Postman Set-Cookie'yi Cookie Jar'a ekleyecek."
                 ]
               }
             }
@@ -69,14 +75,48 @@
       ]
     },
     {
-      "name": "Admin Helpers",
+      "name": "Contacts (Public)",
       "item": [
         {
-          "name": "01) Admin: List Categories → set category_id",
+          "name": "01) Public: Create Contact (form submit)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Kullanıcı\",\n  \"email\": \"{{public_contact_email}}\",\n  \"phone\": \"+90 533 000 00 00\",\n  \"subject\": \"İletişim Formu Testi {{timestamp}}\",\n  \"message\": \"Bu bir iletişim formu test mesajıdır. Timestamp: {{timestamp}}\",\n  \"website\": \"\"\n}"
+            },
+            "url": "{{base_url}}/api/contacts"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('ok:true', () => pm.expect(body.ok).to.eql(true));",
+                  "pm.test('id mevcut', () => pm.expect(body.id).to.be.a('string').and.not.empty);",
+                  "pm.environment.set('contact_id', body.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Contacts (Admin)",
+      "item": [
+        {
+          "name": "02) Admin: List Contacts → set contact_id if empty",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{base_url}}/api/admin/categories"
+            "url": "{{base_url}}/api/admin/contacts"
           },
           "event": [
             {
@@ -87,154 +127,21 @@
                   "pm.test('200 OK', () => pm.response.to.have.status(200));",
                   "const arr = pm.response.json();",
                   "pm.expect(arr).to.be.an('array');",
-                  "if (!pm.environment.get('category_id')) {",
-                  "  pm.test('En az 1 kategori', () => pm.expect(arr.length).to.be.above(0));",
-                  "  if (arr.length) pm.environment.set('category_id', arr[0].id);",
+                  "pm.test('En az 1 kayıt', () => pm.expect(arr.length).to.be.above(0));",
+                  "if (!pm.environment.get('contact_id') && arr.length) {",
+                  "  pm.environment.set('contact_id', arr[0].id);",
                   "}"
                 ]
               }
             }
           ]
-        }
-      ]
-    },
-    {
-      "name": "Storage",
-      "item": [
-        {
-          "name": "02) Admin: Create Asset A (cover)",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                { "key": "file", "type": "file", "src": "{{test_image_path}}" },
-                { "key": "bucket", "value": "{{bucket}}", "type": "text" },
-                { "key": "folder", "value": "products/{{timestamp}}/cover", "type": "text" },
-                { "key": "metadata", "value": "{\"module\":\"products\",\"type\":\"cover\"}", "type": "text" }
-              ]
-            },
-            "url": "{{base_url}}/api/admin/storage/assets"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200/201', () => pm.expect([200,201]).to.include(pm.response.code));",
-                  "const x = pm.response.json();",
-                  "pm.expect(x).to.have.property('url');",
-                  "pm.environment.set('asset_a_id', x.id || x.provider_public_id || '');",
-                  "pm.environment.set('asset_a_url', x.url || '');"
-                ]
-              }
-            }
-          ]
         },
         {
-          "name": "03) Admin: Create Asset B (gallery)",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                { "key": "file", "type": "file", "src": "{{test_image_path2}}" },
-                { "key": "bucket", "value": "{{bucket}}", "type": "text" },
-                { "key": "folder", "value": "products/{{timestamp}}/gallery", "type": "text" },
-                { "key": "metadata", "value": "{\"module\":\"products\",\"type\":\"gallery\"}", "type": "text" }
-              ]
-            },
-            "url": "{{base_url}}/api/admin/storage/assets"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200/201', () => pm.expect([200,201]).to.include(pm.response.code));",
-                  "const x = pm.response.json();",
-                  "pm.expect(x).to.have.property('url');",
-                  "pm.environment.set('asset_b_id', x.id || x.provider_public_id || '');",
-                  "pm.environment.set('asset_b_url', x.url || '');"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Products",
-      "item": [
-        {
-          "name": "04) Admin: Create Product",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Test Product {{timestamp}}\",\n  \"slug\": \"test-product-{{timestamp}}\",\n  \"price\": 199.99,\n  \"description\": \"Auto created product.\",\n  \"category_id\": \"{{category_id}}\",\n  \"image_url\": null,\n  \"images\": [],\n  \"is_active\": true,\n  \"is_featured\": false,\n  \"tags\": [\"test\",\"postman\"],\n  \"specifications\": {\"dimensions\":\"10x10\"},\n  \"stock_quantity\": 5\n}"
-            },
-            "url": "{{base_url}}/api/admin/products"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('201 Created', () => pm.expect(pm.response.code).to.eql(201));",
-                  "const x = pm.response.json();",
-                  "pm.expect(x).to.have.property('id');",
-                  "pm.environment.set('product_id', x.id);",
-                  "pm.environment.set('product_slug', x.slug);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "05) Admin: Set Product Images [A,B] (cover=A)",
-          "request": {
-            "method": "PUT",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"cover_id\": \"{{asset_a_id}}\",\n  \"image_ids\": [\"{{asset_a_id}}\", \"{{asset_b_id}}\"]\n}"
-            },
-            "url": "{{base_url}}/api/admin/products/{{product_id}}/images"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
-                  "const p = pm.response.json();",
-                  "pm.expect(p.image_url).to.eql(pm.environment.get('asset_a_url'));",
-                  "pm.expect(p.images).to.be.an('array');",
-                  "pm.expect(p.images).to.include(pm.environment.get('asset_a_url'));",
-                  "pm.expect(p.images).to.include(pm.environment.get('asset_b_url'));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "06) Admin: Get Product (doğrula cover=A, images [A,B])",
+          "name": "03) Admin: Get Contact by id",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{base_url}}/api/admin/products/{{product_id}}"
+            "url": "{{base_url}}/api/admin/contacts/{{contact_id}}"
           },
           "event": [
             {
@@ -243,27 +150,27 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 OK', () => pm.response.to.have.status(200));",
-                  "const p = pm.response.json();",
-                  "pm.expect(p.image_url).to.eql(pm.environment.get('asset_a_url'));",
-                  "pm.expect(p.images).to.include(pm.environment.get('asset_a_url'));",
-                  "pm.expect(p.images).to.include(pm.environment.get('asset_b_url'));"
+                  "const c = pm.response.json();",
+                  "pm.test('id === contact_id', () => pm.expect(c.id).to.eql(pm.environment.get('contact_id')));",
+                  "pm.test('email alanı var', () => pm.expect(c).to.have.property('email'));",
+                  "pm.test('status alanı var', () => pm.expect(c).to.have.property('status'));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "07) Admin: Set Product Images [B] (cover=B)",
+          "name": "04) Admin: Update Contact (status + note)",
           "request": {
-            "method": "PUT",
+            "method": "PATCH",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"cover_id\": \"{{asset_b_id}}\",\n  \"image_ids\": [\"{{asset_b_id}}\"]\n}"
+              "raw": "{\n  \"status\": \"in_progress\",\n  \"is_resolved\": false,\n  \"admin_note\": \"Postman testi ile güncellendi ({{timestamp}}).\"\n}"
             },
-            "url": "{{base_url}}/api/admin/products/{{product_id}}/images"
+            "url": "{{base_url}}/api/admin/contacts/{{contact_id}}"
           },
           "event": [
             {
@@ -272,22 +179,27 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 OK', () => pm.response.to.have.status(200));",
-                  "const p = pm.response.json();",
-                  "pm.expect(p.image_url).to.eql(pm.environment.get('asset_b_url'));",
-                  "pm.expect(p.images).to.be.an('array');",
-                  "pm.expect(p.images.length).to.eql(1);",
-                  "pm.expect(p.images[0]).to.eql(pm.environment.get('asset_b_url'));"
+                  "const c = pm.response.json();",
+                  "pm.test('status in_progress', () => pm.expect(c.status).to.eql('in_progress'));",
+                  "pm.test('is_resolved false', () => pm.expect(c.is_resolved).to.eql(false));",
+                  "pm.test('admin_note dolu', () => pm.expect(c.admin_note).to.be.a('string'));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "08) Public: Get Product by slug",
+          "name": "05) Admin: Close & Resolve Contact",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{base_url}}/api/products/by-slug/{{product_slug}}"
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"closed\",\n  \"is_resolved\": true,\n  \"admin_note\": \"Talep çözüldü ve kapatıldı ({{timestamp}}).\"\n}"
+            },
+            "url": "{{base_url}}/api/admin/contacts/{{contact_id}}"
           },
           "event": [
             {
@@ -296,45 +208,20 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 OK', () => pm.response.to.have.status(200));",
-                  "const x = pm.response.json();",
-                  "pm.expect(x).to.have.property('slug', pm.environment.get('product_slug'));",
-                  "pm.expect(x.image_url).to.eql(pm.environment.get('asset_b_url'));"
+                  "const c = pm.response.json();",
+                  "pm.test('status closed', () => pm.expect(c.status).to.eql('closed'));",
+                  "pm.test('is_resolved true', () => pm.expect(c.is_resolved).to.eql(true));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "09) Admin: Delete Product",
+          "name": "06) Admin: Delete Contact",
           "request": {
             "method": "DELETE",
             "header": [],
-            "url": "{{base_url}}/api/admin/products/{{product_id}}"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "10) Storage: Bulk Delete Assets [A,B]",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"ids\": [\"{{asset_a_id}}\", \"{{asset_b_id}}\"]\n}"
-            },
-            "url": "{{base_url}}/api/admin/storage/assets/bulk-delete"
+            "url": "{{base_url}}/api/admin/contacts/{{contact_id}}"
           },
           "event": [
             {
@@ -343,9 +230,126 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 OK', () => pm.response.to.have.status(200));",
-                  "const j = pm.response.json();",
-                  "pm.expect(j.deleted).to.be.a('number');",
-                  "pm.test('>=1 silinmiş', () => pm.expect(j.deleted).to.be.at.least(1));"
+                  "const body = pm.response.json();",
+                  "pm.test('ok alanı true/false', () => pm.expect(body).to.have.property('ok'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Mail",
+      "item": [
+        {
+          "name": "01) Mail: Test SMTP (explicit to)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"{{mail_test_to}}\"\n}"
+            },
+            "url": "{{base_url}}/api/mail/test"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('ok:true', () => pm.expect(body.ok).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02) Mail: Test SMTP (current user email)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": "{{base_url}}/api/mail/test"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK veya 400', () => pm.expect([200,400]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test('ok:true', () => pm.expect(body.ok).to.eql(true));",
+                  "} else {",
+                  "  const err = pm.response.json();",
+                  "  pm.test('to_required hatası', () => pm.expect(err.error && err.error.message).to.eql('to_required_for_test_mail'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03) Mail: Send generic mail (/mail/send)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"{{mail_to}}\",\n  \"subject\": \"Genel Mail Testi {{timestamp}}\",\n  \"text\": \"Bu bir genel mail testidir (plain text).\",\n  \"html\": \"<p>Bu bir <strong>genel mail testidir</strong>. Timestamp: {{timestamp}}</p>\"\n}"
+            },
+            "url": "{{base_url}}/api/mail/send"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('ok:true', () => pm.expect(body.ok).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04) Mail: Order Created (/mail/order-created)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"{{order_mail_to}}\",\n  \"customer_name\": \"Test Müşteri\",\n  \"order_number\": \"{{order_number}}\",\n  \"final_amount\": \"199.90\",\n  \"status\": \"pending\",\n  \"site_name\": \"Mezarisim.com\",\n  \"locale\": \"tr-TR\"\n}"
+            },
+            "url": "{{base_url}}/api/mail/order-created"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('ok:true', () => pm.expect(body.ok).to.eql(true));"
                 ]
               }
             }
@@ -356,18 +360,17 @@
   ],
   "variable": [
     { "key": "base_url", "value": "http://localhost:8083" },
-    { "key": "email", "value": "orhanguzell@gmail.com" },
-    { "key": "password", "value": "admin123" },
-    { "key": "bucket", "value": "products" },
-    { "key": "test_image_path", "value": "/absolute/path/to/sample.jpg" },
-    { "key": "test_image_path2", "value": "/absolute/path/to/sample2.jpg" },
+    { "key": "admin_email", "value": "orhanguzell@gmail.com" },
+    { "key": "admin_password", "value": "admin123" },
+
+    { "key": "public_contact_email", "value": "test-contact@example.com" },
+
+    { "key": "mail_test_to", "value": "test-smtp@example.com" },
+    { "key": "mail_to", "value": "test-generic@example.com" },
+    { "key": "order_mail_to", "value": "test-order@example.com" },
+
     { "key": "timestamp", "value": "" },
-    { "key": "category_id", "value": "" },
-    { "key": "product_id", "value": "" },
-    { "key": "product_slug", "value": "" },
-    { "key": "asset_a_id", "value": "" },
-    { "key": "asset_b_id", "value": "" },
-    { "key": "asset_a_url", "value": "" },
-    { "key": "asset_b_url", "value": "" }
+    { "key": "order_number", "value": "" },
+    { "key": "contact_id", "value": "" }
   ]
 }

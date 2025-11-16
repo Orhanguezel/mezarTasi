@@ -56,7 +56,7 @@ export const packContent = (htmlOrJson: string): string => {
     if (isRec(parsed) && typeof (parsed as any).html === "string") {
       return JSON.stringify({ html: (parsed as any).html });
     }
-  } catch {}
+  } catch { }
   return JSON.stringify({ html: htmlOrJson });
 };
 
@@ -94,9 +94,9 @@ export async function listCustomPages(params: ListParams) {
   if (params.q && params.q.trim()) {
     const s = `%${params.q.trim()}%`;
     const titleLike = like(customPages.title, s);
-    const slugLike  = like(customPages.slug, s);
+    const slugLike = like(customPages.slug, s);
     const metaTitleLike = like(customPages.meta_title, s);
-    const metaDescLike  = like(customPages.meta_description, s);
+    const metaDescLike = like(customPages.meta_description, s);
     filters.push(or(titleLike, slugLike, metaTitleLike, metaDescLike) as SQL);
   }
 

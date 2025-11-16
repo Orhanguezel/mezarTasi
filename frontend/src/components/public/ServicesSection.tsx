@@ -12,25 +12,23 @@ import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { Input } from "../ui/input";
 
+// ⚠️ figma:asset import KALDIRILDI
+// import commentImage from "figma:asset/...";
+
+// Public klasöründeki görseller (uygun dosyayı sizde hangisi varsa ona göre bırakın)
+const COMMENT_IMAGE = "/calluns.avif";   // public/calluns.avif mevcut dediniz
+const PLACEHOLDER   = "/mezartasi.png";  // public/mezartasi.png (fallback)
+
 import {
   useListReviewsQuery,
   useCreateReviewMutation,
 } from "@/integrations/metahub/rtk/endpoints/reviews.endpoints";
-import {
-  useListRecentWorksQuery,
-} from "@/integrations/metahub/rtk/endpoints/recent_works.endpoints";
-import {
-  useListSimpleCampaignsQuery,
-} from "@/integrations/metahub/rtk/endpoints/campaigns.endpoints";
-import {
-  useListAnnouncementsQuery,
-} from "@/integrations/metahub/rtk/endpoints/announcements.endpoints";
+import { useListRecentWorksQuery } from "@/integrations/metahub/rtk/endpoints/recent_works.endpoints";
+import { useListSimpleCampaignsQuery } from "@/integrations/metahub/rtk/endpoints/campaigns.endpoints";
+import { useListAnnouncementsQuery } from "@/integrations/metahub/rtk/endpoints/announcements.endpoints";
 
 import type { ReviewCreateInput } from "@/integrations/metahub/db/types/reviews";
 import type { RecentWorkView } from "@/integrations/metahub/db/types/recent_works";
-
-const PLACEHOLDER =
-  "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=500&fit=crop";
 
 function pickImageUrl(x: unknown): string | undefined {
   if (!x) return;
@@ -63,11 +61,8 @@ function resolveAnnouncementId(a: any): string | undefined {
 
 type Props = {
   onNavigate?: (page: string) => void;
-  /** RecentWork modalı için **id/slug** gönder */
   onOpenRecentWorkModal?: (payload: { id: string; slug?: string }) => void;
-  /** Kampanya detay modalı */
   onOpenCampaignsModal?: (payload?: any) => void;
-  /** Duyuru detay modalı (kampanya modalından ayrı) */
   onOpenAnnouncementModal?: (payload?: any) => void;
 };
 
@@ -76,7 +71,7 @@ export function ServicesSection({
   onOpenCampaignsModal,
   onOpenAnnouncementModal,
 }: Props = {}) {
-  /* -------- RTK DATA (yalnız RTK, fallback yok) -------- */
+  /* -------- RTK DATA -------- */
   const {
     data: reviews = [],
     isLoading: loadingReviews,
@@ -126,8 +121,8 @@ export function ServicesSection({
     Array.isArray(annRtk)
       ? annRtk.map((a: any) => ({
           id: a.id,
-          slug: a.slug,            // 🔹 event tıklamasında fallback
-          uuid: a.uuid,            // 🔹 event tıklamasında fallback
+          slug: a.slug,
+          uuid: a.uuid,
           title: a.title,
           date: a.published_at
             ? new Date(a.published_at).toLocaleDateString()
@@ -213,7 +208,6 @@ export function ServicesSection({
                             toast.info("Detay modalı bağlanmamış görünüyor.");
                             return;
                           }
-                          // 🔑 Modal’a her zaman gerçek id/slug gönder
                           onOpenRecentWorkModal({ id: String(w.id), slug: w.slug });
                         }}
                       >
@@ -239,7 +233,7 @@ export function ServicesSection({
               )}
             </div>
 
-            {/* === Yorum Formu / Başarı mesajı === */}
+            {/* === Yorum Başarı Mesajı === */}
             {reviewSubmitted && (
               <div className="bg-teal-50 p-6 rounded-lg text-center">
                 <div className="text-teal-600 text-4xl mb-3">✓</div>
@@ -248,6 +242,7 @@ export function ServicesSection({
               </div>
             )}
 
+            {/* === Yorum Formu === */}
             {showReviewForm && (
               <div className="bg-gray-50 p-6 rounded-lg">
                 <h3 className="text-lg mb-4 text-teal-600 text-center">Yorumunuzu Paylaşın</h3>
@@ -295,6 +290,43 @@ export function ServicesSection({
                     </Button>
                   </div>
                 </form>
+              </div>
+            )}
+
+            {/* === Görüşleriniz Bizim İçin Değerlidir — Görsel + Yazı (Form açık/başarı yokken) === */}
+            {!reviewSubmitted && !showReviewForm && (
+              <div className="bg-gray-50 rounded-lg overflow-hidden">
+                <div className="mb-4">
+                  {/* ÖNEMLİ: figma:asset yerine public dosya + fallback + sabit yükseklik */}
+                  <img
+                    src={COMMENT_IMAGE}
+                    alt="Yaptığımız hizmetleri değerlendirmek için yorum gönder"
+                    className="w-full h-48 md:h-56 object-cover rounded-lg shadow-sm"
+                    onError={(e) => {
+                      // 404 ya da decode hatasında otomatik yedek
+                      (e.currentTarget as HTMLImageElement).src = PLACEHOLDER;
+                    }}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </div>
+
+                <div className="p-6 pt-2">
+                  <h3 className="text-lg mb-3 text-teal-600 text-center">
+                    GÖRÜŞLERİNİZ BİZİM İÇİN DEĞERLİDİR
+                  </h3>
+                  <p className="text-gray-600 text-sm mb-4 text-center">
+                    Hizmetlerimiz hakkındaki görüş ve önerilerinizi bizimle paylaşın.
+                  </p>
+                  <div className="text-center">
+                    <Button
+                      onClick={() => setShowReviewForm(true)}
+                      className="bg-teal-600 hover:bg-teal-700 text-white"
+                    >
+                      Yorum Gönder
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -369,7 +401,7 @@ export function ServicesSection({
                           return;
                         }
                         const id = resolveAnnouncementId(a);
-                        onOpenAnnouncementModal(id ?? a); // öncelik string id
+                        onOpenAnnouncementModal(id ?? a);
                       }}
                       className="bg-gradient-to-r from-teal-50 to-green-50 p-4 md:p-5 rounded-lg border-l-4 border-teal-500 cursor-pointer hover:shadow-lg transition-all"
                     >
@@ -428,19 +460,48 @@ export function ServicesSection({
               )}
             </div>
 
-            {/* Fiyat garantisi */}
+            {/* Fiyat Garantisi */}
             <div className="text-center">
-              <h2 className="text-lg md:text-xl mb-4 md:mb-6 text-teal-600 leading-tight">
-                MEZAR YAPIMI VE HİZMETLERİNDE EN UYGUN FİYAT GARANTİSİ!
-              </h2>
+              <h2 className="text-lg md:text-xl mb-4 md:mb-6 text-teal-600 leading-tight">MEZAR YAPIMI VE HİZMETLERİNDE EN UYGUN FİYAT GARANTİSİ!</h2>
               <div className="bg-teal-50 p-4 md:p-6 rounded-lg mb-4 md:mb-6">
                 <p className="text-sm md:text-base leading-relaxed">
-                  Mezar fiyatları konusunda endişe etmeyin! 25 yıllık deneyimle granit/mermer için uygun fiyat garantisi.
+                  Mezar fiyatları konusunda endişe etmeyin! Mezar yapımı alanında 25 yıllık deneyimimizle, 
+                  mermer mezar modelleri ve granit mezar modelleri için en uygun fiyat garantisi sunuyoruz. 
+                  Ucuz mezar yapımı arayanlar için kaliteli malzeme ve profesyonel işçilik bir arada. 
+                  Tüm mezar modellerimizde uygun fiyat, yüksek kalite ve uzun garantiyle hizmetinizdeyiz!
                 </p>
               </div>
+
+              <div className="flex justify-center items-center space-x-4 md:space-x-8">
+                {/* … ikonlar aynı */}
+                <div className="text-center">
+                  <div className="w-20 h-20 md:w-28 md:h-28 bg-teal-500 rounded-full flex flex-col items-center justify-center text-white mx-auto shadow-lg">
+                    <svg className="w-6 h-6 md:w-8 md:h-8 mb-1" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                    <span className="text-xs md:text-sm font-semibold leading-tight">Hesaplı</span>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="w-20 h-20 md:w-28 md:h-28 bg-teal-500 rounded-full flex flex-col items-center justify-center text-white mx-auto shadow-lg">
+                    <svg className="w-6 h-6 md:w-8 md:h-8 mb-1" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M23 12l-2.44-2.78.34-3.68-3.61-.82-1.89-3.18L12 3 8.6 1.54 6.71 4.72l-3.61.81.34 3.68L1 12l2.44 2.78-.34 3.69 3.61.82 1.89 3.18L12 21l3.4 1.46 1.89-3.18 3.61-.82-.34-3.68L23 12zm-10 5h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                    </svg>
+                    <span className="text-xs md:text-sm font-semibold leading-tight">Kaliteli</span>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="w-20 h-20 md:w-28 md:h-28 bg-teal-500 rounded-full flex flex-col items-center justify-center text-white mx-auto shadow-lg">
+                    <svg className="w-6 h-6 md:w-8 md:h-8 mb-1" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+                    </svg>
+                    <span className="text-xs md:text-sm font-semibold leading-tight text-center">Zamanında<br/>Teslimat</span>
+                  </div>
+                </div>
+              </div>
             </div>
+            {/* sağ sütun */}
           </div>
-          {/* sağ sütun */}
         </div>
       </div>
     </section>

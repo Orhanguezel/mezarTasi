@@ -1,5 +1,5 @@
 // =============================================================
-// FILE: src/modules/products/validation.ts  (GÜNCEL)
+// FILE: src/modules/products/validation.ts  (GÜNCELLEME)
 // =============================================================
 import { z } from "zod";
 
@@ -12,6 +12,9 @@ export const boolLike = z.union([
   z.literal("0"), z.literal("1"),
   z.literal("true"), z.literal("false"),
 ]);
+
+// ❗ Storage asset ID'leri için (uuid'e zorlamıyoruz)
+const assetId = z.string().min(1).max(64);
 
 /* ----------------- PRODUCT ----------------- */
 export const productCreateSchema = z.object({
@@ -27,8 +30,9 @@ export const productCreateSchema = z.object({
   alt: emptyToNull(z.string().max(255).optional().nullable()),
   images: z.array(z.string().url()).optional().default([]),
 
-  storage_asset_id: emptyToNull(z.string().uuid().optional().nullable()),
-  storage_image_ids: z.array(z.string().uuid()).optional().default([]),
+  // ❗ Artık uuid yerine assetId
+  storage_asset_id: emptyToNull(assetId.optional().nullable()),
+  storage_image_ids: z.array(assetId).optional().default([]),
 
   is_active: boolLike.optional(),
   is_featured: boolLike.optional(),
@@ -52,15 +56,18 @@ export const productCreateSchema = z.object({
   meta_title: emptyToNull(z.string().max(255).optional().nullable()),
   meta_description: emptyToNull(z.string().max(500).optional().nullable()),
 });
+
 export const productUpdateSchema = productCreateSchema.partial();
 
 /* ------------ Images ------------ */
 export const productSetImagesSchema = z.object({
-  cover_id: z.string().uuid().nullable().optional(),
-  image_ids: z.array(z.string().uuid()).min(0),
+  // ❗ uuid değil; storage asset id formatı neyse ona izin veriyoruz
+  cover_id: emptyToNull(assetId.optional().nullable()),
+  image_ids: z.array(assetId).min(0),
   alt: emptyToNull(z.string().max(255).optional().nullable()),
 });
 export type ProductSetImagesInput = z.infer<typeof productSetImagesSchema>;
+
 
 /* ----------------- FAQ ----------------- */
 export const productFaqCreateSchema = z.object({

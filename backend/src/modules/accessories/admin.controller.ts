@@ -136,8 +136,8 @@ export const adminSetAccessoryImage: RouteHandler<{
     const publicUrl = asset.url
       ? asset.url
       : cdnBase
-      ? `${cdnBase}/${encSeg(asset.bucket)}/${encPath(asset.path)}`
-      : `${apiBase || ""}/storage/${encSeg(asset.bucket)}/${encPath(asset.path)}`;
+        ? `${cdnBase}/${encSeg(asset.bucket)}/${encPath(asset.path)}`
+        : `${apiBase || ""}/storage/${encSeg(asset.bucket)}/${encPath(asset.path)}`;
 
     const patch: Record<string, unknown> = {
       image_url: publicUrl,

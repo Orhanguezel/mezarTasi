@@ -50,10 +50,10 @@ export async function repoListPublic(q: ListQuery) {
     q.category ? eq(accessories.category, q.category) : dsql`1=1`,
     q.q
       ? or(
-          like(accessories.name, `%${q.q}%`),
-          like(accessories.material, `%${q.q}%`),
-          like(accessories.description, `%${q.q}%`)
-        )
+        like(accessories.name, `%${q.q}%`),
+        like(accessories.material, `%${q.q}%`),
+        like(accessories.description, `%${q.q}%`)
+      )
       : dsql`1=1`
   );
 
@@ -81,10 +81,10 @@ export async function repoListAdmin(q: ListQuery) {
     q.category ? eq(accessories.category, q.category) : dsql`1=1`,
     q.q
       ? or(
-          like(accessories.name, `%${q.q}%`),
-          like(accessories.material, `%${q.q}%`),
-          like(accessories.description, `%${q.q}%`)
-        )
+        like(accessories.name, `%${q.q}%`),
+        like(accessories.material, `%${q.q}%`),
+        like(accessories.description, `%${q.q}%`)
+      )
       : dsql`1=1`
   );
 

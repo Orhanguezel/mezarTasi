@@ -1,3 +1,5 @@
+// src/integrations/metahub/rtk/endpoints/admin/sliders_admin.endpoints.ts
+
 import { baseApi } from "../../baseApi";
 import type { FetchArgs } from "@reduxjs/toolkit/query";
 import type {

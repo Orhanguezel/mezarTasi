@@ -1,6 +1,9 @@
-// src/integrations/metahub/db/types/services.types.ts
+// =============================================================
+// FILE: src/integrations/metahub/db/types/services.types.ts
+// =============================================================
 
 export type ServiceType = "gardening" | "soil" | "other";
+
 type NullableString = string | null | undefined;
 
 /** Backend admin.view -> Frontend */
@@ -21,7 +24,7 @@ export type ServiceView = {
   display_order: number;
 
   image_url: string | null;
-  storage_asset_id: string | null;
+  image_asset_id: string | null;
   alt: string | null;
   image_effective_url: string | null;
 
@@ -49,12 +52,12 @@ export type ServiceListParams = {
   search?: string;
 
   /** FE → BE: type (tek değer veya çoklu) */
-  type?: ServiceType | ServiceType[];  // ✅ array destekle
+  type?: ServiceType | ServiceType[];
 
-  /** NOT: public endpoint şu an category/featured/active almaz; admin tarafında var. */
+  /** Admin tarafı filtreler */
   category?: string;
   featured?: boolean;
-  /** FE → BE: active -> is_active (public’te BE zaten 1 filtreliyor) */
+  /** FE → BE: active -> is_active */
   active?: boolean;
 
   limit?: number;
@@ -65,10 +68,57 @@ export type ServiceListParams = {
   order?: "asc" | "desc";
 };
 
-/** CREATE/UPDATE tipleri (değişmedi) */
-export type ServiceCreateInput = { /* ... mevcut içeriğin aynı ... */ };
+/** CREATE/UPDATE tipleri (serviceCreateSchema ile uyumlu) */
+export type ServiceCreateInput = {
+  name: string;
+  slug?: string;
+
+  type?: ServiceType;
+  category?: string;
+
+  material?: NullableString;
+  price?: NullableString;
+  description?: NullableString;
+
+  image_url?: NullableString;
+  image_asset_id?: NullableString;
+  alt?: NullableString;
+
+  featured?: boolean;
+  is_active?: boolean;
+  display_order?: number;
+
+  // gardening
+  area?: NullableString;
+  duration?: NullableString;
+  maintenance?: NullableString;
+  season?: NullableString;
+
+  // soil
+  soil_type?: NullableString;
+  thickness?: NullableString;
+  equipment?: NullableString;
+
+  // common
+  warranty?: NullableString;
+  includes?: NullableString;
+
+  // legacy
+  featured_image?: NullableString;
+};
+
 export type ServiceUpdateInput = Partial<ServiceCreateInput>;
 
-export interface ServiceAttachImageBody { storage_asset_id?: string; image_url?: string; }
-export interface ServiceReorderBody { ids: string[]; }
-export interface ServiceStatusBody { is_active: boolean; }
+/** Şu an FE’de kullanmıyoruz ama endpoint tipi dursun */
+export interface ServiceAttachImageBody {
+  image_asset_id?: string;
+  image_url?: string;
+}
+
+export interface ServiceReorderBody {
+  ids: string[];
+}
+
+export interface ServiceStatusBody {
+  is_active: boolean;
+}

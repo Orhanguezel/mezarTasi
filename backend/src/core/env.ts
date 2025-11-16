@@ -1,5 +1,5 @@
 // src/core/env.ts
-import 'dotenv/config';
+import "dotenv/config";
 
 const toInt = (v: string | undefined, d: number) => {
   const n = v ? parseInt(v, 10) : NaN;
@@ -8,46 +8,67 @@ const toInt = (v: string | undefined, d: number) => {
 const toBool = (v: string | undefined, d = false) => {
   if (v == null) return d;
   const s = v.toLowerCase();
-  return ['1', 'true', 'yes', 'on'].includes(s);
+  return ["1", "true", "yes", "on"].includes(s);
 };
 const toList = (v: string | undefined) =>
-  (v ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  (v ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const CORS_LIST = toList(process.env.CORS_ORIGIN);
 const CORS_ORIGIN = CORS_LIST.length ? CORS_LIST : [FRONTEND_URL];
 
+// STORAGE_DRIVER normalleştirme
+const RAW_STORAGE_DRIVER = (process.env.STORAGE_DRIVER || 'cloudinary').toLowerCase();
+const STORAGE_DRIVER = (RAW_STORAGE_DRIVER === 'local' ? 'local' : 'cloudinary') as
+  | 'local'
+  | 'cloudinary';
+
+
 export const env = {
-  NODE_ENV: process.env.NODE_ENV ?? 'development',
+  NODE_ENV: process.env.NODE_ENV ?? "development",
   PORT: toInt(process.env.PORT, 8083),
 
+ 
+  // Storage driver seçimi
+  STORAGE_DRIVER,
+
+  // Local storage (STORAGE_DRIVER=local iken aktif)
+  LOCAL_STORAGE_ROOT: process.env.LOCAL_STORAGE_ROOT || '',
+  LOCAL_STORAGE_BASE_URL: process.env.LOCAL_STORAGE_BASE_URL || '/uploads',
+
+  // Örnek başka config (quiz)
   QUIZ: {
     DURATION_SECONDS: Number(process.env.QUIZ_DURATION_SECONDS ?? 60),
   },
 
+  // Cloudinary ana alanlar (geriye dönük kullanım için düz alanlar)
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
+  CLOUDINARY_UNSIGNED_PRESET: process.env.CLOUDINARY_UNSIGNED_PRESET || '',
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
   CLOUDINARY_UPLOAD_PRESET: process.env.CLOUDINARY_UPLOAD_PRESET || '',
-  CLOUDINARY_FOLDER: process.env.CLOUDINARY_FOLDER || 'uploads',
-
+  CLOUDINARY_FOLDER: process.env.CLOUDINARY_FOLDER || '',
   DB: {
-    host: process.env.DB_HOST || '127.0.0.1',
+    host: process.env.DB_HOST || "127.0.0.1",
     port: toInt(process.env.DB_PORT, 3306),
-    user: process.env.DB_USER || 'app',
-    password: process.env.DB_PASSWORD || 'app',
-    name: process.env.DB_NAME || 'app',
+    user: process.env.DB_USER || "app",
+    password: process.env.DB_PASSWORD || "app",
+    name: process.env.DB_NAME || "app",
   },
 
-  JWT_SECRET: process.env.JWT_SECRET || 'change-me',
-  COOKIE_SECRET: process.env.COOKIE_SECRET || 'cookie-secret',
+  JWT_SECRET: process.env.JWT_SECRET || "change-me",
+  COOKIE_SECRET: process.env.COOKIE_SECRET || "cookie-secret",
 
   CORS_ORIGIN,
 
   // ✅ Storage controller'ın kullandığı alanları ekliyoruz
-  CDN_PUBLIC_BASE: process.env.CDN_PUBLIC_BASE || '',      // ör: https://cdn.example.com
-  PUBLIC_API_BASE: process.env.PUBLIC_API_BASE || '',      // ör: https://api.example.com
+  CDN_PUBLIC_BASE: process.env.CDN_PUBLIC_BASE || "", // ör: https://cdn.example.com
+  PUBLIC_API_BASE: process.env.PUBLIC_API_BASE || "", // ör: https://api.example.com
 
+  // Cloudinary detayları (bazı yerler nested kullanıyorsa)
   CLOUDINARY: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
     apiKey: process.env.CLOUDINARY_API_KEY || '',
@@ -57,18 +78,25 @@ export const env = {
     publicStorageBase: process.env.PUBLIC_STORAGE_BASE || '',
   },
 
-
   GOOGLE: {
-    CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? '',
-    CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? '',
+    CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "",
+    CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? "",
   },
 
   // Geriye dönük
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? '',
-  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? '',
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "",
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? "",
 
-  PUBLIC_URL: process.env.PUBLIC_URL || 'http://localhost:8081',
+  PUBLIC_URL: process.env.PUBLIC_URL || "http://localhost:8083",
   FRONTEND_URL: FRONTEND_URL,
+
+  // ✅ SMTP / Mail
+  SMTP_HOST: process.env.SMTP_HOST || "",
+  SMTP_PORT: toInt(process.env.SMTP_PORT, 465),
+  SMTP_SECURE: toBool(process.env.SMTP_SECURE, false),
+  SMTP_USER: process.env.SMTP_USER || "",
+  SMTP_PASS: process.env.SMTP_PASS || "",
+  MAIL_FROM: process.env.MAIL_FROM || "",
 } as const;
 
 export type AppEnv = typeof env;

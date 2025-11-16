@@ -36,6 +36,7 @@ const normalizeCategory = (c: ApiCategory): Category => ({
   slug: c.slug,
   description: (c.description ?? null) as string | null,
   image_url: (c.image_url ?? null) as string | null,
+  alt: (c as any).alt ?? null,
   icon: (c.icon ?? null) as string | null,
   is_active: toBool(c.is_active),
   is_featured: toBool(c.is_featured),
@@ -43,6 +44,7 @@ const normalizeCategory = (c: ApiCategory): Category => ({
   created_at: (c as any).created_at,
   updated_at: (c as any).updated_at,
 });
+
 
 export type ListParams = {
   q?: string;
@@ -59,11 +61,13 @@ export type UpsertCategoryBody = {
   slug: string;
   description?: string | null;
   image_url?: string | null;
+  alt?: string | null;      
   icon?: string | null;
   is_active?: boolean;
   is_featured?: boolean;
   display_order?: number;
 };
+
 
 // ✅ Görsel ayarla/kaldırma: BE controller `alt` da destekliyor
 export type SetCategoryImageBody = {

@@ -16,6 +16,7 @@ import {
   useUpdateCampaignAdminMutation,
 } from "@/integrations/metahub/rtk/endpoints/admin/campaigns_admin.endpoints";
 import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { ThumbById } from "@/components/admin/AdminPanel/form/sections/shared/ThumbById";
 
 type Row = {
   id: string;
@@ -24,6 +25,7 @@ type Row = {
   is_active: boolean;
   image_effective_url?: string | null;
   image_url?: string | null;
+  storage_asset_id?: string | null; // ✅ eklendi
   alt?: string | null;
   updated_at?: string;
   created_at?: string;
@@ -35,35 +37,40 @@ export default function CampaignsTab() {
   const [q, setQ] = React.useState("");
   const [onlyActive, setOnlyActive] = React.useState<boolean>(false);
 
-  const { data, isFetching, refetch } = useListCampaignsAdminQuery({ limit: 200, sort: "updated_at", order: "desc" });
+  const { data, isFetching, refetch } = useListCampaignsAdminQuery({
+    limit: 200,
+    sort: "updated_at",
+    order: "desc",
+  });
   const [rows, setRows] = React.useState<Row[]>([]);
 
   const [delOne, { isLoading: deleting }] = useDeleteCampaignAdminMutation();
   const [patchOne] = useUpdateCampaignAdminMutation();
 
   React.useEffect(() => {
-  if (!data) return;
+    if (!data) return;
 
-  setRows(
-    data.map((c) => {
-      const base: Row = {
-        id: c.id,
-        title: c.title,
-        description: c.description,
-        is_active: !!c.is_active,
-        image_effective_url: c.image_effective_url ?? null,
-        image_url: c.image_url ?? null,
-        alt: c.alt ?? null,
-      };
+    setRows(
+      data.map((c) => {
+        const base: Row = {
+          id: c.id,
+          title: c.title,
+          description: c.description,
+          is_active: !!c.is_active,
+          image_effective_url: c.image_effective_url ?? null,
+          image_url: c.image_url ?? null,
+          storage_asset_id: (c as any).storage_asset_id ?? null, // ✅ map’te de eklendi
+          alt: c.alt ?? null,
+        };
 
-      return {
-        ...base,
-        ...(c.updated_at ? { updated_at: c.updated_at } : {}),
-        ...(c.created_at ? { created_at: c.created_at } : {}),
-      };
-    })
-  );
-}, [data]);
+        return {
+          ...base,
+          ...(c.updated_at ? { updated_at: c.updated_at } : {}),
+          ...(c.created_at ? { created_at: c.created_at } : {}),
+        };
+      })
+    );
+  }, [data]);
 
   const visible = React.useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -100,7 +107,11 @@ export default function CampaignsTab() {
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-end max-w-3xl">
           <div className="space-y-1">
             <Label>Ara</Label>
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Başlık/açıklama ile ara…" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Başlık/açıklama ile ara…"
+            />
           </div>
 
           <div className="space-y-1">
@@ -150,37 +161,56 @@ export default function CampaignsTab() {
                   {(r.image_effective_url ?? r.image_url) ? (
                     <img
                       src={r.image_effective_url ?? (r.image_url as string)}
-                      alt={r.title}
+                      alt={r.alt || r.title}
                       className="h-10 w-14 rounded object-cover border"
+                      loading="lazy"
                     />
+                  ) : r.storage_asset_id ? (
+                    <div className="h-10 w-14">
+                      <ThumbById id={r.storage_asset_id} />
+                    </div>
                   ) : (
                     <div className="h-10 w-14 rounded border bg-gray-50" />
                   )}
                 </td>
+
                 <td className="px-3 py-2">{r.title}</td>
-                <td className="px-3 py-2 text-gray-600 truncate max-w-[280px]">{r.description}</td>
+                <td className="px-3 py-2 text-gray-600 truncate max-w-[280px]">
+                  {r.description}
+                </td>
                 <td className="px-3 py-2">
                   <Switch
                     checked={!!r.is_active}
                     onCheckedChange={async (v) => {
-                      setRows((arr) => arr.map((x) => (x.id === r.id ? { ...x, is_active: v } : x)));
+                      setRows((arr) =>
+                        arr.map((x) => (x.id === r.id ? { ...x, is_active: v } : x))
+                      );
                       try {
                         await patchOne({ id: r.id, body: { is_active: v } }).unwrap();
                       } catch {
-                        setRows((arr) => arr.map((x) => (x.id === r.id ? { ...x, is_active: !v } : x)));
+                        setRows((arr) =>
+                          arr.map((x) => (x.id === r.id ? { ...x, is_active: !v } : x))
+                        );
                         toast.error("Aktiflik güncellenemedi");
                       }
                     }}
                     className="data-[state=checked]:bg-emerald-600"
                   />
                 </td>
-                <td className="px-3 py-2">{r.updated_at ? new Date(r.updated_at).toLocaleString() : "—"}</td>
+                <td className="px-3 py-2">
+                  {r.updated_at ? new Date(r.updated_at).toLocaleString() : "—"}
+                </td>
                 <td className="px-3 py-2 text-right">
                   <div className="flex justify-end gap-1">
                     <Button variant="ghost" onClick={() => onEdit(r.id)} title="Düzenle">
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" onClick={() => doDelete(r.id)} disabled={deleting} title="Sil">
+                    <Button
+                      variant="ghost"
+                      onClick={() => doDelete(r.id)}
+                      disabled={deleting}
+                      title="Sil"
+                    >
                       <Trash2 className="h-4 w-4 text-rose-600" />
                     </Button>
                   </div>

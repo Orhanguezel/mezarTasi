@@ -316,10 +316,10 @@ export const adminListCategories: RouteHandler<{
     sort === "name"
       ? categories.name
       : sort === "created_at"
-      ? categories.created_at
-      : sort === "updated_at"
-      ? categories.updated_at
-      : categories.display_order;
+        ? categories.created_at
+        : sort === "updated_at"
+          ? categories.updated_at
+          : categories.display_order;
 
   let qb = db.select().from(categories).$dynamic();
   if (conds.length) qb = qb.where(and(...conds));

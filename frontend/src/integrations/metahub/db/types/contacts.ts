@@ -43,7 +43,7 @@ export interface ContactCreateInput {
   phone: string;
   subject: string;
   message: string;
-  /** Honeypot – opsiyonel */
+  /** Honeypot – opsiyonel (string veya null) */
   website?: string | null;
 }
 

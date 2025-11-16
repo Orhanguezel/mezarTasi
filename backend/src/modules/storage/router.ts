@@ -5,27 +5,29 @@ import { publicServe, uploadToBucket, signPut, signMultipart } from "./controlle
 import type { SignPutBody, SignMultipartBody } from "./validation";
 
 export async function registerStorage(app: FastifyInstance) {
+
+  const BASE = "/storage";
   // GET -> Fastify otomatik HEAD route'u da ekler (ayrıca tanımlamaya gerek yok)
   app.get<{ Params: { bucket: string; "*": string } }>(
-    "/storage/:bucket/*",
+    `${BASE}/:bucket/*`,
     { config: { public: true } },
     publicServe
   );
 
   app.post<{ Params: { bucket: string }; Querystring: { path?: string; upsert?: string } }>(
-    "/storage/:bucket/upload",
+    `${BASE}/:bucket/upload`,
     { preHandler: [requireAuth] },
     uploadToBucket
   );
 
   app.post<{ Body: SignPutBody }>(
-    "/storage/uploads/sign-put",
+    `${BASE}/uploads/sign-put`,
     { preHandler: [requireAuth] },
     signPut
   );
 
   app.post<{ Body: SignMultipartBody }>(
-    "/storage/uploads/sign-multipart",
+    `${BASE}/uploads/sign-multipart`,
     { preHandler: [requireAuth] },
     signMultipart
   );
