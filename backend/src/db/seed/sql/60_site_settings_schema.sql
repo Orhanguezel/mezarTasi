@@ -32,6 +32,29 @@ INSERT INTO `site_settings` (`id`,`key`,`value`,`created_at`,`updated_at`) VALUE
 (UUID(), 'contact_address',        '"Hekimbaşı Mah. Yıldıztepe Cad. No:41 Ümraniye/İstanbul"', NOW(3), NOW(3)),
 (UUID(), 'contact_whatsapp_link',  '"https://wa.me/905334838971"', NOW(3), NOW(3));
 
+/* ====== FREE INSPECTION PAGE (ÜCRETSİZ KEŞİF SAYFASI) ====== */
+INSERT INTO `site_settings` (`id`,`key`,`value`,`created_at`,`updated_at`) VALUES
+(UUID(), 'free_inspection_hero_image', '"https://images.unsplash.com/photo-1672684089414-7174386a1fd4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYXJibGUlMjBzdG9uZSUyMGNlbWV0ZXJ5fGVufDF8fHx8MTc1NjA3MTEzNnww&ixlib=rb-4.1.0&q=80&w=800&h=400&fit=crop&crop=center"', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_meta_date', '"Şubat 2024"', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_meta_tag', '"Hizmet"', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_title', '"İstanbul Anadolu Yakası Ücretsiz Keşif Hizmeti"', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_lead_title', '"🆓 Tamamen Ücretsiz Keşif ve Ölçüm"', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_lead_body', '"İstanbul Anadolu yakası tüm mezarlıklarında profesyonel keşif ve ölçüm hizmeti sunuyoruz. Uzman ekibimiz, mezarlığa gelerek zemin analizi, ölçüm işlemleri ve teknik değerlendirme yapar. Bu hizmet tamamen ücretsizdir ve herhangi bir yükümlülük getirmez."', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_steps_title', '"Keşif Süreci Nasıl İşler?"', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_steps', '[{"step":"1","title":"Randevu Alın","description":"Telefon veya WhatsApp ile iletişime geçin, uygun tarihi belirleyin"},{"step":"2","title":"Keşif Ziyareti","description":"Uzman ekibimiz mezarlığa gelerek ölçüm ve inceleme yapar"},{"step":"3","title":"Teknik Rapor","description":"Zemin durumu, ölçüler ve uygun model önerilerini içeren rapor hazırlanır"},{"step":"4","title":"Fiyat Teklifi","description":"Detaylı fiyat teklifi ve çalışma takvimi sunulur"}]', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_service_areas_title', '"Hizmet Verdiğimiz Bölgeler"', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_service_areas_intro', '"İstanbul Anadolu yakasındaki tüm mezarlıklarda hizmet veriyoruz:"', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_service_areas', '["Üsküdar","Kadıköy","Kartal","Maltepe","Pendik","Tuzla","Çekmeköy","Sancaktepe","Sultanbeyli","Şile","Beykoz","Ümraniye","Ataşehir","Samandıra","Kavacık","Aydos","Ağva"]', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_scope_title', '"Keşif Hizmeti Kapsamı"', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_scope_items', '["Mezar yerinin detaylı ölçümü","Zemin yapısının analizi","Mevcut durumun fotoğraflanması","Uygun model önerilerinin sunulması","Teknik rapor hazırlanması","Detaylı fiyat teklifinin verilmesi"]', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_speed_title', '"Hızlı ve Pratik"', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_speed_items', '["24 saat içinde randevu","Keşif işlemi 30-45 dakika","Aynı gün fiyat teklifi","Hafta sonu da hizmet","Uzman ekip ile çalışma","Yükümlülük getirmez"]', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_cta_title', '"📞 Ücretsiz Keşif İçin Randevu Alın"', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_cta_body', '"Mezar yapımı konusunda en doğru kararı verebilmeniz için profesyonel keşif hizmetimizden yararlanın. Uzman ekibimiz size en uygun çözümü sunar ve detaylı bilgi verir."', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_info_title', '"💡 Önemli Bilgi"', NOW(3), NOW(3)),
+(UUID(), 'free_inspection_info_body', '"Keşif hizmetimiz tamamen ücretsizdir ve herhangi bir yükümlülük getirmez. Teklif aldıktan sonra düşünme süreniz olacak ve istediğiniz zaman bizimle çalışmaya karar verebilirsiniz. Amacımız size en iyi hizmeti sunmaktır."', NOW(3), NOW(3));
+
+
 /* ====== STORAGE / UPLOAD CONFIG ====== */
 INSERT INTO `site_settings` (`id`,`key`,`value`,`created_at`,`updated_at`) VALUES
 (UUID(), 'storage_driver',             '"local"', NOW(3), NOW(3)),

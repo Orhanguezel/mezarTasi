@@ -65,21 +65,66 @@ type ApiProductInput = Omit<
   sub_category?: SubCategoryMini | (CategoryMini & { category_id?: string }) | null;
 };
 
-const normalizeProduct = (p: ApiProductInput): PublicProduct => {
-  const images = parseArr(p.images ?? null);
-  const galleryIds = parseArr(p.storage_image_ids ?? null);
-  const tags = parseArr(p.tags ?? null);
-  return {
-    ...p,
+const normalizeProduct = (p: ApiProductInput): ProductRow => {
+  // 1) Galeri ID'leri (öncelik: storage_image_ids → image_ids → gallery_ids)
+  const rawGalleryIds =
+    p.storage_image_ids ??
+    (p as any).image_ids ??
+    (p as any).gallery_ids ??
+    null;
+
+  const galleryIds = parseArr(rawGalleryIds) ?? [];
+
+  // 2) Görsel URL listesi (BE array gönderiyor ama string gelebilirse de normalize et)
+  let imageUrls: string[] = [];
+
+  if (Array.isArray(p.images)) {
+    imageUrls = p.images.map(String).filter(Boolean);
+  } else if (p.images != null) {
+    imageUrls = parseArr(p.images) ?? [];
+  }
+
+  // 3) Kapak alias’ları + images fallback
+  const storageAssetId: string | null =
+    (p as any).storage_asset_id ?? (p as any).cover_id ?? null;
+
+  let imageUrl: string | null =
+    (p as any).image_url ?? (p as any).cover_url ?? null;
+
+  if (!imageUrl && imageUrls.length > 0) {
+    // kapak yoksa ilk görseli kapak olarak kullan
+    imageUrl = String(imageUrls[0]);
+  }
+
+  // 4) Etiketler
+  const tagsArr = parseArr(p.tags ?? null) ?? [];
+
+  const product: ProductRow = {
+    // base alanlar (id, title, slug, category_id vs.)
+    ...(p as ProductRow),
+
+    // alias normalizasyonu — kesinlikle string | null
+    image_url: imageUrl,
+    storage_asset_id: storageAssetId,
+
+    // FE tipiyle birebir uyumlu alanlar
+    storage_image_ids: galleryIds,
+    images: imageUrls,
+
+    // sayısal alanlar
     price: asNumber(p.price, 0),
-    rating: asNumber(p.rating, 5),
+    rating: asNumber(p.rating, 0),        // istersen 5 yapabilirsin
     review_count: toInt(p.review_count, 0),
     stock_quantity: toInt(p.stock_quantity, 0),
-    images: images ?? null,
-    storage_image_ids: galleryIds ?? null,
-    tags: tags ?? null,
+
+    tags: tagsArr,
+    specifications: (p as any).specifications ?? null,
   };
+
+  return product;
 };
+
+
 
 /* =============================================================
    RTK endpoints

@@ -30,38 +30,6 @@ import {
   type ProductFaqRow,
 } from "@/integrations/metahub/db/types/products.rows";
 
-// ---- Session mapping: numericKey <-> realId (uuid/slug) ----
-const IDMAP_KEY = "mh_public_product_idmap_v1";
-type IdMap = Record<string, string>; // numericKey(string) -> realId
-
-function hashToNumericKey(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  h = Math.abs(h);
-  return h === 0 ? 1 : h;
-}
-function saveIdMapping(realId: string): number {
-  const key = hashToNumericKey(realId);
-  try {
-    const raw = sessionStorage.getItem(IDMAP_KEY);
-    const map: IdMap = raw ? JSON.parse(raw) : {};
-    map[String(key)] = realId;
-    sessionStorage.setItem(IDMAP_KEY, JSON.stringify(map));
-  } catch {}
-  return key;
-}
-function readRealId(numericKey: number | string): string | null {
-  try {
-    const raw = sessionStorage.getItem(IDMAP_KEY);
-    if (!raw) return null;
-    const map: IdMap = JSON.parse(raw);
-    const id = map[String(numericKey)];
-    return typeof id === "string" && id ? id : null;
-  } catch {
-    return null;
-  }
-}
-
 // ---- specs normalize
 function normalizeSpecs(specs: unknown): Record<string, string> {
   if (!specs) return {};
@@ -97,6 +65,7 @@ function normalizeSpecs(specs: unknown): Record<string, string> {
 // ---- ApiProduct -> UI
 type UiProduct = {
   id: string;
+  slug?: string | null;
   title: string;
   productCode?: string | null;
   price: number | string;
@@ -106,16 +75,18 @@ type UiProduct = {
   category_id: string;
   specifications?: Record<string, string>;
 };
+
 function toUiProduct(p: ApiProduct): UiProduct {
-  const imgs = (Array.isArray(p.images) ? p.images.filter(Boolean) : null) ?? [];
+  const imgs = (Array.isArray((p as any).images) ? (p as any).images.filter(Boolean) : null) ?? [];
   const primary = imgs[0] || (p as any).image_url || "";
   return {
     id: String(p.id),
+    slug: (p as any).slug ?? null,
     title: String(p.title ?? ""),
     productCode: (p as any).product_code ?? null,
     price: typeof p.price === "number" ? p.price : Number(p.price) || 0,
     image: primary,
-    images: imgs.length ? imgs : (primary ? [primary] : []),
+    images: imgs.length ? imgs : primary ? [primary] : [],
     description: (p as any).description ?? "",
     category_id: String((p as any).category_id ?? ""),
     specifications: normalizeSpecs((p as any).specifications),
@@ -123,9 +94,11 @@ function toUiProduct(p: ApiProduct): UiProduct {
 }
 
 interface ProductDetailPageProps {
-  productId: number;
+  /** Route: /product/:slug  → burada gelen değer aslında SLUG */
+  productId: string;
   onNavigate: (page: string) => void;
-  onProductDetail?: (productId: number) => void;
+  /** Detaydan başka ürüne geçerken sadece slug ile çağrılır */
+  onProductDetail?: (slug: string) => void;
 }
 
 /* ---------- helpers: site settings ---------- */
@@ -166,6 +139,10 @@ function buildWhatsappHref(raw: string): string {
   return `https://wa.me/${intl}`;
 }
 
+/** 🔥 Sadece SLUG varsa detay sayfasına gidilebilir */
+const canNavigateToProduct = (p: UiProduct | null | undefined) =>
+  !!p?.slug && String(p.slug).trim().length > 0;
+
 export function ProductDetailPage({ productId, onNavigate, onProductDetail }: ProductDetailPageProps) {
   // ----- UI state
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -180,7 +157,7 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
   const [similarTouchEnd, setSimilarTouchEnd] = useState(0);
   const [isSimilarAutoPlaying, setIsSimilarAutoPlaying] = useState(true);
 
-  // ---- Contact form (ContactPage ile aynı patern)
+  // ---- Contact form
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -201,34 +178,10 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
   const telHref = buildTelHref(contactPhoneRaw);
   const waHref = buildWhatsappHref(contactPhoneRaw);
 
-  // ----- Numeric -> real id/slug
-  const mappedId = readRealId(productId);
-  const shouldUseListFallback = !mappedId && Number.isFinite(productId);
-
-  const { data: fallbackList } = useListProductsQuery(undefined, {
-    skip: !shouldUseListFallback,
+  // ----- Detay verisi (slug string ile)
+  const { data: detailData } = useGetProductQuery(productId, {
+    skip: !productId,
   });
-
-  const resolvedIdOrSlug = useMemo(() => {
-    if (mappedId) return mappedId;
-    if (shouldUseListFallback && Array.isArray(fallbackList)) {
-      const idx = Number(productId);
-      const hit = (fallbackList as any[])[idx];
-      if (hit?.id) return String(hit.id);
-      if (hit?.slug) return String(hit.slug);
-    }
-    return "";
-  }, [mappedId, shouldUseListFallback, fallbackList, productId]);
-
-  const { data: detailData } = useGetProductQuery(resolvedIdOrSlug, {
-    skip: !resolvedIdOrSlug,
-  });
-
-  useEffect(() => {
-    if (!mappedId && resolvedIdOrSlug) {
-      saveIdMapping(resolvedIdOrSlug);
-    }
-  }, [mappedId, resolvedIdOrSlug]);
 
   const product = useMemo(() => (detailData ? toUiProduct(detailData) : null), [detailData]);
 
@@ -243,16 +196,24 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
   }, [product]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ----- Popüler
-  const { data: popularRes } = useListProductsQuery({ is_active: 1, sort: "rating", order: "desc", limit: 8 });
-  const popularProducts = useMemo(() => (Array.isArray(popularRes) ? popularRes.map(toUiProduct) : []), [popularRes]);
+  const { data: popularRes } = useListProductsQuery({
+    is_active: 1,
+    sort: "rating",
+    order: "desc",
+    limit: 8,
+  });
+  const popularProducts: UiProduct[] = useMemo(
+    () => (Array.isArray(popularRes) ? (popularRes as ApiProduct[]).map(toUiProduct) : []),
+    [popularRes]
+  );
 
   // ----- Benzer
   const { data: similarRes } = useListProductsQuery(
     product ? { is_active: 1, category_id: product.category_id, limit: 24 } : undefined,
     { skip: !product }
   );
-  const similarProducts = useMemo(() => {
-    const arr = Array.isArray(similarRes) ? similarRes.map(toUiProduct) : [];
+  const similarProducts: UiProduct[] = useMemo(() => {
+    const arr = Array.isArray(similarRes) ? (similarRes as ApiProduct[]).map(toUiProduct) : [];
     return product ? arr.filter((p) => p.id !== product.id).slice(0, 8) : [];
   }, [similarRes, product]);
 
@@ -270,8 +231,10 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
     { skip: !product }
   );
 
-  const reviews: ProductReviewRow[] = Array.isArray(reviewsData) ? reviewsData : [];
-  const faqs: ProductFaqRow[] = Array.isArray(faqsData) ? faqsData : [];
+  const reviews: ProductReviewRow[] = Array.isArray(reviewsData)
+    ? (reviewsData as ProductReviewRow[])
+    : [];
+  const faqs: ProductFaqRow[] = Array.isArray(faqsData) ? (faqsData as ProductFaqRow[]) : [];
 
   const specsFromRows: Record<string, string> = useMemo(() => {
     const out: Record<string, string> = {};
@@ -286,10 +249,13 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
     return { ...base, ...specsFromRows };
   }, [product?.specifications, specsFromRows]);
 
-  // ----- Autoplay (yorumlar) — 1'den fazlaysa çalışsın
+  // ----- Autoplay (yorumlar)
   useEffect(() => {
     if (!isAutoPlaying || reviews.length <= 1) return;
-    const t = setInterval(() => setCurrentReviewIndex((i) => (i + 1) % reviews.length), 5000);
+    const t = setInterval(
+      () => setCurrentReviewIndex((i) => (i + 1) % reviews.length),
+      5000
+    );
     return () => clearInterval(t);
   }, [isAutoPlaying, reviews.length]);
 
@@ -297,15 +263,20 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
   useEffect(() => {
     if (!isSimilarAutoPlaying || similarProducts.length === 0) return;
     const t = setInterval(() => {
-      const max = Math.max(0, Math.ceil(similarProducts.length / itemsPerView.desktop) - 1);
+      const max = Math.max(
+        0,
+        Math.ceil(similarProducts.length / itemsPerView.desktop) - 1
+      );
       setCurrentSimilarIndex((i) => (i >= max ? 0 : i + 1));
     }, 4000);
     return () => clearInterval(t);
   }, [isSimilarAutoPlaying, similarProducts.length, itemsPerView.desktop]);
 
   // ----- Touch handlers
-  const onTouchStart = (e: React.TouchEvent) => setTouchStart(e.targetTouches?.[0]?.clientX ?? 0);
-  const onTouchMove = (e: React.TouchEvent) => setTouchEnd(e.targetTouches?.[0]?.clientX ?? 0);
+  const onTouchStart = (e: React.TouchEvent) =>
+    setTouchStart(e.targetTouches?.[0]?.clientX ?? 0);
+  const onTouchMove = (e: React.TouchEvent) =>
+    setTouchEnd(e.targetTouches?.[0]?.clientX ?? 0);
   const onTouchEnd = () => {
     if (!touchStart || !touchEnd || reviews.length === 0) return;
     const dist = touchStart - touchEnd;
@@ -313,8 +284,10 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
     if (dist < -50) setCurrentReviewIndex((i) => (i - 1 + reviews.length) % reviews.length);
   };
 
-  const onSimilarStart = (e: React.TouchEvent) => setSimilarTouchStart(e.targetTouches?.[0]?.clientX ?? 0);
-  const onSimilarMove = (e: React.TouchEvent) => setSimilarTouchEnd(e.targetTouches?.[0]?.clientX ?? 0);
+  const onSimilarStart = (e: React.TouchEvent) =>
+    setSimilarTouchStart(e.targetTouches?.[0]?.clientX ?? 0);
+  const onSimilarMove = (e: React.TouchEvent) =>
+    setSimilarTouchEnd(e.targetTouches?.[0]?.clientX ?? 0);
   const onSimilarEnd = () => {
     if (!similarTouchStart || !similarTouchEnd) return;
     const dist = similarTouchStart - similarTouchEnd;
@@ -332,25 +305,35 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
   };
 
   const nextSimilar = () => {
-    const max = Math.max(0, Math.ceil(similarProducts.length / itemsPerView.desktop) - 1);
+    const max = Math.max(
+      0,
+      Math.ceil(similarProducts.length / itemsPerView.desktop) - 1
+    );
     setCurrentSimilarIndex((i) => Math.min(i + 1, max));
   };
   const prevSimilar = () => setCurrentSimilarIndex((i) => Math.max(i - 1, 0));
 
-  // ----- Detay navigasyon (mapping)
-  const goDetailByRealId = (realId: string) => {
-    const key = saveIdMapping(realId);
-    onProductDetail?.(key);
+  // ----- Detay navigasyon – sadece SLUG
+  const goDetail = (p: UiProduct) => {
+    const slug = (p.slug ?? "").toString().trim();
+    if (!slug) return;
+    onProductDetail?.(slug);
   };
 
   const handlePopularClick = () => {
     const item = popularProducts[currentPopularIndex];
-    if (item?.id) goDetailByRealId(item.id);
+    if (!item || !canNavigateToProduct(item)) return;
+    goDetail(item);
   };
-  const handleSimilarClick = (id: string) => goDetailByRealId(id);
+  const handleSimilarClick = (item: UiProduct) => {
+    if (!canNavigateToProduct(item)) return;
+    goDetail(item);
+  };
 
-  // ----- Contact form (ContactPage paternine göre)
-  const onContactInput = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  // ----- Contact form
+  const onContactInput = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
     setFormData((p) => ({ ...p, [name]: value }));
   };
@@ -369,7 +352,6 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
       return;
     }
 
-    // Mesaja kullanıcıdan gelen ek alanları iliştir (ör. cemetery)
     const messageFinal = [
       formData.message.trim(),
       formData.cemetery.trim() ? `\n\nMezarlık: ${formData.cemetery.trim()}` : "",
@@ -389,7 +371,7 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
     const websiteTrim = formData.website.trim();
     const payload: ContactCreateInput = websiteTrim
       ? { ...basePayload, website: websiteTrim }
-      : { ...basePayload, website: null }; // ContactPage ile birebir
+      : { ...basePayload, website: null };
 
     try {
       await createContact(payload).unwrap();
@@ -405,7 +387,9 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
       });
     } catch (err: any) {
       toast.error(
-        typeof err?.data?.error === "string" ? `Hata: ${err.data.error}` : "Mesaj gönderilemedi. Lütfen tekrar deneyin."
+        typeof err?.data?.error === "string"
+          ? `Hata: ${err.data.error}`
+          : "Mesaj gönderilemedi. Lütfen tekrar deneyin."
       );
     }
   };
@@ -423,8 +407,14 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
 
   const images = product.images.length ? product.images : product.image ? [product.image] : [];
 
-  // ---- TS-safe: gösterilecek ana anahtarlar ve etiketleri
-  const SPEC_MAIN_KEYS = ["dimensions", "weight", "thickness", "surfaceFinish", "warranty", "installationTime"] as const;
+  const SPEC_MAIN_KEYS = [
+    "dimensions",
+    "weight",
+    "thickness",
+    "surfaceFinish",
+    "warranty",
+    "installationTime",
+  ] as const;
   type SpecKey = (typeof SPEC_MAIN_KEYS)[number];
   const SPEC_LABELS: Record<SpecKey, string> = {
     dimensions: "Boyutlar",
@@ -436,21 +426,25 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
   };
 
   const hasSpecs =
-    Object.values(specsMerged).some((v) => (v ?? "").toString().trim().length > 0) || specsRows.length > 0;
+    Object.values(specsMerged).some((v) => (v ?? "").toString().trim().length > 0) ||
+    specsRows.length > 0;
 
-  // Yorum yıldız helper
   const Stars = ({ rating }: { rating: number }) => {
     const r = Math.max(0, Math.min(5, Math.round(rating)));
     return (
       <div className="flex justify-center mb-3">
         {Array.from({ length: 5 }).map((_, i) => (
-          <Star key={i} className={`w-4 h-4 ${i < r ? "text-yellow-400 fill-current" : "text-gray-300"} mx-0.5`} />
+          <Star
+            key={i}
+            className={`w-4 h-4 ${
+              i < r ? "text-yellow-400 fill-current" : "text-gray-300"
+            } mx-0.5`}
+          />
         ))}
       </div>
     );
   };
 
-  // --- Review slider hesapları
   const reviewCount = Math.max(1, reviews.length);
 
   return (
@@ -459,14 +453,19 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
       <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-4 py-4 max-w-7xl">
           <div className="flex items-center gap-2 text-sm">
-            <button onClick={() => onNavigate("home")} className="text-teal-600 hover:text-teal-700 flex items-center gap-1 font-semibold">
+            <button
+              onClick={() => onNavigate("home")}
+              className="text-teal-600 hover:text-teal-700 flex items-center gap-1 font-semibold"
+            >
               <ArrowLeft className="w-4 h-4" />
               Ana Sayfa
             </button>
             <span className="text-gray-400">/</span>
             <span className="text-gray-600 font-semibold">Mezar Modelleri</span>
             <span className="text-gray-400">/</span>
-            <span className="text-gray-800 font-bold">{product.productCode || product.title}</span>
+            <span className="text-gray-800 font-bold">
+              {product.productCode || product.title}
+            </span>
           </div>
         </div>
       </div>
@@ -491,17 +490,25 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                     key={`${product.id}-${idx}`}
                     onClick={() => setCurrentImageIndex(idx)}
                     className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                      idx === currentImageIndex ? "border-teal-500 ring-2 ring-teal-200" : "border-gray-200 hover:border-gray-300"
+                      idx === currentImageIndex
+                        ? "border-teal-500 ring-2 ring-teal-200"
+                        : "border-gray-200 hover:border-gray-300"
                     }`}
                   >
-                    <ImageWithFallback src={img} alt={`${product.title} küçük görsel ${idx + 1}`} className="w-full h-full object-cover" />
+                    <ImageWithFallback
+                      src={img}
+                      alt={`${product.title} küçük görsel ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
                   </button>
                 ))}
               </div>
             )}
 
             <div className="text-center">
-              <p className="text-sm text-gray-500 font-medium">{Math.max(1, images.length)} fotoğraf mevcut</p>
+              <p className="text-sm text-gray-500 font-medium">
+                {Math.max(1, images.length)} fotoğraf mevcut
+              </p>
             </div>
           </div>
 
@@ -510,21 +517,30 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
             <div>
               <div className="mb-4">
                 {product.productCode && (
-                  <Badge variant="outline" className="text-teal-600 border-teal-600 mb-3 font-bold">
+                  <Badge
+                    variant="outline"
+                    className="text-teal-600 border-teal-600 mb-3 font-bold"
+                  >
                     {product.productCode}
                   </Badge>
                 )}
-                <h1 className="text-4xl font-bold text-gray-800 mb-4 leading-tight">{product.title}</h1>
+                <h1 className="text-4xl font-bold text-gray-800 mb-4 leading-tight">
+                  {product.title}
+                </h1>
               </div>
 
               <div className="mb-4">
-                <div className="inline-flex items-center bg-teal-500 text-white px-3 py-1 rounded-full text-xs font-bold">Ürün Satış Fiyatı:</div>
+                <div className="inline-flex items-center bg-teal-500 text-white px-3 py-1 rounded-full text-xs font-bold">
+                  Ürün Satış Fiyatı:
+                </div>
               </div>
 
               <div className="mb-6">
                 <div className="inline-flex items-center justify-center bg-white border-4 border-black rounded-full px-8 py-4 shadow-lg">
                   <span className="text-4xl font-bold text-teal-600">
-                    {typeof product.price === "number" ? product.price.toLocaleString("tr-TR") : String(product.price)}
+                    {typeof product.price === "number"
+                      ? product.price.toLocaleString("tr-TR")
+                      : String(product.price)}
                   </span>
                 </div>
               </div>
@@ -532,26 +548,25 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
 
             <div>
               <h3 className="text-2xl font-bold text-gray-800 mb-4">Ürün Açıklaması</h3>
-              <p className="text-gray-700 font-semibold leading-snug">{product.description}</p>
+              <p className="text-gray-700 font-semibold leading-snug">
+                {product.description}
+              </p>
             </div>
 
             {hasSpecs && (
               <div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-4">Teknik Özellikler</h3>
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">
+                  Teknik Özellikler
+                </h3>
                 <div className="bg-gray-100 p-6 rounded-lg">
                   <div className="space-y-3">
-                    {(["dimensions", "weight", "thickness", "surfaceFinish", "warranty", "installationTime"] as const).map((k) => {
-                      const SPEC_LABELS: Record<typeof k, string> = {
-                        dimensions: "Boyutlar",
-                        weight: "Ağırlık",
-                        thickness: "Kalınlık",
-                        surfaceFinish: "Yüzey İşlemi",
-                        warranty: "Garanti",
-                        installationTime: "Kurulum Süresi",
-                      } as any;
+                    {SPEC_MAIN_KEYS.map((k) => {
                       const v = (specsMerged as Record<string, string>)[k];
                       return v ? (
-                        <div className="flex items-start gap-3" key={k}>
+                        <div
+                          className="flex items-start gap-3"
+                          key={k}
+                        >
                           <div className="w-2 h-2 bg-teal-500 rounded-full mt-2 flex-shrink-0" />
                           <span className="text-gray-800 font-semibold leading-tight">
                             <strong>{SPEC_LABELS[k]}:</strong> {v}
@@ -561,9 +576,17 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                     })}
 
                     {Object.entries(specsMerged)
-                      .filter(([k]) => !(["dimensions", "weight", "thickness", "surfaceFinish", "warranty", "installationTime"] as readonly string[]).includes(k))
+                      .filter(
+                        ([k]) =>
+                          !SPEC_MAIN_KEYS.includes(
+                            k as (typeof SPEC_MAIN_KEYS)[number]
+                          )
+                      )
                       .map(([k, v]) => (
-                        <div className="flex items-start gap-3" key={k}>
+                        <div
+                          className="flex items-start gap-3"
+                          key={k}
+                        >
                           <div className="w-2 h-2 bg-teal-500 rounded-full mt-2 flex-shrink-0" />
                           <span className="text-gray-800 font-semibold leading-tight">
                             <strong>{k}:</strong> {String(v)}
@@ -571,8 +594,11 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                         </div>
                       ))}
 
-                    {(specsLoading || (!Object.keys(specsMerged).length && specsRows.length === 0)) && (
-                      <p className="text-sm text-gray-500">Teknik özellikler yükleniyor…</p>
+                    {(specsLoading ||
+                      (!Object.keys(specsMerged).length && specsRows.length === 0)) && (
+                      <p className="text-sm text-gray-500">
+                        Teknik özellikler yükleniyor…
+                      </p>
                     )}
                   </div>
                 </div>
@@ -587,7 +613,9 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
             {/* Reviews */}
             <AccordionItem value="reviews" className="border-b border-gray-200">
               <AccordionTrigger className="bg-teal-600 text-white px-6 py-4 hover:bg-teal-700 text-left">
-                <span className="text-lg font-bold flex items-center gap-2">⭐ Müşterilerimizden Gelen Görüşler</span>
+                <span className="text-lg font-bold flex items-center gap-2">
+                  ⭐ Müşterilerimizden Gelen Görüşler
+                </span>
               </AccordionTrigger>
               <AccordionContent className="px-4 py-4 bg-white accordion-content-reviews">
                 <div className="relative overflow-hidden">
@@ -604,7 +632,9 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                         className="flex transition-transform duration-500 ease-in-out"
                         style={{
                           width: `${reviewCount * 100}%`,
-                          transform: `translateX(-${(currentReviewIndex * 100) / reviewCount}%)`,
+                          transform: `translateX(-${
+                            (currentReviewIndex * 100) / reviewCount
+                          }%)`,
                         }}
                       >
                         {(reviews.length
@@ -628,16 +658,28 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                               <div className="text-center mb-3">
                                 <div className="w-12 h-12 mx-auto mb-2 bg-teal-600 rounded-full flex items-center justify-center shadow-md">
                                   <span className="text-white text-base font-bold">
-                                    {(review.customer_name || "M").toString().trim().charAt(0).toUpperCase()}
+                                    {(review.customer_name || "M")
+                                      .toString()
+                                      .trim()
+                                      .charAt(0)
+                                      .toUpperCase()}
                                   </span>
                                 </div>
-                                <h4 className="text-base font-bold text-teal-600 mb-1">{review.customer_name || "Anonim Müşteri"}</h4>
+                                <h4 className="text-base font-bold text-teal-600 mb-1">
+                                  {review.customer_name || "Anonim Müşteri"}
+                                </h4>
                                 <Stars rating={Number(review.rating ?? 5)} />
                               </div>
                               <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100">
-                                <div className="text-teal-600 text-2xl mb-1 text-center opacity-50">"</div>
-                                <p className="text-gray-700 text-center leading-relaxed text-sm italic">{review.comment || "—"}</p>
-                                <div className="text-teal-600 text-2xl mt-1 text-center rotate-180 opacity-50">"</div>
+                                <div className="text-teal-600 text-2xl mb-1 text-center opacity-50">
+                                  "
+                                </div>
+                                <p className="text-gray-700 text-center leading-relaxed text-sm italic">
+                                  {review.comment || "—"}
+                                </p>
+                                <div className="text-teal-600 text-2xl mt-1 text-center rotate-180 opacity-50">
+                                  "
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -652,7 +694,11 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setCurrentReviewIndex((i) => (i - 1 + reviews.length) % reviews.length)}
+                          onClick={() =>
+                            setCurrentReviewIndex(
+                              (i) => (i - 1 + reviews.length) % reviews.length
+                            )
+                          }
                           className="border-teal-500 text-teal-600 hover:bg-teal-50 text-xs px-2 py-1"
                         >
                           <ChevronLeft className="w-3 h-3 mr-1" />
@@ -664,7 +710,9 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                               key={idx}
                               onClick={() => setCurrentReviewIndex(idx)}
                               className={`transition-all duration-300 rounded-full ${
-                                idx === currentReviewIndex ? "w-6 h-2 bg-teal-500" : "w-2 h-2 bg-gray-300 hover:bg-gray-400"
+                                idx === currentReviewIndex
+                                  ? "w-6 h-2 bg-teal-500"
+                                  : "w-2 h-2 bg-gray-300 hover:bg-gray-400"
                               }`}
                               aria-label={`${idx + 1}. yoruma git`}
                             />
@@ -673,7 +721,9 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setCurrentReviewIndex((i) => (i + 1) % reviews.length)}
+                          onClick={() =>
+                            setCurrentReviewIndex((i) => (i + 1) % reviews.length)
+                          }
                           className="border-teal-500 text-teal-600 hover:bg-teal-50 text-xs px-2 py-1"
                         >
                           Sonraki
@@ -683,14 +733,17 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
 
                       <div className="text-center mt-2">
                         <p className="text-xs text-gray-500">
-                          {currentReviewIndex + 1} / {reviews.length} müşteri yorumu
+                          {currentReviewIndex + 1} / {reviews.length} müşteri
+                          yorumu
                         </p>
                       </div>
                     </>
                   )}
 
                   {reviewsLoading && reviews.length === 0 && (
-                    <p className="text-center text-sm text-gray-500 mt-2">Yorumlar yükleniyor…</p>
+                    <p className="text-center text-sm text-gray-500 mt-2">
+                      Yorumlar yükleniyor…
+                    </p>
                   )}
                 </div>
               </AccordionContent>
@@ -702,34 +755,55 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                 <span className="text-lg font-bold">Sık Sorulan Sorular</span>
               </AccordionTrigger>
               <AccordionContent className="px-6 py-6 bg-white">
-                {faqsLoading && faqs.length === 0 && <p className="text-sm text-gray-500">Sorular yükleniyor…</p>}
+                {faqsLoading && faqs.length === 0 && (
+                  <p className="text-sm text-gray-500">Sorular yükleniyor…</p>
+                )}
                 {faqs.length > 0 ? (
                   <div className="space-y-4">
                     {faqs
-                      .filter((f) => (f.is_active ? Number(f.is_active) !== 0 : true))
-                      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+                      .filter((f) =>
+                        f.is_active ? Number(f.is_active) !== 0 : true
+                      )
+                      .sort(
+                        (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)
+                      )
                       .map((f) => (
-                        <div key={f.id} className="border border-gray-200 rounded-lg p-4">
-                          <h4 className="font-semibold text-gray-900 mb-2">{f.question}</h4>
-                          <p className="text-gray-700 whitespace-pre-line">{f.answer}</p>
+                        <div
+                          key={f.id}
+                          className="border border-gray-200 rounded-lg p-4"
+                        >
+                          <h4 className="font-semibold text-gray-900 mb-2">
+                            {f.question}
+                          </h4>
+                          <p className="text-gray-700 whitespace-pre-line">
+                            {f.answer}
+                          </p>
                         </div>
                       ))}
                   </div>
                 ) : (
-                  !faqsLoading && <p className="text-sm text-gray-500">Bu ürün için SSS henüz eklenmemiş.</p>
+                  !faqsLoading && (
+                    <p className="text-sm text-gray-500">
+                      Bu ürün için SSS henüz eklenmemiş.
+                    </p>
+                  )
                 )}
               </AccordionContent>
             </AccordionItem>
 
-            {/* İletişim (ContactPage ile aynı kurallar) */}
+            {/* İletişim */}
             <AccordionItem value="contact" className="border-b border-gray-200">
               <AccordionTrigger className="bg-teal-600 text-white px-6 py-4 hover:bg-teal-700 text-left">
-                <span className="text-lg font-bold">Bu Ürün Hakkında Detaylı Görüşmek</span>
+                <span className="text-lg font-bold">
+                  Bu Ürün Hakkında Detaylı Görüşmek
+                </span>
               </AccordionTrigger>
               <AccordionContent className="px-6 py-6 bg-white accordion-content-contact">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div>
-                    <h4 className="text-xl font-bold text-teal-600 mb-4">İletişim Bilgileri</h4>
+                    <h4 className="text-xl font-bold text-teal-600 mb-4">
+                      İletişim Bilgileri
+                    </h4>
                     <div className="space-y-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
@@ -737,7 +811,9 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                         </div>
                         <div>
                           <p className="font-semibold text-gray-800">Telefon</p>
-                          <p className="text-teal-600 font-bold">{contactPhoneRaw}</p>
+                          <p className="text-teal-600 font-bold">
+                            {contactPhoneRaw}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -745,23 +821,35 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                           <span className="text-green-600 font-bold">📱</span>
                         </div>
                         <div>
-                          <p className="font-semibold text-gray-800">WhatsApp</p>
-                          <p className="text-green-600 font-bold">{contactPhoneRaw}</p>
+                          <p className="font-semibold text-gray-800">
+                            WhatsApp
+                          </p>
+                          <p className="text-green-600 font-bold">
+                            {contactPhoneRaw}
+                          </p>
                         </div>
                       </div>
                     </div>
                     <div className="mt-6 space-y-3">
-                      <Button onClick={() => window.open(telHref)} className="w-full bg-teal-500 hover:bg-teal-600 text-white">
+                      <Button
+                        onClick={() => window.open(telHref)}
+                        className="w-full bg-teal-500 hover:bg-teal-600 text-white"
+                      >
                         📞 Hemen Ara
                       </Button>
-                      <Button onClick={() => window.open(waHref, "_blank")} className="w-full bg-green-500 hover:bg-green-600 text-white">
+                      <Button
+                        onClick={() => window.open(waHref, "_blank")}
+                        className="w-full bg-green-500 hover:bg-green-600 text-white"
+                      >
                         💬 WhatsApp'tan Yaz
                       </Button>
                     </div>
                   </div>
 
                   <div>
-                    <h4 className="text-xl font-bold text-teal-600 mb-4">Detaylı Bilgi Formu</h4>
+                    <h4 className="text-xl font-bold text-teal-600 mb-4">
+                      Detaylı Bilgi Formu
+                    </h4>
                     <form onSubmit={onSubmit} className="space-y-4">
                       {/* Honeypot (gizli) */}
                       <div className="hidden">
@@ -806,7 +894,6 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                         disabled={contactSaving}
                       />
 
-                      {/* Ürün başlıkla ön-dolu, kullanıcı isterse değiştirebilir */}
                       <Input
                         type="text"
                         name="subject"
@@ -862,7 +949,9 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                         <div className="mb-4">
                           <ImageWithFallback
                             src={popularProducts[currentPopularIndex]?.image ?? ""}
-                            alt={popularProducts[currentPopularIndex]?.title ?? "Ürün"}
+                            alt={
+                              popularProducts[currentPopularIndex]?.title ?? "Ürün"
+                            }
                             className="w-40 h-32 object-cover rounded-lg mx-auto shadow-md"
                           />
                         </div>
@@ -870,11 +959,25 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                           {popularProducts[currentPopularIndex]?.title ?? ""}
                         </h4>
                         <p className="text-2xl font-bold text-gray-800 mb-4">
-                          {typeof popularProducts[currentPopularIndex]?.price === "number"
-                            ? (popularProducts[currentPopularIndex]?.price as number).toLocaleString("tr-TR")
-                            : String(popularProducts[currentPopularIndex]?.price ?? "")}
+                          {typeof popularProducts[currentPopularIndex]?.price ===
+                          "number"
+                            ? (
+                                popularProducts[currentPopularIndex]
+                                  ?.price as number
+                              ).toLocaleString("tr-TR")
+                            : String(
+                                popularProducts[currentPopularIndex]?.price ?? ""
+                              )}
                         </p>
-                        <Button onClick={handlePopularClick} className="bg-teal-500 hover:bg-teal-600 text-white">
+                        <Button
+                          onClick={handlePopularClick}
+                          disabled={
+                            !canNavigateToProduct(
+                              popularProducts[currentPopularIndex]
+                            )
+                          }
+                          className="bg-teal-500 hover:bg-teal-600 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
                           Detaylı İncele
                         </Button>
                       </div>
@@ -886,7 +989,14 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                       </Button>
                       <div className="flex space-x-2">
                         {popularProducts.map((_, idx) => (
-                          <div key={idx} className={`w-2 h-2 rounded-full ${idx === currentPopularIndex ? "bg-teal-500" : "bg-gray-300"}`} />
+                          <div
+                            key={idx}
+                            className={`w-2 h-2 rounded-full ${
+                              idx === currentPopularIndex
+                                ? "bg-teal-500"
+                                : "bg-gray-300"
+                            }`}
+                          />
                         ))}
                       </div>
                       <Button variant="outline" size="sm" onClick={nextPopular}>
@@ -903,15 +1013,24 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
         {/* Fiyat İçin Arayınız */}
         <div className="mt-8 bg-gradient-to-r from-teal-500 to-teal-600 rounded-lg p-6 md:p-8 text-white">
           <div className="text-center">
-            <h3 className="text-2xl md:text-3xl font-bold mb-4">🔥 Özel Fiyat İçin Hemen Arayın! 🔥</h3>
+            <h3 className="text-2xl md:text-3xl font-bold mb-4">
+              🔥 Özel Fiyat İçin Hemen Arayın! 🔥
+            </h3>
             <p className="text-lg md:text-xl mb-6 opacity-90">
-              Bu ürün için en uygun fiyatı almak ve detaylı bilgi için hemen bizimle iletişime geçin.
+              Bu ürün için en uygun fiyatı almak ve detaylı bilgi için hemen bizimle
+              iletişime geçin.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button onClick={() => window.open(telHref)} className="bg-white text-teal-600 hover:bg-gray-100 font-bold px-8 py-3 text-lg">
+              <Button
+                onClick={() => window.open(telHref)}
+                className="bg-white text-teal-600 hover:bg-gray-100 font-bold px-8 py-3 text-lg"
+              >
                 📞 {contactPhoneRaw}
               </Button>
-              <Button onClick={() => window.open(waHref, "_blank")} className="bg-green-500 hover:bg-green-600 text-white font-bold px-8 py-3 text-lg">
+              <Button
+                onClick={() => window.open(waHref, "_blank")}
+                className="bg-green-500 hover:bg-green-600 text-white font-bold px-8 py-3 text-lg"
+              >
                 💬 WhatsApp
               </Button>
             </div>
@@ -921,7 +1040,9 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
         {/* Benzer Ürünler */}
         <div className="mt-12">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-800 mb-2">Benzer Ürünler</h2>
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">
+              Benzer Ürünler
+            </h2>
             <p className="text-gray-600">Size uygun diğer mezar modelleri</p>
           </div>
 
@@ -936,13 +1057,21 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
             >
               <div
                 className="flex transition-transform duration-500 ease-in-out"
-                style={{ transform: `translateX(-${currentSimilarIndex * (100 / itemsPerView.desktop)}%)` }}
+                style={{
+                  transform: `translateX(-${
+                    currentSimilarIndex * (100 / itemsPerView.desktop)
+                  }%)`,
+                }}
               >
                 {similarProducts.map((sp) => (
-                  <div key={sp.id} className="flex-none w-full sm:w-1/2 lg:w-1/4 px-3" style={{ minWidth: "0" }}>
+                  <div
+                    key={sp.id}
+                    className="flex-none w-full sm:w-1/2 lg:w-1/4 px-3"
+                    style={{ minWidth: "0" }}
+                  >
                     <div
                       className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group h-full"
-                      onClick={() => handleSimilarClick(sp.id)}
+                      onClick={() => handleSimilarClick(sp)}
                     >
                       <div className="aspect-[4/3] overflow-hidden relative">
                         <ImageWithFallback
@@ -953,32 +1082,62 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
                           <div className="transform scale-0 group-hover:scale-100 transition-transform duration-300">
                             <div className="bg-white bg-opacity-90 rounded-full p-3">
-                              <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              <svg
+                                className="w-6 h-6 text-teal-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                />
                               </svg>
                             </div>
                           </div>
                         </div>
                       </div>
                       <div className="p-5">
-                        <h3 className="font-bold text-gray-800 mb-3 text-sm leading-tight min-h-[2.5rem] line-clamp-2">{sp.title}</h3>
+                        <h3 className="font-bold text-gray-800 mb-3 text-sm leading-tight min-h-[2.5rem] line-clamp-2">
+                          {sp.title}
+                        </h3>
                         <div className="flex items-center justify-between mb-4">
                           <span className="text-teal-600 font-bold text-lg">
-                            {typeof sp.price === "number" ? sp.price.toLocaleString("tr-TR") : String(sp.price)}
+                            {typeof sp.price === "number"
+                              ? sp.price.toLocaleString("tr-TR")
+                              : String(sp.price)}
                           </span>
                         </div>
                         <Button
-                          className="w-full bg-teal-500 hover:bg-teal-600 text-white text-sm py-2.5 rounded-lg transition-colors duration-200"
+                          className="w-full bg-teal-500 hover:bg-teal-600 text-white text-sm py-2.5 rounded-lg transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleSimilarClick(sp.id);
+                            handleSimilarClick(sp);
                           }}
+                          disabled={!canNavigateToProduct(sp)}
                         >
                           <span className="flex items-center justify-center gap-2">
                             Detaylı İncele
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5l7 7-7 7"
+                              />
                             </svg>
                           </span>
                         </Button>
@@ -1006,12 +1165,19 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
             </button>
 
             <div className="flex justify-center mt-8 space-x-2">
-              {Array.from({ length: Math.max(1, Math.ceil(similarProducts.length / itemsPerView.desktop)) }).map((_, idx) => (
+              {Array.from({
+                length: Math.max(
+                  1,
+                  Math.ceil(similarProducts.length / itemsPerView.desktop)
+                ),
+              }).map((_, idx) => (
                 <button
                   key={idx}
                   onClick={() => setCurrentSimilarIndex(idx)}
                   className={`transition-all duration-300 rounded-full ${
-                    Math.floor(currentSimilarIndex / itemsPerView.desktop) === idx ? "w-8 h-3 bg-teal-500" : "w-3 h-3 bg-gray-300 hover:bg-gray-400"
+                    Math.floor(currentSimilarIndex / itemsPerView.desktop) === idx
+                      ? "w-8 h-3 bg-teal-500"
+                      : "w-3 h-3 bg-gray-300 hover:bg-gray-400"
                   }`}
                   aria-label={`${idx + 1}. ürün grubuna git`}
                 />
@@ -1020,8 +1186,13 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
 
             <div className="text-center mt-4">
               <p className="text-sm text-gray-500">
-                {similarProducts.length} benzer ürün • {Math.floor(currentSimilarIndex / itemsPerView.desktop) + 1} /{" "}
-                {Math.max(1, Math.ceil(similarProducts.length / itemsPerView.desktop))} grup
+                {similarProducts.length} benzer ürün •{" "}
+                {Math.floor(currentSimilarIndex / itemsPerView.desktop) + 1} /{" "}
+                {Math.max(
+                  1,
+                  Math.ceil(similarProducts.length / itemsPerView.desktop)
+                )}{" "}
+                grup
               </p>
             </div>
           </div>

@@ -4,18 +4,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "../ui/carousel";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "../ui/carousel";
 import { ImageWithFallback } from "../figma/ImageWithFallback";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useActiveSlidesRtk } from "../../data/sliderData";
 import backgroundImage from "figma:asset/0a9012ca17bfb48233c0877277b7fb8427a12d4c.png";
 
-// RTK hooks
+// RTK hooks (PUBLIC)
 import { useListProductsQuery } from "@/integrations/metahub/rtk/endpoints/products.endpoints";
-import { useListCategoriesAdminQuery } from "@/integrations/metahub/rtk/endpoints/admin/categories_admin.endpoints";
-import { useListSubCategoriesAdminQuery } from "@/integrations/metahub/rtk/endpoints/admin/sub_categories_admin.endpoints";
-import { useListAccessoriesPublicQuery } from "@/integrations/metahub/rtk/endpoints/accessories.endpoints";
-import { useListServicesPublicQuery } from "@/integrations/metahub/rtk/endpoints/services_public.endpoints";
+import { useListCategoriesQuery } from "@/integrations/metahub/rtk/endpoints/categories.endpoints";
+import { useListSubCategoriesQuery } from "@/integrations/metahub/rtk/endpoints/sub_categories.endpoints";
 
 import type { Product as ApiProduct } from "@/integrations/metahub/db/types/products.rows";
 import type { Category } from "@/integrations/metahub/db/types/categories.rows";
@@ -23,37 +27,25 @@ import type { SubCategory } from "@/integrations/metahub/db/types/sub_categories
 
 /* =========================== helpers =========================== */
 
-const IDMAP_KEY = "mh_public_product_idmap_v1";
-type IdMap = Record<string, string>;
-
-function hashToNumericKey(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  h = Math.abs(h);
-  return h === 0 ? 1 : h;
-}
-function saveIdMapping(realId: string): number {
-  const key = hashToNumericKey(realId);
-  try {
-    const raw = sessionStorage.getItem(IDMAP_KEY);
-    const map: IdMap = raw ? JSON.parse(raw) : {};
-    map[String(key)] = realId;
-    sessionStorage.setItem(IDMAP_KEY, JSON.stringify(map));
-  } catch {}
-  return key;
-}
-
 function normalizeSpecs(specs: unknown): Record<string, string> {
   if (!specs) return {};
   if (typeof specs === "string") {
-    try { return normalizeSpecs(JSON.parse(specs)); } catch { return {}; }
+    try {
+      return normalizeSpecs(JSON.parse(specs));
+    } catch {
+      return {};
+    }
   }
   if (Array.isArray(specs)) {
     const out: Record<string, string> = {};
     for (const it of specs as any[]) {
       if (it && typeof it === "object" && (it as any).name) {
         const v = (it as any).value;
-        out[String((it as any).name)] = Array.isArray(v) ? v.join(", ") : v != null ? String(v) : "";
+        out[String((it as any).name)] = Array.isArray(v)
+          ? v.join(", ")
+          : v != null
+          ? String(v)
+          : "";
       }
     }
     return out;
@@ -70,16 +62,21 @@ function normalizeSpecs(specs: unknown): Record<string, string> {
 }
 
 /* =========================== types =========================== */
+
 interface PricingPageProps {
   onNavigate: (page: string) => void;
-  onProductDetail?: (productNumericKey: number) => void;
+  /** App.tsx içinde onProductDetail(slug: string) olarak kullanılıyor */
+  onProductDetail?: (productSlug: string) => void;
 }
 
 interface TombstoneModel {
-  id: number;                // numeric key (mapped from real id)
+  /** Gerçek id / uuid vs. – sadece key için kullanıyoruz */
+  id: string;
+  /** URL’de kullanılacak slug */
+  slug: string;
   name: string;
-  category: string;          // product:<slug> | accessories | service:<ciceklendirme|toprak-dolumu>
-  subCategory?: string;      // ürün için sub-category slug
+  categoryId: string; // gerçek category_id (string)
+  subCategory?: string; // sub-category slug
   material: string;
   price: string;
   image: string;
@@ -96,29 +93,41 @@ interface TombstoneModel {
 
 /* ======================= mappers (RTK -> UI) ======================= */
 
-// ---- ApiProduct -> TombstoneModel
 function productToModel(
   p: ApiProduct,
-  categorySlugById: Record<string, string>,
   categoryNameById: Record<string, string>,
   subCategorySlugById: Record<string, string>
 ): TombstoneModel {
-  const images = Array.isArray((p as any).images) ? (p as any).images.filter(Boolean) : [];
-  const primary = String(images[0] || (p as any).image_url || (p as any).main_image || "");
-  const realId = String((p as any).id ?? (p as any).uuid ?? (p as any).slug ?? Math.random());
-  const numericKey = saveIdMapping(realId);
+  const anyP = p as any;
 
-  const catId = String((p as any).category_id ?? "");
-  const subId = String((p as any).sub_category_id ?? "");
-  const catSlug = categorySlugById[catId] || "";
+  const images = Array.isArray(anyP.images) ? anyP.images.filter(Boolean) : [];
+  const primary = String(images[0]?.image_effective_url || images[0] || anyP.image_url || anyP.main_image || "");
+
+  const realId = String(anyP.id ?? anyP.uuid ?? Math.random());
+  const slug =
+    String(
+      anyP.slug ??
+        anyP.slug_tr ??
+        anyP.slug_en ??
+        anyP.slug_de ??
+        anyP.product_code ??
+        realId
+    ).trim();
+
+  const catId = String(anyP.category_id ?? "");
+  const subId = String(anyP.sub_category_id ?? "");
   const subSlug = subCategorySlugById[subId] || "";
   const catName = (categoryNameById[catId] || "").toLowerCase();
 
-  const specs = normalizeSpecs((p as any).specifications);
-  const material = catName.includes("granit") ? "Granit" : catName.includes("mermer") ? "Mermer" : "Ürün";
+  const specs = normalizeSpecs(anyP.specifications);
+  const material = catName.includes("granit")
+    ? "Granit"
+    : catName.includes("mermer")
+    ? "Mermer"
+    : "Ürün";
 
   let priceText = "Fiyat İçin Arayınız";
-  const price = (p as any).price;
+  const price = anyP.price;
   if (typeof price === "number") priceText = price.toLocaleString("tr-TR");
   else if (typeof price === "string" && price.trim()) {
     const n = Number(price);
@@ -126,302 +135,154 @@ function productToModel(
   }
 
   return {
-    id: numericKey,
-    name: String((p as any).title ?? (p as any).product_code ?? "Ürün Adı Yok"),
-    category: `product:${catSlug}`,
-    ...(subSlug ? { subCategory: subSlug } : {}), // exactOptionalPropertyTypes uyumlu
+    id: realId,
+    slug,
+    name: String(anyP.title ?? anyP.product_code ?? "Ürün Adı Yok"),
+    categoryId: catId,
+    ...(subSlug ? { subCategory: subSlug } : {}),
     material,
     price: priceText,
     image: primary,
-    description: String((p as any).description ?? ""),
-    featured: Boolean((p as any).is_featured),
-    productCode: String((p as any).product_code ?? ""),
+    description: String(anyP.description ?? ""),
+    featured: Boolean(anyP.is_featured),
+    productCode: String(anyP.product_code ?? ""),
     ...(specs.dimensions ? { dimensions: specs.dimensions } : {}),
     ...(specs.weight ? { weight: specs.weight } : {}),
     ...(specs.thickness ? { thickness: specs.thickness } : {}),
-    ...(specs.surfaceFinish || specs.finish ? { finish: String((specs as any).surfaceFinish || (specs as any).finish) } : {}),
+    ...(specs.surfaceFinish || specs.finish
+      ? { finish: String((specs as any).surfaceFinish || (specs as any).finish) }
+      : {}),
     ...(specs.warranty ? { warranty: specs.warranty } : {}),
     ...(specs.installationTime ? { installationTime: specs.installationTime } : {}),
   };
 }
 
-// ---- Accessory -> TombstoneModel (public API 'image' alanını da oku)
-function accessoryToModel(a: any): TombstoneModel {
-  const realId = String(a.id ?? a.uuid ?? a.slug ?? Math.random());
-  const numericKey = saveIdMapping(realId);
-  const img =
-    a.image ||               // ✅ public endpoint döndürür
-    a.image_url ||
-    a.asset_url ||
-    (Array.isArray(a.images) && a.images[0]) ||
-    "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1200&h=800&fit=crop";
-
-  let priceText = "Fiyat İçin Arayınız";
-  const price = a.price;
-  if (typeof price === "number") priceText = price.toLocaleString("tr-TR");
-  else if (typeof price === "string" && price.trim()) {
-    const n = Number(price);
-    priceText = Number.isFinite(n) ? n.toLocaleString("tr-TR") : price;
-  }
-
-  return {
-    id: numericKey,
-    name: String(a.title ?? a.name ?? "Aksesuar"),
-    category: "accessories",
-    material: "Aksesuar",
-    price: priceText,
-    image: String(img),
-    description: String(a.description ?? ""),
-    featured: Boolean(a.is_featured ?? a.featured),
-    productCode: String(a.code ?? a.sku ?? ""),
-  };
-}
-
-// ---- Service -> TombstoneModel (type bazlı kesin gruplama)
-function serviceGroupKey(s: any): "ciceklendirme" | "toprak-dolumu" {
-  const type = String(s.type ?? "").toLowerCase();
-  const cat = String(s.category ?? "").toLowerCase();
-
-  // BE: type → 'gardening' | 'soil'
-  if (type === "gardening") return "ciceklendirme";
-  if (type === "soil") return "toprak-dolumu";
-
-  // Ek güvenlik: metin içeriğine göre yakala
-  const keyInText = `${type} ${cat} ${s.slug ?? ""} ${s.name ?? ""}`.toLowerCase();
-  if (/(çiçek|cicek)/.test(keyInText)) return "ciceklendirme";
-  return "toprak-dolumu";
-}
-function serviceGroupLabel(key: "ciceklendirme" | "toprak-dolumu"): string {
-  return key === "ciceklendirme" ? "Mezar Çiçeklendirme" : "Mezar Toprak Dolumu";
-}
-function serviceToModel(s: any): TombstoneModel {
-  const realId = String(s.id ?? s.uuid ?? s.slug ?? Math.random());
-  const numericKey = saveIdMapping(realId);
-  const img =
-    s.image ||              // ✅ olası public alan
-    s.image_url ||
-    s.asset_url ||
-    (Array.isArray(s.images) && s.images[0]) ||
-    "https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?w=1200&h=800&fit=crop";
-
-  let priceText = "Teklif Alın";
-  const price = s.price;
-  if (typeof price === "number") priceText = price.toLocaleString("tr-TR");
-  else if (typeof price === "string" && price.trim()) {
-    const n = Number(price);
-    priceText = Number.isFinite(n) ? n.toLocaleString("tr-TR") : price;
-  }
-
-  const key = serviceGroupKey(s);
-
-  return {
-    id: numericKey,
-    name: String(s.title ?? s.name ?? serviceGroupLabel(key)),
-    category: `service:${key}`,
-    material: "Hizmet",
-    price: priceText,
-    image: String(img),
-    description: String(s.description ?? ""),
-    featured: Boolean(s.is_featured ?? s.featured),
-    productCode: String(s.code ?? s.sku ?? ""),
-  };
-}
-
 /* ============================= component ============================= */
+
 export function PricingPage({ onNavigate, onProductDetail }: PricingPageProps) {
-  // UI state
-  const [selectedCategory, setSelectedCategory] = useState<string>("tümü");
-  const [selectedSubCategory, setSelectedSubCategory] = useState<string | "tümü">("tümü");
+  // Bu sayfa sadece MEZAR MODELLERİ için
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string>("tümü");
 
   // HERO slider
   const { slides: heroSlides, isError: isSlidesError } = useActiveSlidesRtk();
   const [currentSlide, setCurrentSlide] = useState(0);
 
- // --- RTK data (KATEGORİ / ALT KATEGORİ / ÜRÜN / AKSESUAR aynı) ---
-const { data: categoriesRes = [], refetch: refetchCats } = useListCategoriesAdminQuery({
-  is_active: true, sort: "display_order", order: "asc", limit: 200,
-});
-const { data: subCategoriesRes = [], refetch: refetchSubs } = useListSubCategoriesAdminQuery({
-  is_active: true, sort: "display_order", order: "asc", limit: 200,
-});
-const { data: productsRes = [], refetch: refetchProducts } = useListProductsQuery({
-  is_active: 1, limit: 200, sort: "created_at", order: "desc",
-});
-const { data: accessoriesRes = [], refetch: refetchAccessories } = useListAccessoriesPublicQuery({
-  is_active: 1, limit: 200, order: "asc", sort: "display_order",
-} as any);
+  // === RTK DATA ===
+  const { data: categoriesRes = [], refetch: refetchCats } = useListCategoriesQuery({
+    is_active: true,
+    sort: "display_order",
+    order: "asc",
+    limit: 200,
+  });
 
-// --- ✅ SERVICES: type'e göre ayrı ayrı çek ---
-const {
-  data: servicesGardeningRes = [],
-  refetch: refetchServicesGardening,
-} = useListServicesPublicQuery({
-  type: "gardening",
-  orderBy: "display_order",
-  order: "asc",
-  limit: 200,
-});
+  const { data: subCategoriesRes = [], refetch: refetchSubs } = useListSubCategoriesQuery({
+    is_active: true,
+    sort: "display_order",
+    order: "asc",
+    limit: 200,
+  });
 
-const {
-  data: servicesSoilRes = [],
-  refetch: refetchServicesSoil,
-} = useListServicesPublicQuery({
-  type: "soil",
-  orderBy: "display_order",
-  order: "asc",
-  limit: 200,
-});
+  const { data: productsRes = [], refetch: refetchProducts } = useListProductsQuery({
+    is_active: 1,
+    limit: 200,
+    sort: "created_at",
+    order: "desc",
+  });
 
-
-  // Maps
-  const categorySlugById = useMemo(() => {
-    const m: Record<string, string> = {};
-    (categoriesRes as Category[]).forEach((c) => { m[String(c.id)] = c.slug; });
-    return m;
+  // Root kategori: "Mezar Modelleri"
+  const tombstoneCategory = useMemo(() => {
+    const cats = categoriesRes as Category[];
+    return (
+      cats.find((c) => c.slug === "mezar-modelleri") ||
+      cats.find((c) => c.name.toLowerCase().includes("mezar modelleri")) ||
+      null
+    );
   }, [categoriesRes]);
 
+  const tombstoneCategoryId = tombstoneCategory ? String(tombstoneCategory.id) : null;
+
+  // Map'ler
   const categoryNameById = useMemo(() => {
     const m: Record<string, string> = {};
-    (categoriesRes as Category[]).forEach((c) => { m[String(c.id)] = c.name; });
+    (categoriesRes as Category[]).forEach((c) => {
+      m[String(c.id)] = c.name;
+    });
     return m;
   }, [categoriesRes]);
 
   const subCategorySlugById = useMemo(() => {
     const m: Record<string, string> = {};
-    (subCategoriesRes as SubCategory[]).forEach((s) => { m[String(s.id)] = s.slug; });
-    return m;
-  }, [subCategoriesRes]);
-
-  // ---- PRODUCTS / ACCESSORIES aynı ----
-const productModels: TombstoneModel[] = useMemo(() => {
-  if (!Array.isArray(productsRes)) return [];
-  return (productsRes as ApiProduct[]).map((p) =>
-    productToModel(p, categorySlugById, categoryNameById, subCategorySlugById)
-  );
-}, [productsRes, categorySlugById, categoryNameById, subCategorySlugById]);
-
-const accessoryModels: TombstoneModel[] = useMemo(() => {
-  const arr = Array.isArray(accessoriesRes) ? accessoriesRes : [];
-  return arr.map(accessoryToModel);
-}, [accessoriesRes]);
-
-// ---- ✅ SERVICES: iki ayrı listeden UI modele çevirip birleştir ----
-const serviceModels: TombstoneModel[] = useMemo(() => {
-  const g = Array.isArray(servicesGardeningRes) ? servicesGardeningRes : [];
-  const s = Array.isArray(servicesSoilRes) ? servicesSoilRes : [];
-  return [...g, ...s].map(serviceToModel);
-}, [servicesGardeningRes, servicesSoilRes]);
-
-// ---- Hepsi birlikte ----
-const allModels: TombstoneModel[] = useMemo(
-  () => [...productModels, ...accessoryModels, ...serviceModels],
-  [productModels, accessoryModels, serviceModels]
-);
-
-
-  // Featured (ürün)
-  const featuredModels: TombstoneModel[] = useMemo(() => {
-    const featured = (productsRes as ApiProduct[]).filter((p: any) => Boolean(p?.is_featured));
-    const source = featured.length ? featured : (productsRes as ApiProduct[]);
-    return source.slice(0, 12).map((p) =>
-      productToModel(p, categorySlugById, categoryNameById, subCategorySlugById)
-    );
-  }, [productsRes, categorySlugById, categoryNameById, subCategorySlugById]);
-
-  // Sub-cats grouped by category
-  const subsByCategoryId = useMemo(() => {
-    const m: Record<string, SubCategory[]> = {};
     (subCategoriesRes as SubCategory[]).forEach((s) => {
-      const cid = String(s.category_id);
-      (m[cid] ||= []).push(s);
+      m[String(s.id)] = s.slug;
     });
     return m;
   }, [subCategoriesRes]);
 
-  // Counts
-  const productCategoryCounts = useMemo(() => {
+  // Sadece MEZAR MODELLERİ kategorisindeki ürünleri UI modeline çevir
+  const productModels: TombstoneModel[] = useMemo(() => {
+    if (!Array.isArray(productsRes)) return [];
+    return (productsRes as ApiProduct[])
+      .filter((p: any) =>
+        tombstoneCategoryId ? String(p.category_id) === tombstoneCategoryId : true
+      )
+      .map((p) => productToModel(p, categoryNameById, subCategorySlugById));
+  }, [productsRes, categoryNameById, subCategorySlugById, tombstoneCategoryId]);
+
+  // Mezar Modelleri alt kategorileri
+  const tombstoneSubCategories = useMemo(() => {
+    if (!tombstoneCategory) return [] as SubCategory[];
+    return (subCategoriesRes as SubCategory[]).filter(
+      (s) => String(s.category_id) === String(tombstoneCategory.id)
+    );
+  }, [subCategoriesRes, tombstoneCategory]);
+
+  // Sub-category bazlı ürün sayıları
+  const subCategoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     productModels.forEach((m) => {
-      const slug = m.category.replace(/^product:/, "");
-      if (!slug) return;
-      counts[slug] = (counts[slug] || 0) + 1;
+      if (!m.subCategory) return;
+      counts[m.subCategory] = (counts[m.subCategory] || 0) + 1;
     });
     return counts;
   }, [productModels]);
 
-  const serviceCounts = useMemo(() => {
-    const c = { "ciceklendirme": 0, "toprak-dolumu": 0 } as Record<"ciceklendirme" | "toprak-dolumu", number>;
-    for (const s of serviceModels) {
-      if (s.category.endsWith("ciceklendirme")) c["ciceklendirme"]++;
-      else if (s.category.endsWith("toprak-dolumu")) c["toprak-dolumu"]++;
-    }
-    return c;
-  }, [serviceModels]);
+  // UI kategorileri: Tümü + mezar modelleri alt kategorileri
+  const uiCategories = useMemo(
+    () => [
+      {
+        id: "tümü",
+        name: "Tüm Modeller",
+        count: productModels.length,
+      },
+      ...tombstoneSubCategories.map((s) => ({
+        id: s.slug,
+        name: s.name,
+        count: subCategoryCounts[s.slug] || 0,
+      })),
+    ],
+    [productModels.length, tombstoneSubCategories, subCategoryCounts]
+  );
 
-  // UI categories (chips)
-  const uiCategories = useMemo(() => {
-    const base = [{ id: "tümü", name: "Tüm Modeller", count: allModels.length }];
-
-    const prodCats = (categoriesRes as Category[]).map((c) => ({
-      id: `product:${c.slug}`,
-      name: c.name.toUpperCase(),
-      count: productCategoryCounts[c.slug] || 0,
-      _id: String(c.id),
-    }));
-
-    const accessoriesChip =
-      accessoryModels.length > 0
-        ? [{ id: "accessories", name: "MEZAR AKSESUARLARI", count: accessoryModels.length }]
-        : [];
-
-    const serviceChips = [
-      { id: "service:ciceklendirme", name: "MEZAR ÇİÇEKLENDİRME", count: serviceCounts["ciceklendirme"] },
-      { id: "service:toprak-dolumu", name: "MEZAR TOPRAK DOLUMU", count: serviceCounts["toprak-dolumu"] },
-    ];
-
-    return [...base, ...prodCats, ...accessoriesChip, ...serviceChips];
-  }, [allModels.length, categoriesRes, productCategoryCounts, accessoryModels.length, serviceCounts]);
-
-  // Filtering
+  // Filtrelenmiş modeller
   const filteredModels = useMemo(() => {
-    // Base by top chip
-    let arr: TombstoneModel[] = allModels;
+    if (selectedSubCategory === "tümü") return productModels;
+    return productModels.filter((m) => m.subCategory === selectedSubCategory);
+  }, [productModels, selectedSubCategory]);
 
-    if (selectedCategory === "accessories") {
-      arr = accessoryModels;
-    } else if (selectedCategory.startsWith("service:")) {
-      const key = selectedCategory.replace(/^service:/, "");
-      arr = serviceModels.filter((m) => m.category === `service:${key}`);
-    } else if (selectedCategory.startsWith("product:")) {
-      const slug = selectedCategory.replace(/^product:/, "");
-      arr = productModels.filter((m) => m.category === `product:${slug}`);
-
-      // sub-category filtre (yalnız ürün kategorisi seçiliyken)
-      if (selectedSubCategory !== "tümü") {
-        arr = arr.filter((m) => m.subCategory === selectedSubCategory);
-      }
-    }
-
-    return arr;
-  }, [allModels, selectedCategory, selectedSubCategory, accessoryModels, serviceModels, productModels]);
-
-  // Active product category + its sub-cats
-  const activeCategory = useMemo(() => {
-    if (!selectedCategory.startsWith("product:")) return null;
-    const slug = selectedCategory.replace(/^product:/, "");
-    return (categoriesRes as Category[]).find((c) => c.slug === slug) ?? null;
-  }, [categoriesRes, selectedCategory]);
-
-  const uiSubCategories = useMemo(() => {
-    if (!activeCategory) return [];
-    const list = subsByCategoryId[String(activeCategory.id)] || [];
-    return list.map((s) => ({ id: s.slug, name: s.name }));
-  }, [activeCategory, subsByCategoryId]);
+  // Öne çıkanlar
+  const featuredModels: TombstoneModel[] = useMemo(() => {
+    const featured = productModels.filter((m) => m.featured);
+    const source = featured.length ? featured : productModels;
+    return source.slice(0, 12);
+  }, [productModels]);
 
   // HERO slider autoplay & preload
   useEffect(() => {
     if (!heroSlides || heroSlides.length === 0) return;
-    const t = window.setInterval(() => setCurrentSlide((p) => (p + 1) % heroSlides.length), 5000);
+    const t = window.setInterval(
+      () => setCurrentSlide((p) => (p + 1) % heroSlides.length),
+      5000
+    );
     return () => window.clearInterval(t);
   }, [heroSlides?.length]);
 
@@ -434,50 +295,69 @@ const allModels: TombstoneModel[] = useMemo(
     img.src = nextSlideObj.image;
   }, [currentSlide, heroSlides]);
 
-  const nextSlide = () => setCurrentSlide((p) => (p + 1) % (heroSlides?.length || 1));
-  const prevSlide = () => setCurrentSlide((p) => (p - 1 + (heroSlides?.length || 1)) % (heroSlides?.length || 1));
+  const nextSlide = () =>
+    setCurrentSlide((p) => (p + 1) % (heroSlides?.length || 1));
+  const prevSlide = () =>
+    setCurrentSlide(
+      (p) => (p - 1 + (heroSlides?.length || 1)) % (heroSlides?.length || 1)
+    );
 
   // Refetch triggers
   useEffect(() => {
-  const onAnyUpdate = () => {
-    refetchProducts();
-    refetchCats();
-    refetchSubs();
-    refetchAccessories();
-    // ✅ iki ayrı services refetch
-    refetchServicesGardening();
-    refetchServicesSoil();
-  };
-  window.addEventListener("mezarisim-products-updated", onAnyUpdate as any);
-  window.addEventListener("mezarisim-force-rerender", onAnyUpdate as any);
-  window.addEventListener("mezarisim-product-changed", onAnyUpdate as any);
-  return () => {
-    window.removeEventListener("mezarisim-products-updated", onAnyUpdate as any);
-    window.removeEventListener("mezarisim-force-rerender", onAnyUpdate as any);
-    window.removeEventListener("mezarisim-product-changed", onAnyUpdate as any);
-  };
-}, [
-  refetchProducts,
-  refetchCats,
-  refetchSubs,
-  refetchAccessories,
-  refetchServicesGardening,
-  refetchServicesSoil,
-]);
+    const onAnyUpdate = () => {
+      refetchProducts();
+      refetchCats();
+      refetchSubs();
+    };
+    window.addEventListener("mezarisim-products-updated", onAnyUpdate as any);
+    window.addEventListener("mezarisim-force-rerender", onAnyUpdate as any);
+    window.addEventListener("mezarisim-product-changed", onAnyUpdate as any);
+    return () => {
+      window.removeEventListener(
+        "mezarisim-products-updated",
+        onAnyUpdate as any
+      );
+      window.removeEventListener(
+        "mezarisim-force-rerender",
+        onAnyUpdate as any
+      );
+      window.removeEventListener(
+        "mezarisim-product-changed",
+        onAnyUpdate as any
+      );
+    };
+  }, [refetchProducts, refetchCats, refetchSubs]);
 
+  // Detail navigate -> slug
+  const handleProductDetail = (model: TombstoneModel) => {
+    if (!onProductDetail) return;
+    const slug = model.slug || model.id;
+    onProductDetail(slug);
+  };
 
-  // Detail navigate
-  const handleProductDetail = (model: TombstoneModel) => onProductDetail?.(model.id);
+  const currentCategoryName =
+    selectedSubCategory === "tümü"
+      ? "Tüm Mezar Modelleri"
+      : uiCategories.find((c) => c.id === selectedSubCategory)?.name ??
+        "Mezar Modelleri";
 
   return (
     <div className="min-h-screen">
       {/* Hero + Breadcrumb */}
-      <div className="relative bg-teal-500 py-6 bg-cover bg-center" style={{ backgroundImage: `url(${backgroundImage})` }}>
+      <div
+        className="relative bg-teal-500 py-6 bg-cover bg-center"
+        style={{ backgroundImage: `url(${backgroundImage})` }}
+      >
         <div className="absolute inset-0 bg-gradient-to-r from-teal-600/95 to-teal-500/90" />
         <div className="relative container mx-auto px-4">
           <div className="text-center text-white">
             <nav className="flex items-center justify-center space-x-2 text-sm">
-              <button onClick={() => onNavigate("home")} className="hover:text-teal-200 transition-colors">Anasayfa</button>
+              <button
+                onClick={() => onNavigate("home")}
+                className="hover:text-teal-200 transition-colors"
+              >
+                Anasayfa
+              </button>
               <span>{">"}</span>
               <span>Mezar Modelleri</span>
             </nav>
@@ -493,18 +373,32 @@ const allModels: TombstoneModel[] = useMemo(
               <div
                 key={String(slide.id ?? slide.image ?? index)}
                 className={`absolute inset-0 transition-transform duration-700 ease-in-out ${
-                  index === currentSlide ? "translate-x-0" : index < currentSlide ? "-translate-x-full" : "translate-x-full"
+                  index === currentSlide
+                    ? "translate-x-0"
+                    : index < currentSlide
+                    ? "-translate-x-full"
+                    : "translate-x-full"
                 }`}
               >
                 <div className="relative w-full h-full">
-                  <ImageWithFallback src={slide.image} alt={slide.alt ?? slide.title} className="w-full h-96 object-cover opacity-30" />
+                  <ImageWithFallback
+                    src={slide.image}
+                    alt={slide.alt ?? slide.title}
+                    className="w-full h-96 object-cover opacity-30"
+                  />
                   <div className="absolute inset-0 bg-black bg-opacity-60" />
                 </div>
 
                 <div className="absolute bottom-16 right-6 text-right text-white max-w-sm">
-                  <h2 className="text-lg md:text-xl mb-3 text-white font-normal">{slide.title}</h2>
+                  <h2 className="text-lg md:text-xl mb-3 text-white font-normal">
+                    {slide.title}
+                  </h2>
                   <button
-                    onClick={() => document.getElementById("products-grid")?.scrollIntoView({ behavior: "smooth" })}
+                    onClick={() =>
+                      document
+                        .getElementById("products-grid")
+                        ?.scrollIntoView({ behavior: "smooth" })
+                    }
                     className="bg-white bg-opacity-90 hover:bg-opacity-100 border border-white border-opacity-50 text-black px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 hover:scale-105 backdrop-blur-sm"
                   >
                     İNCELE
@@ -513,10 +407,16 @@ const allModels: TombstoneModel[] = useMemo(
               </div>
             ))}
 
-            <button onClick={prevSlide} className="absolute left-6 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 transition-all duration-300 hover:scale-110">
+            <button
+              onClick={prevSlide}
+              className="absolute left-6 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 transition-all duration-300 hover:scale-110"
+            >
               <ChevronLeft className="w-8 h-8" />
             </button>
-            <button onClick={nextSlide} className="absolute right-6 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 transition-all duration-300 hover:scale-110">
+            <button
+              onClick={nextSlide}
+              className="absolute right-6 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 transition-all duration-300 hover:scale-110"
+            >
               <ChevronRight className="w-8 h-8" />
             </button>
 
@@ -526,7 +426,9 @@ const allModels: TombstoneModel[] = useMemo(
                   key={index}
                   onClick={() => setCurrentSlide(index)}
                   className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                    index === currentSlide ? "bg-white scale-125" : "bg-white bg-opacity-40 hover:bg-opacity-70"
+                    index === currentSlide
+                      ? "bg-white scale-125"
+                      : "bg-white bg-opacity-40 hover:bg-opacity-70"
                   }`}
                 />
               ))}
@@ -535,7 +437,7 @@ const allModels: TombstoneModel[] = useMemo(
         </div>
       )}
 
-      {/* Kategori (chips) */}
+      {/* Kategori (Mezar Modelleri alt kategorileri) */}
       <div className="bg-gray-50 py-8">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
@@ -544,18 +446,22 @@ const allModels: TombstoneModel[] = useMemo(
               {uiCategories.map((category) => (
                 <button
                   key={category.id}
-                  onClick={() => { setSelectedCategory(category.id); setSelectedSubCategory("tümü"); }}
+                  onClick={() => setSelectedSubCategory(category.id)}
                   className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
-                    selectedCategory === category.id
+                    selectedSubCategory === category.id
                       ? "bg-teal-500 text-white border-teal-500 shadow-lg hover:bg-teal-600"
                       : "bg-white text-teal-600 border-teal-300 hover:border-teal-400 hover:bg-teal-50"
                   }`}
                 >
-                  <span>{(category as any).name}</span>
-                  <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
-                    selectedCategory === category.id ? "bg-white bg-opacity-20 text-white" : "bg-teal-100 text-teal-700"
-                  }`}>
-                    {"count" in category ? (category as any).count : 0}
+                  <span>{category.name}</span>
+                  <span
+                    className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                      selectedSubCategory === category.id
+                        ? "bg-white bg-opacity-20 text-white"
+                        : "bg-teal-100 text-teal-700"
+                    }`}
+                  >
+                    {category.count}
                   </span>
                 </button>
               ))}
@@ -566,51 +472,28 @@ const allModels: TombstoneModel[] = useMemo(
               {uiCategories.map((category) => (
                 <button
                   key={category.id}
-                  onClick={() => { setSelectedCategory(category.id); setSelectedSubCategory("tümü"); }}
+                  onClick={() => setSelectedSubCategory(category.id)}
                   className={`px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 border text-center ${
-                    selectedCategory === category.id
+                    selectedSubCategory === category.id
                       ? "bg-teal-500 text-white border-teal-500 shadow-lg"
                       : "bg-white text-teal-600 border-teal-300 hover:border-teal-400 hover:bg-teal-50"
                   }`}
                 >
-                  <div className="text-center leading-tight break-words font-bold">{(category as any).name}</div>
-                  <div className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold ${
-                    selectedCategory === category.id ? "bg-white bg-opacity-20 text-white" : "bg-teal-100 text-teal-700"
-                  }`}>
-                    {"count" in category ? (category as any).count : 0}
+                  <div className="text-center leading-tight break-words font-bold">
+                    {category.name}
+                  </div>
+                  <div
+                    className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold ${
+                      selectedSubCategory === category.id
+                        ? "bg-white bg-opacity-20 text-white"
+                        : "bg-teal-100 text-teal-700"
+                    }`}
+                  >
+                    {category.count}
                   </div>
                 </button>
               ))}
             </div>
-
-            {/* Alt kategoriler (sadece ürün kategorisinde) */}
-            {activeCategory && uiSubCategories.length > 0 && (
-              <div className="mt-6 flex flex-wrap justify-center gap-2">
-                <button
-                  onClick={() => setSelectedSubCategory("tümü")}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
-                    selectedSubCategory === "tümü"
-                      ? "bg-teal-600 text-white border-teal-600"
-                      : "bg-white text-teal-700 border-teal-200 hover:bg-teal-50"
-                  }`}
-                >
-                  Tümü
-                </button>
-                {uiSubCategories.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setSelectedSubCategory(s.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
-                      selectedSubCategory === s.id
-                        ? "bg-teal-600 text-white border-teal-600"
-                        : "bg-white text-teal-700 border-teal-200 hover:bg-teal-50"
-                    }`}
-                  >
-                    {s.name}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -620,18 +503,16 @@ const allModels: TombstoneModel[] = useMemo(
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-12">
-              <h2 className="text-3xl text-gray-800 mb-4">
-                {selectedCategory === "tümü"
-                  ? "Tüm Modeller"
-                  : uiCategories.find((c: any) => c.id === selectedCategory)?.name ?? "Modeller"}
-              </h2>
-              <p className="text-gray-600">Kaliteli malzeme ve işçilikle hazırlanmış ürünler ve hizmetler</p>
+              <h2 className="text-3xl text-gray-800 mb-4">{currentCategoryName}</h2>
+              <p className="text-gray-600">
+                Kaliteli malzeme ve işçilikle hazırlanmış mezar modelleri
+              </p>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-12">
               {filteredModels.map((model) => (
                 <div
-                  key={`${model.id}`}
+                  key={model.id}
                   className="bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-lg hover:scale-105 transform transition-all duration-300 cursor-pointer"
                   onClick={() => handleProductDetail(model)}
                 >
@@ -658,7 +539,9 @@ const allModels: TombstoneModel[] = useMemo(
                           KOD YOK
                         </span>
                       )}
-                      <span className="text-sm font-bold text-gray-800">{model.price}</span>
+                      <span className="text-sm font-bold text-gray-800">
+                        {model.price}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -668,10 +551,17 @@ const allModels: TombstoneModel[] = useMemo(
             {filteredModels.length === 0 && (
               <div className="text-center py-12">
                 <div className="text-gray-400 text-6xl mb-4">📷</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Bu kategoride henüz içerik yok</h3>
-                <p className="text-gray-500 mb-6">Diğer kategorileri inceleyebilir veya bizimle iletişime geçebilirsiniz.</p>
-                <Button onClick={() => setSelectedCategory("tümü")} className="bg-teal-500 hover:bg-teal-600 text-white">
-                  Tümünü Göster
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Bu kategoride henüz model bulunmuyor
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  Diğer kategorileri inceleyebilir veya bizimle iletişime geçebilirsiniz.
+                </p>
+                <Button
+                  onClick={() => setSelectedSubCategory("tümü")}
+                  className="bg-teal-500 hover:bg-teal-600 text-white"
+                >
+                  Tüm Modelleri Göster
                 </Button>
               </div>
             )}
@@ -685,13 +575,18 @@ const allModels: TombstoneModel[] = useMemo(
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-3xl text-gray-800 mb-4">Öne Çıkan Mezar Modelleri</h2>
-              <p className="text-gray-600">En popüler ve kaliteli mezar modellerimizi keşfedin</p>
+              <p className="text-gray-600">
+                En popüler ve kaliteli mezar modellerimizi keşfedin
+              </p>
             </div>
 
             <Carousel className="w-full max-w-5xl mx-auto">
               <CarouselContent className="-ml-2 md:-ml-4">
                 {featuredModels.map((model) => (
-                  <CarouselItem key={model.id} className="pl-2 md:pl-4 md:basis-1/2 lg:basis-1/3">
+                  <CarouselItem
+                    key={model.id}
+                    className="pl-2 md:pl-4 md:basis-1/2 lg:basis-1/3"
+                  >
                     <Card
                       className="group hover:shadow-xl transition-all duration-300 bg-white border-0 overflow-hidden h-full cursor-pointer"
                       onClick={() => handleProductDetail(model)}
@@ -719,7 +614,9 @@ const allModels: TombstoneModel[] = useMemo(
                               KOD YOK
                             </span>
                           )}
-                          <span className="text-lg font-bold text-gray-800">{model.price}</span>
+                          <span className="text-lg font-bold text-gray-800">
+                            {model.price}
+                          </span>
                         </div>
                       </CardContent>
                     </Card>
@@ -737,10 +634,17 @@ const allModels: TombstoneModel[] = useMemo(
       <div className="bg-teal-500 py-16">
         <div className="container mx-auto px-4 text-center">
           <div className="max-w-3xl mx-auto">
-            <h2 className="text-3xl text-white mb-6">Kaliteli Mezar Yapımı İçin Hemen İletişime Geçin</h2>
-            <p className="text-teal-100 mb-8 text-lg">Uzman ekibimizle birlikte en uygun mezar modelini seçin ve profesyonel hizmet alın.</p>
+            <h2 className="text-3xl text-white mb-6">
+              Kaliteli Mezar Yapımı İçin Hemen İletişime Geçin
+            </h2>
+            <p className="text-teal-100 mb-8 text-lg">
+              Uzman ekibimizle birlikte en uygun mezar modelini seçin ve profesyonel hizmet alın.
+            </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button onClick={() => onNavigate("contact")} className="bg-white text-teal-500 hover:bg-gray-100 px-8 py-3">
+              <Button
+                onClick={() => onNavigate("contact")}
+                className="bg-white text-teal-500 hover:bg-gray-100 px-8 py-3"
+              >
                 İletişime Geç
               </Button>
               <Button

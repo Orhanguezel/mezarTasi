@@ -1,6 +1,6 @@
 // src/components/public/ProductGallery.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+// import { useNavigate } from "react-router-dom"; // artık kullanmıyoruz
 import { ImageOptimized } from "./ImageOptimized";
 import { SkeletonLoader } from "./SkeletonLoader";
 import { Button } from "../ui/button";
@@ -29,6 +29,7 @@ const SUBCATS: Array<{ id: string; label: string }> = [
 
 type UiProduct = {
   id: string;
+  slug: string; // 🔹 slug ile detay sayfasına gideceğiz
   title: string;
   productCode?: string | null;
   price: number | string;
@@ -51,6 +52,7 @@ function toUiProduct(p: ApiProduct): UiProduct {
 
   return {
     id: String((p as any).id),
+    slug: String((p as any).slug ?? ""), // 🔹 buradan slug’ı alıyoruz
     title: String((p as any).title ?? ""),
     productCode: (p as any).product_code ?? null,
     price: typeof (p as any).price === "number" ? (p as any).price : Number((p as any).price) || 0,
@@ -67,7 +69,8 @@ interface ProductGalleryProps {
   searchTerm: string;
   showSearchResults: boolean;
   onClearSearch: () => void;
-  onProductDetail: (productId: number) => void;
+  /** Artık slug ile detail açıyoruz */
+  onProductDetail: (slug: string) => void;
   refreshKey?: number;
 }
 
@@ -78,7 +81,7 @@ export function ProductGallery({
   onProductDetail,
   refreshKey,
 }: ProductGalleryProps) {
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // kullanılmıyor
 
   /** ALL_KEY = tüm alt kategoriler; yoksa seçilen alt kategori id’si */
   const [selectedSubCat, setSelectedSubCat] = useState<string>(ALL_KEY);
@@ -138,9 +141,8 @@ export function ProductGallery({
   const loadMore = () => setVisibleItems((p) => p + 12);
 
   const navigateFromCard = (card: UiCard) => {
-    if (card.kind === "product") {
-      const n = Number(card.id);
-      onProductDetail(Number.isFinite(n) ? n : 0);
+    if (card.kind === "product" && card.slug) {
+      onProductDetail(card.slug); // 🔹 slug ile yönlendir
     }
   };
 

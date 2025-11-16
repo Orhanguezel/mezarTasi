@@ -15,20 +15,27 @@ import {
 import { ImageWithFallback } from "../figma/ImageWithFallback";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useActiveSlidesRtk } from "../../data/sliderData";
-import { getAllProducts } from "../../data/dynamicProducts";
 import { useListCategoriesQuery } from "@/integrations/metahub/rtk/endpoints/categories.endpoints";
-import type { Product } from "@/integrations/metahub/db/types/products.rows";
+import { useListProductsQuery } from "@/integrations/metahub/rtk/endpoints/products.endpoints";
+import type {
+  Product as ApiProduct,
+  ProductSpecifications,
+} from "@/integrations/metahub/db/types/products.rows";
 import backgroundImage from "figma:asset/0a9012ca17bfb48233c0877277b7fb8427a12d4c.png";
-import tombstoneImage1 from "figma:asset/045ec544828ae89a32759225db62e101d2608292.png";
-import tombstoneImage2 from "figma:asset/230bfc45a1c3e29e0d1080b05baa205fb4c5f511.png";
 
 interface ModelsPageProps {
   onNavigate: (page: string) => void;
-  onProductDetail?: (productId: number) => void;
+  /** Detay sayfasına gidiş – YALNIZCA slug ile /product/:slug */
+  onProductDetail?: (slug: string) => void;
 }
 
 interface TombstoneModel {
+  /** FE için local id (card key, modal vs.) */
   id: number;
+  /** BE ürün id (string) – sadece yardımcı, NAVİGASYONDA KULLANILMIYOR */
+  productId?: string;
+  /** BE ürün slug – NAVİGASYON BUNDAN YAPILIR */
+  slug?: string;
   name: string;
   category: string; // "mermer" | "granit" | "sutunlu" | "bastaslari" | "modeller"
   material: string;
@@ -45,15 +52,23 @@ interface TombstoneModel {
 }
 
 /* ================= helpers: dynamic product normalize ================= */
-type DynamicProduct = Partial<Product> & {
-  category?: string;
+
+type CategoryMiniLike = {
+  id?: string;
+  name?: string | null;
+  slug?: string | null;
+};
+
+type DynamicProduct = ApiProduct & {
+  /** PublicProduct.category: CategoryMini | null olabilir */
+  category?: string | CategoryMiniLike | null;
   category_name?: string;
-  productCode?: string; // FE alanı
-  image?: string; // FE alanı
+  productCode?: string;
+  image?: string;
   specifications?:
+    | ProductSpecifications
     | Record<string, unknown>
     | Array<{ name?: string; value?: unknown }>
-    | unknown
     | null;
 };
 
@@ -89,15 +104,45 @@ const getSpec = (d: SpecDict, keys: string[]): string => {
 };
 
 const pickImage = (p: DynamicProduct): string | undefined => {
+  if ((p as any).images && Array.isArray((p as any).images) && (p as any).images.length > 0) {
+    const img0 = (p as any).images[0];
+    if (img0?.image_effective_url) return img0.image_effective_url;
+    if (typeof img0 === "string") return img0;
+  }
   if (p.image_url) return p.image_url;
-  if (Array.isArray(p.images) && p.images.length > 0) return String(p.images[0]);
   if ((p as any).image) return String((p as any).image);
   return undefined;
 };
 
 const inferCategorySource = (p: DynamicProduct): string => {
-  const c = p.category || p.category_name || "";
-  if (c) return c;
+  const cat = p.category;
+
+  // string kategori ise direkt kullan
+  if (typeof cat === "string" && cat.trim()) {
+    return cat;
+  }
+
+  // CategoryMiniLike object ise slug > name
+  if (cat && typeof cat === "object") {
+    const slug =
+      "slug" in cat && typeof cat.slug === "string" && cat.slug
+        ? cat.slug
+        : undefined;
+    const name =
+      "name" in cat && typeof cat.name === "string" && cat.name
+        ? cat.name
+        : undefined;
+
+    const v = slug || name;
+    if (v) return v;
+  }
+
+  // Fallback: category_name string ise onu kullan
+  if (p.category_name && p.category_name.trim()) {
+    return p.category_name;
+  }
+
+  // Hiçbiri yoksa title'dan tahmin
   const t = (p.title || "").toLowerCase();
   if (/granit/.test(t)) return "granit";
   if (/mermer/.test(t)) return "mermer";
@@ -112,19 +157,25 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
   const [selectedModel, setSelectedModel] = useState<TombstoneModel | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [allModels, setAllModels] = useState<TombstoneModel[]>([]);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   // ✅ Slider RTK
   const { slides, isError: isSlidesError } = useActiveSlidesRtk();
 
   // ✅ Kategorileri RTK'dan çek
-  const { data: categories = [] } = useListCategoriesQuery({
+  const { data: categories = [], refetch: refetchCats } = useListCategoriesQuery({
     is_active: true,
     limit: 200,
     offset: 0,
     sort: "display_order",
     order: "asc",
+  });
+
+  // ✅ Ürünleri RTK'dan çek (dinamik, PublicProduct[])
+  const { data: productsRes = [], refetch: refetchProducts } = useListProductsQuery({
+    is_active: 1,
+    limit: 500,
+    sort: "created_at",
+    order: "desc",
   });
 
   // --- normalize helper ---
@@ -137,50 +188,16 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
       .replace(/\s+/g, "-")
       .replace(/_/g, "-");
 
-  // === Statik vitrin ===
-  const staticShowcase: TombstoneModel[] = [
-    {
-      id: 1,
-      name: "Günay Yaman Modeli - Siyah Granit Çerçeveli Mezar Baş Taşı",
-      category: "granit",
-      material: "Siyah Granit + Beyaz Mermer",
-      price: "Fiyat İçin Arayınız",
-      image: tombstoneImage1,
-      description:
-        "Siyah granit çerçeve ile beyaz mermer kombinasyonu, modern ve şık mezar baş taşı tasarımı",
-      featured: true,
-      dimensions: "120cm x 80cm",
-      weight: "350 kg",
-      thickness: "8 cm",
-      finish: "Parlak Cilalı",
-      warranty: "10 Yıl Garanti",
-      installationTime: "1-2 Gün",
-    },
-    {
-      id: 10,
-      name: "Özel Yapım Mezar Modeli",
-      category: "modeller",
-      material: "Granit + Özel İşçilik",
-      price: "Fiyat İçin Arayınız",
-      image: tombstoneImage2,
-      description: "Müşteri isteklerine göre özel olarak tasarlanan granit mezar baş taşı modeli",
-      featured: true,
-      dimensions: "Müşteri İsteğine Göre",
-      weight: "300-500 kg",
-      thickness: "6-12 cm",
-      finish: "Özel İstek İşçilik",
-      warranty: "15 Yıl Garanti",
-      installationTime: "2-5 Gün",
-    },
-  ];
-
   // ✅ RTK kategorilerinden sayfa içi anahtarlar türet
   const hasModeller = useMemo(
     () => categories.some((c: any) => /mezar-?modelleri/i.test(normalize(c.slug || c.name))),
     [categories]
   );
   const hasBasTasi = useMemo(
-    () => categories.some((c: any) => /mezar-?bas-?tasi-?modelleri/i.test(normalize(c.slug || c.name))),
+    () =>
+      categories.some((c: any) =>
+        /mezar-?bas-?tasi-?modelleri/i.test(normalize(c.slug || c.name))
+      ),
     [categories]
   );
 
@@ -190,7 +207,8 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
     for (const c of categories as any[]) {
       const label = normalize(c.slug || c.name || "");
       if (/mezar-?modelleri/.test(label)) map.set("mezar-modelleri", "modeller");
-      if (/mezar-?bas-?tasi-?modelleri/.test(label)) map.set("mezar-bas-tasi-modelleri", "bastaslari");
+      if (/mezar-?bas-?tasi-?modelleri/.test(label))
+        map.set("mezar-bas-tasi-modelleri", "bastaslari");
       if (c.name)
         map.set(
           normalize(c.name),
@@ -212,9 +230,11 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
     if (fromMap) return fromMap || "mermer";
 
     if (/tek-kisilik-mermer|iki-kisilik-mermer|mermer-bas-tasi|mermer/i.test(norm)) return "mermer";
-    if (/tek-kisilik-granit|iki-kisilik-granit|granit-bas-tasi|granit/i.test(norm)) return "granit";
+    if (/tek-kisilik-granit|iki-kisilik-granit|granit-bas-tasi|granit/i.test(norm))
+      return "granit";
     if (/sutunlu-?mezar|sutunlu-?bas-?tasi|sutun/i.test(norm)) return "sutunlu";
-    if (/ozel-?yapim|katli-?lahit|mezar-?modelleri|modeller|model/i.test(norm)) return "modeller";
+    if (/ozel-?yapim|katli-?lahit|mezar-?modelleri|modeller|model/i.test(norm))
+      return "modeller";
     if (/bas-?tasi/.test(norm)) return "bastaslari";
 
     if (/granit/.test(norm)) return "granit";
@@ -223,86 +243,107 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
     return "mermer";
   };
 
-  // Dinamik ürünleri yükle + statik vitrinle birleştir
+  // ✅ Tüm modelleri RTK ürünlerinden türet (statik vitrin YOK)
+  const allModels: TombstoneModel[] = useMemo(() => {
+    if (!Array.isArray(productsRes)) return [];
+
+    // 🔥 TS2352 için önerilen pattern: önce unknown, sonra DynamicProduct[]
+    const dynamicProducts = (productsRes ?? []) as unknown as DynamicProduct[];
+
+    return dynamicProducts
+      .filter((product) => {
+        const key = getCategoryKey(inferCategorySource(product));
+        return ["mermer", "granit", "sutunlu", "bastaslari", "modeller"].includes(key);
+      })
+      .map((product) => {
+        const specs = toSpecDict(product.specifications);
+        const dimensions = getSpec(specs, ["dimensions", "ölçü", "olcu", "boyut", "size"]);
+        const weight = getSpec(specs, ["weight", "ağırlık", "agirlik"]);
+        const thickness = getSpec(specs, ["thickness", "kalınlık", "kalinlik"]);
+        const finish = getSpec(specs, ["finish", "yüzey", "surface", "polisaj", "polish"]);
+        const warranty = getSpec(specs, ["warranty", "garanti"]);
+        const installationTime = getSpec(specs, [
+          "installationtime",
+          "kurulum süresi",
+          "montaj süresi",
+          "montaj",
+        ]);
+
+        const img =
+          pickImage(product) ||
+          "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=800&h=600&fit=crop";
+
+        const key = getCategoryKey(inferCategorySource(product));
+        const material = key === "granit" ? "Granit" : key === "mermer" ? "Mermer" : "Özel Malzeme";
+
+        const backendId = String(product.id);
+        const rawSlug = (
+          (product as any).slug ??
+          (product as any).slug_tr ??
+          (product as any).slug_en ??
+          (product as any).slug_de ??
+          (product as any).product_code ??
+          ""
+        )
+          .toString()
+          .trim();
+        const slug = rawSlug || undefined; // 🔥 ürün slug'ı direkt DB'den
+
+        const idNum = Number(backendId);
+        const safeId = Number.isFinite(idNum) ? idNum : Math.floor(Math.random() * 1000000);
+
+        const model: TombstoneModel = {
+          id: safeId, // FE local id
+          name:
+            (product as any).title ||
+            (product as any).productCode ||
+            (product as any).product_code ||
+            "Ürün Adı Yok",
+          category: key,
+          material,
+          price:
+            (product as any).price != null && (product as any).price !== undefined
+              ? String((product as any).price)
+              : "Fiyat İçin Arayınız",
+          image: img,
+          description: (product as any).description || "",
+          featured: Boolean((product as any).is_featured),
+          dimensions,
+          weight,
+          thickness,
+          finish,
+          warranty,
+          installationTime,
+        };
+
+        if (backendId) {
+          model.productId = backendId; // sadece bilgi amaçlı
+        }
+        if (slug) {
+          model.slug = slug; // 🔥 NAV slug burada
+        }
+
+        return model;
+      });
+  }, [productsRes, categoryKeyByName]);
+
+  // ✅ Event'lerde RTK refetch
   useEffect(() => {
-    const loadAllModels = () => {
-      const dynamicProducts = getAllProducts() as unknown as DynamicProduct[];
-
-      const convertedDynamicProducts: TombstoneModel[] = dynamicProducts
-        .filter((product) => {
-          const key = getCategoryKey(inferCategorySource(product));
-          return ["mermer", "granit", "sutunlu", "bastaslari", "modeller"].includes(key);
-        })
-        .map((product) => {
-          const specs = toSpecDict(product.specifications);
-          const dimensions = getSpec(specs, ["dimensions", "ölçü", "olcu", "boyut", "size"]);
-          const weight = getSpec(specs, ["weight", "ağırlık", "agirlik"]);
-          const thickness = getSpec(specs, ["thickness", "kalınlık", "kalinlik"]);
-          const finish = getSpec(specs, ["finish", "yüzey", "surface", "polisaj", "polish"]);
-          const warranty = getSpec(specs, ["warranty", "garanti"]);
-          const installationTime = getSpec(specs, [
-            "installationtime",
-            "kurulum süresi",
-            "montaj süresi",
-            "montaj",
-          ]);
-
-          const img =
-            pickImage(product) ||
-            "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=800&h=600&fit=crop";
-
-          const key = getCategoryKey(inferCategorySource(product));
-          const material = key === "granit" ? "Granit" : key === "mermer" ? "Mermer" : "Özel Malzeme";
-
-          const idNum = Number(product.id);
-          const safeId = Number.isFinite(idNum) ? idNum : 0;
-
-          return {
-            id: safeId + 1000,
-            name:
-              product.title ||
-              (product as any).productCode ||
-              (product as any).product_code ||
-              "Ürün Adı Yok",
-            category: key,
-            material,
-            price:
-              product.price != null && (product as any).price !== ""
-                ? String(product.price)
-                : "Fiyat İçin Arayınız",
-            image: img,
-            description: product.description || "",
-            featured: false,
-            dimensions,
-            weight,
-            thickness,
-            finish,
-            warranty,
-            installationTime,
-          } as TombstoneModel;
-        });
-
-      setAllModels([...staticShowcase, ...convertedDynamicProducts]);
+    const onAnyUpdate = () => {
+      refetchProducts();
+      refetchCats();
     };
-
-    loadAllModels();
-
-    const handleProductUpdate = () => loadAllModels();
-    const handleForceRerender = () => {
-      setRefreshKey((prev) => prev + 1);
-      loadAllModels();
-    };
-
-    window.addEventListener("mezarisim-products-updated", handleProductUpdate);
-    window.addEventListener("mezarisim-force-rerender", handleForceRerender);
+    window.addEventListener("mezarisim-products-updated", onAnyUpdate as any);
+    window.addEventListener("mezarisim-force-rerender", onAnyUpdate as any);
+    window.addEventListener("mezarisim-product-changed", onAnyUpdate as any);
     return () => {
-      window.removeEventListener("mezarisim-products-updated", handleProductUpdate);
-      window.removeEventListener("mezarisim-force-rerender", handleForceRerender);
+      window.removeEventListener("mezarisim-products-updated", onAnyUpdate as any);
+      window.removeEventListener("mezarisim-force-rerender", onAnyUpdate as any);
+      window.removeEventListener("mezarisim-product-changed", onAnyUpdate as any);
     };
-    // categories değiştiğinde ve mapping güncellendiğinde yeniden hesapla
-  }, [refreshKey, categoryKeyByName]);
+  }, [refetchProducts, refetchCats]);
 
-  // ✅ Slider autoplay — tüm code path’ler cleanup döndürür
+  // ✅ Slider autoplay
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
 
@@ -317,7 +358,7 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
     };
   }, [slides.length]);
 
-  // ✅ Bir sonraki görseli preload et — undefined guard
+  // ✅ Bir sonraki görseli preload et
   useEffect(() => {
     if (slides.length === 0) return;
     const nextIndex = (currentSlide + 1) % slides.length;
@@ -371,13 +412,28 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
       ? allModels
       : allModels.filter((model) => model.category === selectedCategory);
 
+  // 🔥 ÖNE ÇIKAN MODELLER – tamamen dinamik
+  const featuredModels = useMemo(() => {
+    const featured = allModels.filter((m) => m.featured);
+    const source = featured.length ? featured : allModels;
+    return source.slice(0, 12);
+  }, [allModels]);
+
+  // Kart görseline tıklayınca quick view modal
   const handleImageClick = (model: TombstoneModel) => {
     setSelectedModel(model);
     setIsModalOpen(true);
   };
 
+  // 🔥 Sadece slug varsa navigate
+  const canNavigateToProduct = (model: TombstoneModel) =>
+    typeof model.slug === "string" && model.slug.trim().length > 0;
+
+  // 🔥 Ürün detayına git – YALNIZ slug (id YOK, fallback YOK)
   const handleProductDetail = (model: TombstoneModel) => {
-    onProductDetail?.(model.id);
+    if (!onProductDetail) return;
+    if (!canNavigateToProduct(model)) return;
+    onProductDetail(model.slug!.trim());
   };
 
   return (
@@ -434,8 +490,7 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
                   </h2>
                   <button
                     onClick={() => {
-                      const gridElement =
-                        document.getElementById("products-grid");
+                      const gridElement = document.getElementById("products-grid");
                       if (gridElement)
                         gridElement.scrollIntoView({ behavior: "smooth" });
                     }}
@@ -597,12 +652,15 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
                     </div>
 
                     <div className="space-y-2">
+                      {/* 🔥 Bu buton sadece slug varsa aktif – her zaman /product/:slug'a gider */}
                       <Button
                         className="w-full bg-teal-500 hover:bg-teal-600 text-white"
+                        disabled={!canNavigateToProduct(model)}
                         onClick={() => handleProductDetail(model)}
                       >
                         🔍 Detayları Görüntüle
                       </Button>
+
                       <Button
                         variant="outline"
                         className="w-full text-teal-500 border-teal-500 hover:bg-teal-50"
@@ -653,7 +711,179 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
         </div>
       </div>
 
-      {/* Modal — AccessoriesPage ile aynı yapıda detaylı */}
+      {/* Mezar Yapım Sürecimiz */}
+      <div className="bg-white py-16">
+        <div className="container mx-auto px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl text-gray-800 mb-4">Mezar Yapım Sürecimiz</h2>
+              <p className="text-gray-600">Mezar yapım sürecimizde izlediğimiz adımlar</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="text-center">
+                <div className="bg-teal-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">🎨</span>
+                </div>
+                <h3 className="text-xl text-gray-800 mb-2">1. Tasarım</h3>
+                <p className="text-gray-600">
+                  İsteklerinize göre özel mezar tasarımı hazırlığı ve onay süreci
+                </p>
+              </div>
+
+              <div className="text-center">
+                <div className="bg-teal-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">🔨</span>
+                </div>
+                <h3 className="text-xl text-gray-800 mb-2">2. Üretim</h3>
+                <p className="text-gray-600">
+                  Seçilen malzemede uzman ekibimizle kaliteli mezar üretimi
+                </p>
+              </div>
+
+              <div className="text-center">
+                <div className="bg-teal-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">📍</span>
+                </div>
+                <h3 className="text-xl text-gray-800 mb-2">3. Kurulum</h3>
+                <p className="text-gray-600">
+                  Mezarlıkta profesyonel mezar kurulumu ve son kontrol
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Öne Çıkan Mezar Modelleri – tamamen dinamik */}
+      <div className="bg-gray-50 py-16">
+        <div className="container mx-auto px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl text-gray-800 mb-4">Öne Çıkan Mezar Modelleri</h2>
+              <p className="text-gray-600">
+                En popüler ve kaliteli mezar modellerimizi keşfedin
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {featuredModels.map((model, index) => (
+                <Card
+                  key={`featured-${model.id}-${index}`}
+                  className="group hover:shadow-xl transition-all duration-300 bg-white border-0 overflow-hidden"
+                >
+                  <div
+                    className="relative cursor-pointer"
+                    onClick={() => handleImageClick(model)}
+                  >
+                    <ImageWithFallback
+                      src={model.image}
+                      alt={model.name}
+                      className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <Badge className="absolute top-3 right-3 bg-teal-500 text-white">
+                      Öne Çıkan
+                    </Badge>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                      <div className="bg-white/90 rounded-full p-3">
+                        <span className="text-gray-800 text-sm">🔍 Detayları Gör</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <CardContent className="p-6">
+                    <div className="mb-3">
+                      <Badge
+                        variant="outline"
+                        className="text-teal-600 border-teal-600 mb-2"
+                      >
+                        {model.material}
+                      </Badge>
+                    </div>
+
+                    <h3 className="text-lg text-gray-800 mb-3 line-clamp-2 min-h-[3.5rem]">
+                      {model.name}
+                    </h3>
+
+                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                      {model.description}
+                    </p>
+
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-sm text-teal-600">{model.price}</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {/* 🔥 Yine sadece slug varsa /product/:slug */}
+                      <Button
+                        className="w-full bg-teal-500 hover:bg-teal-600 text-white"
+                        disabled={!canNavigateToProduct(model)}
+                        onClick={() => handleProductDetail(model)}
+                      >
+                        🔍 Detayları Görüntüle
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full text-teal-500 border-teal-500 hover:bg-teal-50"
+                        onClick={() => onNavigate("contact")}
+                      >
+                        Fiyat Teklifi Al
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full text-green-600 border-green-600 hover:bg-green-50"
+                        onClick={() => {
+                          const whatsappMessage = `Merhaba, ${model.name} hakkında bilgi almak istiyorum.`;
+                          window.open(
+                            `https://wa.me/905334838971?text=${encodeURIComponent(
+                              whatsappMessage
+                            )}`,
+                            "_blank"
+                          );
+                        }}
+                      >
+                        💬 WhatsApp'tan Sor
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div className="bg-teal-500 py-16">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center text-white">
+            <h2 className="text-3xl mb-4">Özel Tasarım Mezar Baş Taşı İstiyorsanız</h2>
+            <p className="text-lg opacity-90 mb-8">
+              Size özel tasarım mezar baş taşı modelleri için uzman ekibimizle iletişime geçin.
+              Ölçülerinize ve isteklerinize göre özel çözümler sunuyoruz.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button
+                onClick={() => onNavigate("contact")}
+                className="bg-white text-teal-500 hover:bg-gray-100 px-8 py-3"
+              >
+                Özel Tasarım Talebi
+              </Button>
+              <Button
+                variant="outline"
+                className="border-white text-white hover:bg-white hover:text-teal-500 px-8 py-3"
+                onClick={() => window.open("tel:+905334838971")}
+              >
+                📞 Hemen Ara
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal — quick view */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent
           className="max-w-2xl bg-gray-50 max-h-[90vh] overflow-y-auto"
@@ -725,13 +955,15 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
                   >
                     💬 WhatsApp'tan Sor
                   </Button>
-                  <Button
-                    variant="outline"
-                    className="text-teal-600 border-teal-600 hover:bg-teal-50"
-                    onClick={() => onProductDetail?.(selectedModel.id)}
-                  >
-                    🔍 Ürün Sayfasına Git
-                  </Button>
+                  {canNavigateToProduct(selectedModel) && (
+                    <Button
+                      variant="outline"
+                      className="text-teal-600 border-teal-600 hover:bg-teal-50"
+                      onClick={() => handleProductDetail(selectedModel)}
+                    >
+                      🔍 Ürün Sayfasına Git
+                    </Button>
+                  )}
                 </div>
 
                 {/* Teknik Özellikler */}
@@ -771,7 +1003,9 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
                     {selectedModel.installationTime && (
                       <div className="flex justify-between items-center py-2">
                         <span className="text-gray-600">Kurulum Süresi:</span>
-                        <span className="text-gray-800">{selectedModel.installationTime}</span>
+                        <span className="text-gray-800">
+                          {selectedModel.installationTime}
+                        </span>
                       </div>
                     )}
                   </div>

@@ -76,7 +76,7 @@ const routeMap: Record<PageKey, string> = {
   contact: "/contact",
   adminAccess: "/adminkotrol",
   admin: "/admin",
-  productDetail: "/product/:id",
+  productDetail: "/product/:slug", // 🔹 slug route
   cemetery: "/cemetery",
   campaigns: "/campaigns",
 };
@@ -181,7 +181,7 @@ function HomeComposition(props: {
   searchTerm: string;
   showSearchResults: boolean;
   onClearSearch: () => void;
-  onProductDetail: (id: number) => void;
+  onProductDetail: (slug: string) => void;
   refreshKey: number;
   openRecentWork: (payload: { id: string; slug?: string }) => void;
   openCampaigns: (c?: any) => void;
@@ -207,19 +207,23 @@ function HomeComposition(props: {
   );
 }
 
-function ProductDetailWrapper(props: { onProductDetail: (id: number) => void }) {
+function ProductDetailWrapper(props: { onProductDetail: (slug: string) => void }) {
   const params = useParams();
-  const pid = Number(params.id);
-  if (!Number.isFinite(pid)) return <Navigate to="/" replace />;
+  const slug = params.slug;
+
+  if (!slug) return <Navigate to="/" replace />;
+
   return (
     <ProductDetailPage
-      key={`product-${pid}`}
-      productId={pid}
-      onNavigate={() => { }}
+      key={`product-${slug}`}
+      // ProductDetailPage içinde slug ile ürün çekilecek
+      productId={slug as string}
+      onNavigate={() => {}}
       onProductDetail={props.onProductDetail}
     />
   );
 }
+
 
 /** ------- App ------- */
 export default function App() {
@@ -277,8 +281,8 @@ export default function App() {
     navigate(routeMap[key] ?? "/");
   };
 
-  const onProductDetail = (productId: number) => {
-    navigate(`/product/${productId}`);
+  const onProductDetail = (slug: string) => {
+    navigate(`/product/${slug}`);
   };
 
   // Artık { id, slug? } payload bekliyoruz
@@ -360,7 +364,10 @@ export default function App() {
             <Route path="/contact" element={<ContactPage onNavigate={onNavigateString} />} />
 
             {/* Ürün detay */}
-            <Route path="/product/:id" element={<ProductDetailWrapper onProductDetail={onProductDetail} />} />
+            <Route
+              path="/product/:slug"
+              element={<ProductDetailWrapper onProductDetail={onProductDetail} />}
+            />
 
             {/* Admin akışı */}
             <Route path="/adminkotrol" element={<AdminSecretAccess onNavigate={onNavigateString} />} />
@@ -394,7 +401,6 @@ export default function App() {
             <Route path="/admin/settings" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/settings/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/settings/new" element={<AdminPanel onNavigate={onNavigateString} />} />
-
 
             <Route path="/admin/sitesettings" element={<AdminPanel onNavigate={onNavigateString} />} />
 
