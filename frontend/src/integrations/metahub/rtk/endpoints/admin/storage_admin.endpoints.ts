@@ -94,7 +94,7 @@ export const storageAdminApi = baseApi.injectEndpoints({
       providesTags: (res) => (res ? [{ type: "Storage", id: res.id }] : []),
     }),
 
-    // Tekli create (multipart)
+    // Tekli create (multipart, admin)
     createAssetAdmin: builder.mutation<
       StorageAsset,
       {

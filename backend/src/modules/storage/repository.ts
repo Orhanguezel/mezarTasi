@@ -1,5 +1,16 @@
-// src/modules/storage/repository.ts
-import { and, asc, desc, eq, inArray, like, sql as dsql } from "drizzle-orm";
+// =============================================================
+// FILE: src/modules/storage/repository.ts
+// =============================================================
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  like,
+  sql as dsql,
+} from "drizzle-orm";
+
 import { db } from "@/db/client";
 import { storageAssets } from "./schema";
 import type { StorageListQuery } from "./validation";
@@ -43,27 +54,37 @@ export async function listAndCount(q: StorageListQuery) {
     .from(storageAssets)
     .where(where);
 
+  const limit = typeof q.limit === "number" && q.limit > 0 ? q.limit : 50;
+  const offset = typeof q.offset === "number" && q.offset >= 0 ? q.offset : 0;
+
   const rows = await db
     .select()
     .from(storageAssets)
     .where(where)
     .orderBy(parseOrder(q))
-    .limit(q.limit)
-    .offset(q.offset);
+    .limit(limit)
+    .offset(offset);
 
   return { rows, total };
 }
 
 /** Tekil getir */
 export async function getById(id: string) {
-  const rows = await db.select().from(storageAssets).where(eq(storageAssets.id, id)).limit(1);
+  const rows = await db
+    .select()
+    .from(storageAssets)
+    .where(eq(storageAssets.id, id))
+    .limit(1);
   return rows[0] ?? null;
 }
 
 /** Çoklu getir */
 export async function getByIds(ids: string[]) {
   if (!ids.length) return [];
-  return db.select().from(storageAssets).where(inArray(storageAssets.id, ids));
+  return db
+    .select()
+    .from(storageAssets)
+    .where(inArray(storageAssets.id, ids));
 }
 
 /** bucket+path ile getir */
@@ -71,7 +92,9 @@ export async function getByBucketPath(bucket: string, path: string) {
   const rows = await db
     .select()
     .from(storageAssets)
-    .where(and(eq(storageAssets.bucket, bucket), eq(storageAssets.path, path)))
+    .where(
+      and(eq(storageAssets.bucket, bucket), eq(storageAssets.path, path)),
+    )
     .limit(1);
   return rows[0] ?? null;
 }
@@ -83,7 +106,10 @@ export async function insert(values: Record<string, unknown>) {
 
 /** Update by id (partial) */
 export async function updateById(id: string, sets: Record<string, unknown>) {
-  await db.update(storageAssets).set(sets).where(eq(storageAssets.id, id));
+  await db
+    .update(storageAssets)
+    .set(sets)
+    .where(eq(storageAssets.id, id));
 }
 
 /** Delete by id */
@@ -94,8 +120,9 @@ export async function deleteById(id: string) {
 /** Delete many by ids */
 export async function deleteManyByIds(ids: string[]) {
   if (!ids.length) return 0;
-  const res = await db.delete(storageAssets).where(inArray(storageAssets.id, ids));
-  // drizzle-mysql delete() affectedRows erişimi yok; caller sayıyı kendisi üretebilir
+  await db
+    .delete(storageAssets)
+    .where(inArray(storageAssets.id, ids));
   return ids.length;
 }
 
@@ -107,5 +134,7 @@ export async function listFolders(): Promise<string[]> {
     .where(dsql`${storageAssets.folder} IS NOT NULL`)
     .groupBy(storageAssets.folder);
 
-  return rows.map(r => r.folder as string).filter(Boolean);
+  return rows
+    .map((r) => r.folder as string)
+    .filter(Boolean);
 }

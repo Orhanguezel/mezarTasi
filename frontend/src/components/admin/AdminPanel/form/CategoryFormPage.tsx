@@ -22,8 +22,8 @@ import {
   useToggleFeaturedCategoryAdminMutation,
 } from "@/integrations/metahub/rtk/endpoints/admin/categories_admin.endpoints";
 
-// 🔸 CampaignForm ile aynı: public storage pattern
-import { useUploadToBucketMutation } from "@/integrations/metahub/rtk/endpoints/storage_public.endpoints";
+// 🔸 ARTIK ADMIN STORAGE kullanıyoruz
+import { useCreateAssetAdminMutation } from "@/integrations/metahub/rtk/endpoints/admin/storage_admin.endpoints";
 
 import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
 import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";
@@ -91,9 +91,9 @@ export default function CategoryFormPage() {
   const [toggleActive] = useToggleActiveCategoryAdminMutation();
   const [toggleFeatured] = useToggleFeaturedCategoryAdminMutation();
 
-  // 🔸 public storage upload (CampaignForm ile aynı endpoint)
-  const [uploadToBucket, { isLoading: uploading }] =
-    useUploadToBucketMutation();
+  // 🔸 ADMIN STORAGE upload ( /admin/storage/assets )
+  const [createAssetAdmin, { isLoading: uploading }] =
+    useCreateAssetAdminMutation();
 
   const saving = creating || updating || uploading;
   const savingImg = uploading || updating;
@@ -196,9 +196,9 @@ export default function CategoryFormPage() {
     }
   };
 
-  // ---------- image handlers (CampaignForm pattern'ine yakın) ----------
+  // ---------- image handlers (artık ADMIN STORAGE) ----------
 
-  /** Dosya yükle + public storage URL + opsiyonel anında kaydetme */
+  /** Dosya yükle + admin storage asset + public URL + opsiyonel anında kaydetme */
   const uploadCover = async (file: File): Promise<void> => {
     // 🔒 Yeni kayıt iken görsel ekleme yok
     if (isNew || !id) {
@@ -207,15 +207,16 @@ export default function CategoryFormPage() {
     }
 
     try {
-      const res = await uploadToBucket({
+      const asset = await createAssetAdmin({
+        file,
         bucket: "categories",
-        files: file,
-        path: `categories/${id}/cover/${Date.now()}-${file.name}`,
-        upsert: true,
+        // path yerine ADMIN tarafında folder/name pattern'i kullanıyoruz:
+        folder: `categories/${id}/cover`,
+        // metadata istersen buraya ekleyebilirsin:
+        // metadata: { kind: "category_cover", category_id: id },
       }).unwrap();
 
-      const item = (res as any)?.items?.[0];
-      const publicUrl: string | undefined = item?.url;
+      const publicUrl: string | undefined = asset.url ?? undefined;
 
       if (!publicUrl) {
         toast.error("Yükleme cevabı beklenen formatta değil");
@@ -230,12 +231,12 @@ export default function CategoryFormPage() {
         _setAlt(nextAlt);
       }
 
-      // yeni upload: sadece URL kullanıyoruz (asset id'yi zorunlu tutmuyoruz)
+      // yeni upload: URL + asset id (UI için)
       setImageUrl(publicUrl);
-      setCoverId(undefined);
+      setCoverId(asset.id);
       setStagedCoverId(undefined);
 
-      // Kayıtlı kategori: BE'ye anında tam payload ile yaz (TS2739 fix)
+      // Kayıtlı kategori: BE'ye anında tam payload ile yaz
       await updateCategory({
         id,
         body: {
@@ -371,7 +372,7 @@ export default function CategoryFormPage() {
 
           {/* Slug */}
           <div className="space-y-1">
-            <div className="flex items-center justify_between">
+            <div className="flex items-center justify-between">
               <Label>
                 Slug
                 <RequiredMark />

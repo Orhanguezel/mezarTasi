@@ -32,6 +32,20 @@ INSERT INTO `site_settings` (`id`,`key`,`value`,`created_at`,`updated_at`) VALUE
 (UUID(), 'contact_address',        '"Hekimbaşı Mah. Yıldıztepe Cad. No:41 Ümraniye/İstanbul"', NOW(3), NOW(3)),
 (UUID(), 'contact_whatsapp_link',  '"https://wa.me/905334838971"', NOW(3), NOW(3));
 
+/* ====== STORAGE / UPLOAD CONFIG ====== */
+INSERT INTO `site_settings` (`id`,`key`,`value`,`created_at`,`updated_at`) VALUES
+(UUID(), 'storage_driver',             '"local"', NOW(3), NOW(3)),
+(UUID(), 'storage_local_root',         '"/www/wwwroot/mezartasi/uploads"', NOW(3), NOW(3)),
+(UUID(), 'storage_local_base_url',     '"http://localhost:8083/uploads"', NOW(3), NOW(3)),
+(UUID(), 'storage_cdn_public_base', '"https://cdn.mezartasi.com"', NOW(3), NOW(3)),
+(UUID(), 'storage_public_api_base', '"https://mezartasi.com/api"', NOW(3), NOW(3)),
+(UUID(), 'cloudinary_cloud_name',      '"dbozv7wqd"', NOW(3), NOW(3)),
+(UUID(), 'cloudinary_api_key',         '"644676135993432"', NOW(3), NOW(3)),
+(UUID(), 'cloudinary_api_secret',      '"C2VWxsJ5j0jZpcxOhvuTOTKhaMo"', NOW(3), NOW(3)),
+(UUID(), 'cloudinary_folder',          '"uploads"', NOW(3), NOW(3)),
+(UUID(), 'cloudinary_unsigned_preset', '"mezartasi_unsigned_preset"', NOW(3), NOW(3));
+
+
 /* ====== SMTP / MAIL CONFIG ====== */
 INSERT INTO `site_settings` (`id`,`key`,`value`,`created_at`,`updated_at`) VALUES
 -- SMTP sunucusu

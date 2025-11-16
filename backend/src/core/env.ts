@@ -51,6 +51,9 @@ export const env = {
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
   CLOUDINARY_UPLOAD_PRESET: process.env.CLOUDINARY_UPLOAD_PRESET || '',
   CLOUDINARY_FOLDER: process.env.CLOUDINARY_FOLDER || '',
+  CLOUDINARY_BASE_PUBLIC: process.env.CLOUDINARY_BASE_PUBLIC || '',
+  STORAGE_CDN_PUBLIC_BASE: process.env.STORAGE_CDN_PUBLIC_BASE || '',
+  STORAGE_PUBLIC_API_BASE: process.env.STORAGE_PUBLIC_API_BASE || '',
   DB: {
     host: process.env.DB_HOST || "127.0.0.1",
     port: toInt(process.env.DB_PORT, 3306),

@@ -72,15 +72,17 @@ export const adminListAssets: RouteHandler<{ Querystring: unknown }> = async (
 ) => {
   const parsed = storageListQuerySchema.safeParse(req.query);
   if (!parsed.success) {
-    return reply
-      .code(400)
-      .send({ error: { message: "invalid_query", issues: parsed.error.flatten() } });
+    return reply.code(400).send({
+      error: {
+        message: "invalid_query",
+        issues: parsed.error.flatten(),
+      },
+    });
   }
-  const q = parsed.data as StorageListQuery;
 
+  const q = parsed.data as StorageListQuery;
   const { rows, total } = await listAndCount(q);
 
-  // toplamı FE için header'a yaz
   reply.header("x-total-count", String(total));
   reply.header("content-range", `*/${total}`);
   reply.header(
@@ -98,14 +100,19 @@ export const adminGetAsset: RouteHandler<{ Params: { id: string } }> = async (
 ) => {
   const row = await getById(req.params.id);
   if (!row) return reply.code(404).send({ error: { message: "not_found" } });
-  return reply.send({ ...row, url: publicUrlOf(row.bucket, row.path, row.url) });
+
+  return reply.send({
+    ...row,
+    url: publicUrlOf(row.bucket, row.path, row.url),
+  });
 };
 
 /** POST /admin/storage/assets (multipart single file) */
 export const adminCreateAsset: RouteHandler = async (req, reply) => {
-  const cfg = getCloudinaryConfig();
-  if (!cfg)
-    return reply.code(501).send({ message: "cloudinary_not_configured" });
+  const cfg = await getCloudinaryConfig();
+  if (!cfg) {
+    return reply.code(501).send({ message: "storage_not_configured" });
+  }
 
   const mp: MultipartFile | undefined = await (req as any).file();
   if (!mp) return reply.code(400).send({ message: "file_required" });
@@ -176,7 +183,7 @@ export const adminCreateAsset: RouteHandler = async (req, reply) => {
   const provider_version = typeof up.version === "number" ? up.version : null;
 
   const recId = randomUUID();
-  const provider = env.STORAGE_DRIVER === "local" ? "local" : "cloudinary";
+  const provider = cfg.driver === "local" ? "local" : "cloudinary";
 
   const base = {
     id: recId,
@@ -203,7 +210,13 @@ export const adminCreateAsset: RouteHandler = async (req, reply) => {
   try {
     await repoInsert(omitNullish(base));
   } catch (e) {
-    const err = e as { message?: string; code?: string; errno?: string; cause?: unknown };
+    const err = e as {
+      message?: string;
+      code?: string;
+      errno?: string;
+      cause?: unknown;
+    };
+
     if (isDup(err)) {
       const existing = await getByBucketPath(bucket, path);
       if (existing) {
@@ -215,6 +228,7 @@ export const adminCreateAsset: RouteHandler = async (req, reply) => {
         });
       }
     }
+
     return reply.code(502).send({
       error: {
         where: "db_insert",
@@ -240,9 +254,12 @@ export const adminPatchAsset: RouteHandler<{
 }> = async (req, reply) => {
   const parsed = storageUpdateSchema.safeParse(req.body);
   if (!parsed.success) {
-    return reply
-      .code(400)
-      .send({ error: { message: "invalid_body", issues: parsed.error.flatten() } });
+    return reply.code(400).send({
+      error: {
+        message: "invalid_body",
+        issues: parsed.error.flatten(),
+      },
+    });
   }
   const patch = parsed.data;
 
@@ -253,6 +270,7 @@ export const adminPatchAsset: RouteHandler<{
     typeof patch.folder !== "undefined"
       ? normalizeFolder(patch.folder)
       : cur.folder ?? null;
+
   const targetName =
     typeof patch.name !== "undefined" ? sanitizeName(patch.name) : cur.name;
 
@@ -265,13 +283,15 @@ export const adminPatchAsset: RouteHandler<{
 
   if (folderChanged || nameChanged) {
     if (cur.provider_public_id) {
-      const baseName = targetName.replace(/^\//, "").replace(/\.[^.]+$/, "");
+      const baseName = targetName.replace(/^\//
+, "").replace(/\.[^.]+$/, "");
       const newPublicId = targetFolder ? `${targetFolder}/${baseName}` : baseName;
 
       const renamed = await renameCloudinaryPublicId(
         cur.provider_public_id,
         newPublicId,
         cur.provider_resource_type || "image",
+        cur.provider || undefined,
       );
 
       sets.name = targetName;
@@ -285,7 +305,7 @@ export const adminPatchAsset: RouteHandler<{
           : cur.provider_version;
       sets.provider_format = renamed.format ?? cur.provider_format;
     } else {
-      // sadece DB
+      // sadece DB tarafı rename
       sets.name = targetName;
       sets.folder = targetFolder;
       sets.path = targetFolder ? `${targetFolder}/${targetName}` : targetName;
@@ -295,8 +315,9 @@ export const adminPatchAsset: RouteHandler<{
     if (typeof patch.folder !== "undefined") sets.folder = targetFolder;
   }
 
-  if (typeof patch.metadata !== "undefined")
+  if (typeof patch.metadata !== "undefined") {
     sets.metadata = patch.metadata ?? null;
+  }
 
   await repoUpdateById(req.params.id, sets);
   const fresh = await getById(req.params.id);
@@ -317,7 +338,11 @@ export const adminDeleteAsset: RouteHandler<{
 
   try {
     const publicId = row.provider_public_id || row.path.replace(/\.[^.]+$/, "");
-    await destroyCloudinaryById(publicId, row.provider_resource_type || undefined);
+    await destroyCloudinaryById(
+      publicId,
+      row.provider_resource_type || undefined,
+      row.provider || undefined,
+    );
   } catch {
     // provider tarafı silinmese bile DB'den silmeye devam
   }
@@ -338,11 +363,14 @@ export const adminBulkDelete: RouteHandler<{
   const rows = await getByIds(ids);
   if (!rows.length) return reply.send({ deleted: 0 });
 
-  // Her asset için provider tarafını sil (Cloudinary veya local)
   for (const r of rows) {
     const pid = r.provider_public_id || r.path.replace(/\.[^.]+$/, "");
     try {
-      await destroyCloudinaryById(pid, r.provider_resource_type || undefined);
+      await destroyCloudinaryById(
+        pid,
+        r.provider_resource_type || undefined,
+        r.provider || undefined,
+      );
     } catch {
       // provider'ı silmesek bile DB'den silmeye devam
     }
@@ -354,9 +382,10 @@ export const adminBulkDelete: RouteHandler<{
 
 /** POST /admin/storage/assets/bulk (multipart mixed: fields + files...) */
 export const adminBulkCreateAssets: RouteHandler = async (req, reply) => {
-  const cfg = getCloudinaryConfig();
-  if (!cfg)
-    return reply.code(501).send({ message: "cloudinary_not_configured" });
+  const cfg = await getCloudinaryConfig();
+  if (!cfg) {
+    return reply.code(501).send({ message: "storage_not_configured" });
+  }
 
   const partsIt =
     typeof (req as any).parts === "function" ? (req as any).parts() : null;
@@ -385,6 +414,7 @@ export const adminBulkCreateAssets: RouteHandler = async (req, reply) => {
       }
       continue;
     }
+
     if (part.type !== "file") continue;
 
     const buf = await part.toBuffer();
@@ -416,7 +446,7 @@ export const adminBulkCreateAssets: RouteHandler = async (req, reply) => {
 
     const path = folder ? `${folder}/${cleanName}` : cleanName;
     const recId = randomUUID();
-    const provider = env.STORAGE_DRIVER === "local" ? "local" : "cloudinary";
+    const provider = cfg.driver === "local" ? "local" : "cloudinary";
 
     const recBase = {
       id: recId,
@@ -484,9 +514,10 @@ export const adminListFolders: RouteHandler = async (_req, reply) => {
 
 /** GET /admin/storage/_diag/cloud */
 export const adminDiagCloudinary: RouteHandler = async (_req, reply) => {
-  const cfg = getCloudinaryConfig();
-  if (!cfg)
+  const cfg = await getCloudinaryConfig();
+  if (!cfg || cfg.driver === "local") {
     return reply.code(501).send({ message: "cloudinary_not_configured" });
+  }
 
   try {
     await (cloudinary as any).api.ping();
@@ -512,13 +543,23 @@ export const adminDiagCloudinary: RouteHandler = async (_req, reply) => {
       folder: "diag",
       publicId: `ping_${Date.now()}`,
     });
+
     return reply.send({
       ok: true,
       cloud: cfg.cloudName,
-      uploaded: { public_id: up.public_id, secure_url: up.secure_url },
+      uploaded: {
+        public_id: up.public_id,
+        secure_url: up.secure_url,
+      },
     });
   } catch (e) {
-    const err = e as { name?: string; message?: string; http_code?: number; error?: unknown; response?: unknown };
+    const err = e as {
+      name?: string;
+      message?: string;
+      http_code?: number;
+      error?: unknown;
+      response?: unknown;
+    };
     return reply.code(502).send({
       step: "uploader.upload",
       error: {

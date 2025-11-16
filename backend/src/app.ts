@@ -3,6 +3,11 @@ import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
+import fastifyStatic from '@fastify/static';
+
+import fs from 'node:fs';
+import path from 'node:path';
+
 import authPlugin from "./plugins/authPlugin";
 import mysqlPlugin from '@/plugins/mysql';
 
@@ -54,6 +59,9 @@ import { registerCategoriesAdmin } from '@/modules/categories/admin.routes';
 import { registerSubCategoriesAdmin } from '@/modules/subcategories/admin.routes';
 import { registerDbAdmin } from "@/modules/db_admin/admin.routes";
 
+// Storage config (site_settings + env) — localBaseUrl için kullanacağız
+import { getStorageSettings } from "@/modules/siteSettings/service";
+
 function parseCorsOrigins(v?: string | string[]): boolean | string[] {
   if (!v) return true;
   if (Array.isArray(v)) return v;
@@ -61,6 +69,42 @@ function parseCorsOrigins(v?: string | string[]): boolean | string[] {
   if (!s) return true;
   const arr = s.split(",").map(x => x.trim()).filter(Boolean);
   return arr.length ? arr : true;
+}
+
+/** uploads root seçimi: env → site_settings → cwd/uploads, ama path yoksa veya izin yoksa cwd/uploads'a düş */
+function pickUploadsRoot(rawFromSettings?: string | null): string {
+  const fallback = path.join(process.cwd(), "uploads");
+
+  // ENV local override (dev/prod)
+  const envRoot = env.LOCAL_STORAGE_ROOT && String(env.LOCAL_STORAGE_ROOT).trim();
+  const candidate = envRoot || (rawFromSettings || "").trim() || fallback;
+
+  const ensureDir = (p: string): string => {
+    try {
+      if (!fs.existsSync(p)) {
+        fs.mkdirSync(p, { recursive: true });
+      }
+      return p;
+    } catch {
+      // izin yok / hata → fallback
+      if (!fs.existsSync(fallback)) {
+        fs.mkdirSync(fallback, { recursive: true });
+      }
+      return fallback;
+    }
+  };
+
+  return ensureDir(candidate);
+}
+
+/** uploads prefix seçimi: env → site_settings → "/uploads"  (başında / , sonunda tek / ) */
+function pickUploadsPrefix(rawFromSettings?: string | null): string {
+  const envBase = env.LOCAL_STORAGE_BASE_URL && String(env.LOCAL_STORAGE_BASE_URL).trim();
+  let p = envBase || (rawFromSettings || "").trim() || "/uploads";
+
+  if (!p.startsWith("/")) p = `/${p}`;
+  p = p.replace(/\/+$/, ""); // sondaki slash'ları temizle
+  return `${p}/`; // fastify-static prefix (örn: "/uploads/")
 }
 
 export async function createApp() {
@@ -111,6 +155,26 @@ export async function createApp() {
   await app.register(authPlugin);
   await app.register(mysqlPlugin);
 
+  // === 📁 UPLOADS STATIC SERVE ===
+  // site_settings + env'ten storage ayarlarını çek (DB hazır çünkü mysqlPlugin'i register ettik)
+  let storageSettings: Awaited<ReturnType<typeof getStorageSettings>> | null = null;
+  try {
+    storageSettings = await getStorageSettings();
+  } catch {
+    storageSettings = null;
+  }
+
+  const uploadsRoot = pickUploadsRoot(storageSettings?.localRoot);
+  const uploadsPrefix = pickUploadsPrefix(storageSettings?.localBaseUrl);
+
+  // Örnek: root = /home/orhan/Documents/mezarTasi/backend/uploads
+  //         prefix = /uploads/
+  await app.register(fastifyStatic, {
+    root: uploadsRoot,
+    prefix: uploadsPrefix,
+    decorateReply: false,
+  });
+
   // Health hem kökte hem /api altında
   app.get('/health', async () => ({ ok: true }));
   app.get('/api/health', async () => ({ ok: true }));
@@ -143,7 +207,6 @@ export async function createApp() {
     await api.register(registerCategoriesAdmin, { prefix: "/admin" });
     await api.register(registerSubCategoriesAdmin, { prefix: "/admin" });
     await api.register(registerDbAdmin, { prefix: "/admin" });
-
 
     // --- Public modüller → /api/...
     await registerAuth(api);

@@ -12,4 +12,3 @@ main().catch((e) => {
   console.error('Server failed', e);
   process.exit(1);
 });
-

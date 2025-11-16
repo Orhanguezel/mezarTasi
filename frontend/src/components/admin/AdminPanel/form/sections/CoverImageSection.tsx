@@ -14,8 +14,9 @@ import { ImagePlus, Trash2, X, Save as SaveIcon } from "lucide-react";
 export type CoverImageSectionProps = {
   title?: string;
 
-  coverId?: string;
-  stagedCoverId?: string;
+  // ⬇️ exactOptionalPropertyTypes ile uyumlu: undefined da geçerli
+  coverId?: string | undefined;
+  stagedCoverId?: string | undefined;
 
   imageUrl: string;
   alt: string;
@@ -28,7 +29,8 @@ export type CoverImageSectionProps = {
   onUrlChange: (url: string) => void;
   onAltChange: (alt: string) => void;
 
-  onSaveAlt?: () => void;
+  // ⬇️ burada da bazen `undefined` geçiyoruz: onSaveAlt={id ? ... : undefined}
+  onSaveAlt?: (() => void) | undefined;
 
   /** Dosya input accept (default: image/*) */
   accept?: string;
@@ -196,3 +198,6 @@ export function CoverImageSection({
     </Section>
   );
 }
+
+// /home/orhan/Documents/mezarTasi/backend/uploads/categories/aaaa0001-1111-4111-8111-aaaaaaaa0001/cover/Bildschirmfoto_vom_2025-10-17_22-27-09.png
+//  http://localhost:8083/uploads/categories/aaaa0001-1111-4111-8111-aaaaaaaa0001/cover/Bildschirmfoto_vom_2025-10-17_22-27-09.png

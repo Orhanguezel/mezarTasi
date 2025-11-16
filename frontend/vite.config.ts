@@ -52,7 +52,7 @@ function figmaAssetResolver(
 export default defineConfig(({ mode }) => {
   // .env yükle (VITE_ prefix’li değerler)
   const env = loadEnv(mode, process.cwd(), "VITE_");
-  const API_ORIGIN = (env.VITE_PUBLIC_API_ORIGIN || "http://127.0.0.1:8081").replace(/\/$/, "");
+  const API_ORIGIN = (env.VITE_PUBLIC_API_ORIGIN || "http://127.0.0.1:808").replace(/\/$/, "");
 
   return {
     plugins: [react(), stripVersionInImports(), figmaAssetResolver()],

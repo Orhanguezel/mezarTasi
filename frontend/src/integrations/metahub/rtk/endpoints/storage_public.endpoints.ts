@@ -25,7 +25,11 @@ function compactFiles(list: unknown[]): File[] {
     if (typeof Blob !== "undefined" && f instanceof Blob) {
       try {
         const name = (f as any)?.name || "blob";
-        out.push(new File([f], name, { type: f.type || "application/octet-stream" }));
+        out.push(
+          new File([f], name, {
+            type: (f as any).type || "application/octet-stream",
+          }),
+        );
       } catch {
         out.push(f as unknown as File);
       }
@@ -36,7 +40,7 @@ function compactFiles(list: unknown[]): File[] {
 
 export const storagePublicApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // Server-side upload: /storage/:bucket/upload
+    // Server-side upload: /storage/:bucket/upload  (public/uygulama içi kullanım)
     uploadToBucket: builder.mutation<
       UploadManyResponse,
       Omit<StorageServerUploadArgs, "file"> & { files: File | File[] }
@@ -46,7 +50,12 @@ export const storagePublicApi = baseApi.injectEndpoints({
           const rawList = Array.isArray(args.files) ? args.files : [args.files];
           const files = compactFiles(rawList as unknown[]);
           if (!files.length) {
-            return { error: { status: 400, data: { message: "no_files" } } as any };
+            return {
+              error: {
+                status: 400,
+                data: { message: "no_files" },
+              } as any,
+            };
           }
 
           const items: StoragePublicUploadResponse[] = [];
@@ -61,11 +70,16 @@ export const storagePublicApi = baseApi.injectEndpoints({
             if (args.upsert) qs.set("upsert", "1");
 
             const res = await baseQuery({
-              url: `/storage/${encodeURIComponent(args.bucket)}/upload${qs.toString() ? `?${qs}` : ""}`,
+              url: `/storage/${encodeURIComponent(args.bucket)}/upload${
+                qs.toString() ? `?${qs}` : ""
+              }`,
               method: "POST",
               body: fd,
             });
-            if (res.error) return { error: res.error as any };
+
+            if (res.error) {
+              return { error: res.error as any };
+            }
 
             const data = res.data as any;
             items.push({
@@ -79,7 +93,9 @@ export const storagePublicApi = baseApi.injectEndpoints({
           return {
             error: {
               status: e?.status || 500,
-              data: e?.data || { message: e?.message || "upload_failed" },
+              data: e?.data || {
+                message: e?.message || "upload_failed",
+              },
             } as any,
           };
         }
@@ -87,7 +103,7 @@ export const storagePublicApi = baseApi.injectEndpoints({
       invalidatesTags: () => [{ type: "Storage", id: "LIST" }],
     }),
 
-    // Direct-to-Cloudinary (unsigned preset) için sign
+    // Direct-to-Cloudinary (unsigned preset) için sign (public)
     signMultipart: builder.mutation<
       StorageSignMultipartResponse,
       StorageSignMultipartBody & { content_type?: string }
@@ -106,4 +122,7 @@ export const storagePublicApi = baseApi.injectEndpoints({
   overrideExisting: true,
 });
 
-export const { useUploadToBucketMutation, useSignMultipartMutation } = storagePublicApi;
+export const {
+  useUploadToBucketMutation,
+  useSignMultipartMutation,
+} = storagePublicApi;

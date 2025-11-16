@@ -65,7 +65,7 @@ function getHost(req: FastifyRequest): string {
     (req as unknown as { hostname?: string }).hostname ||
     getHeader(req, 'x-forwarded-host') ||
     getHeader(req, 'host') ||
-    'localhost:8081'
+    'localhost:808'
   );
 }
 
