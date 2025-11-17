@@ -63,6 +63,30 @@ function publicUrlOf(
 /** Dosya adı sanitize */
 const sanitizeName = (name: string) => name.replace(/[^\w.\-]+/g, "_");
 
+/** Per-request upload log base (user + ip + ua) */
+function makeUploadLogBase(req: any) {
+  const user = req?.user as { id?: string } | undefined;
+  const xff = req?.headers?.["x-forwarded-for"];
+  const ip =
+    (typeof xff === "string" && xff.split(",")[0].trim()) ||
+    req?.ip ||
+    undefined;
+  const uaRaw = req?.headers?.["user-agent"];
+  const ua =
+    typeof uaRaw === "string"
+      ? uaRaw
+      : Array.isArray(uaRaw)
+      ? uaRaw.join(",")
+      : undefined;
+
+  return {
+    where: "storage_upload",
+    user_id: user?.id ? String(user.id) : null,
+    ip,
+    ua,
+  };
+}
+
 /* ---------------------------------- ADMIN ---------------------------------- */
 
 /** GET /admin/storage/assets */
@@ -110,12 +134,24 @@ export const adminGetAsset: RouteHandler<{ Params: { id: string } }> = async (
 /** POST /admin/storage/assets (multipart single file) */
 export const adminCreateAsset: RouteHandler = async (req, reply) => {
   const cfg = await getCloudinaryConfig();
+  const baseLog = makeUploadLogBase(req);
+
   if (!cfg) {
+    req.log.error(
+      { ...baseLog },
+      "storage upload: storage_not_configured (no cfg)",
+    );
     return reply.code(501).send({ message: "storage_not_configured" });
   }
 
   const mp: MultipartFile | undefined = await (req as any).file();
-  if (!mp) return reply.code(400).send({ message: "file_required" });
+  if (!mp) {
+    req.log.warn(
+      { ...baseLog },
+      "storage upload: no file in multipart request",
+    );
+    return reply.code(400).send({ message: "file_required" });
+  }
 
   const buf = await mp.toBuffer();
 
@@ -124,8 +160,8 @@ export const adminCreateAsset: RouteHandler = async (req, reply) => {
     fields[k] ? String(fields[k].value) : undefined;
 
   const bucket = s("bucket") ?? "default";
-  const folder =
-    normalizeFolder(s("folder") ?? cfg.defaultFolder ?? null) ?? undefined;
+  const folderRaw = s("folder") ?? cfg.defaultFolder ?? null;
+  const folder = normalizeFolder(folderRaw) ?? undefined;
 
   let metadata: Record<string, string> | null = null;
   const metaRaw = s("metadata");
@@ -140,7 +176,22 @@ export const adminCreateAsset: RouteHandler = async (req, reply) => {
   const cleanName = sanitizeName(mp.filename || "file");
   const publicIdBase = cleanName.replace(/\.[^.]+$/, "");
 
-  // 1) Upload
+  const fileLog = {
+    ...baseLog,
+    action: "single_upload",
+    driver: cfg.driver,
+    cloud: cfg.cloudName,
+    filename: cleanName,
+    fieldname: mp.fieldname,
+    mimetype: mp.mimetype,
+    bytes: buf.length,
+    bucket,
+    folder,
+  };
+
+  req.log.info(fileLog, "storage upload: file received, starting provider upload");
+
+  // 1) Upload (Cloudinary veya local)
   let up: UploadResult;
   try {
     up = await uploadBufferAuto(cfg, buf, {
@@ -156,6 +207,18 @@ export const adminCreateAsset: RouteHandler = async (req, reply) => {
       error?: unknown;
       response?: unknown;
     };
+
+    req.log.error(
+      {
+        ...fileLog,
+        err_name: err?.name,
+        err_msg: err?.message,
+        http_code: err?.http_code,
+        cld_error: err?.error ?? err?.response ?? null,
+      },
+      "storage upload: provider upload failed",
+    );
+
     const http = Number(err?.http_code) || 502;
     return reply
       .code(http >= 400 && http < 500 ? http : 502)
@@ -170,7 +233,19 @@ export const adminCreateAsset: RouteHandler = async (req, reply) => {
       });
   }
 
-  // 2) DB
+  req.log.info(
+    {
+      ...fileLog,
+      provider_public_id: up.public_id,
+      provider_url: up.secure_url,
+      provider_bytes: up.bytes,
+      provider_format: up.format,
+      provider_resource_type: up.resource_type,
+    },
+    "storage upload: provider upload succeeded",
+  );
+
+  // 2) DB INSERT
   const path = folder ? `${folder}/${cleanName}` : cleanName;
   const size = typeof up.bytes === "number" ? up.bytes : buf.length;
   const width = typeof up.width === "number" ? up.width : null;
@@ -185,7 +260,7 @@ export const adminCreateAsset: RouteHandler = async (req, reply) => {
   const recId = randomUUID();
   const provider = cfg.driver === "local" ? "local" : "cloudinary";
 
-  const base = {
+  const recBase = {
     id: recId,
     user_id: (req as any).user?.id ? String((req as any).user.id) : null,
     name: cleanName,
@@ -208,7 +283,16 @@ export const adminCreateAsset: RouteHandler = async (req, reply) => {
   };
 
   try {
-    await repoInsert(omitNullish(base));
+    await repoInsert(omitNullish(recBase));
+    req.log.info(
+      {
+        ...fileLog,
+        rec_id: recId,
+        db_path: path,
+        db_bucket: bucket,
+      },
+      "storage upload: db insert succeeded",
+    );
   } catch (e) {
     const err = e as {
       message?: string;
@@ -220,6 +304,13 @@ export const adminCreateAsset: RouteHandler = async (req, reply) => {
     if (isDup(err)) {
       const existing = await getByBucketPath(bucket, path);
       if (existing) {
+        req.log.warn(
+          {
+            ...fileLog,
+            rec_id: existing.id,
+          },
+          "storage upload: duplicate key, returning existing row",
+        );
         return reply.code(200).send({
           ...existing,
           url: publicUrlOf(existing.bucket, existing.path, existing.url),
@@ -228,6 +319,16 @@ export const adminCreateAsset: RouteHandler = async (req, reply) => {
         });
       }
     }
+
+    req.log.error(
+      {
+        ...fileLog,
+        db_err_msg: err?.message,
+        db_code: err?.code ?? err?.errno ?? null,
+        db_cause: err?.cause ?? null,
+      },
+      "storage upload: db insert failed",
+    );
 
     return reply.code(502).send({
       error: {
@@ -239,11 +340,13 @@ export const adminCreateAsset: RouteHandler = async (req, reply) => {
     });
   }
 
+  const nowIso = new Date().toISOString();
+
   return reply.code(201).send({
-    ...base,
-    url: publicUrlOf(base.bucket, base.path, base.url),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    ...recBase,
+    url: publicUrlOf(recBase.bucket, recBase.path, recBase.url),
+    created_at: nowIso,
+    updated_at: nowIso,
   });
 };
 
@@ -283,8 +386,7 @@ export const adminPatchAsset: RouteHandler<{
 
   if (folderChanged || nameChanged) {
     if (cur.provider_public_id) {
-      const baseName = targetName.replace(/^\//
-, "").replace(/\.[^.]+$/, "");
+      const baseName = targetName.replace(/^\//, "").replace(/\.[^.]+$/, "");
       const newPublicId = targetFolder ? `${targetFolder}/${baseName}` : baseName;
 
       const renamed = await renameCloudinaryPublicId(
@@ -383,13 +485,23 @@ export const adminBulkDelete: RouteHandler<{
 /** POST /admin/storage/assets/bulk (multipart mixed: fields + files...) */
 export const adminBulkCreateAssets: RouteHandler = async (req, reply) => {
   const cfg = await getCloudinaryConfig();
+  const baseLog = makeUploadLogBase(req);
+
   if (!cfg) {
+    req.log.error(
+      { ...baseLog },
+      "storage bulk upload: storage_not_configured (no cfg)",
+    );
     return reply.code(501).send({ message: "storage_not_configured" });
   }
 
   const partsIt =
     typeof (req as any).parts === "function" ? (req as any).parts() : null;
   if (!partsIt || typeof partsIt[Symbol.asyncIterator] !== "function") {
+    req.log.warn(
+      { ...baseLog },
+      "storage bulk upload: multipart_required (no parts iterator)",
+    );
     return reply.code(400).send({ message: "multipart_required" });
   }
 
@@ -402,12 +514,12 @@ export const adminBulkCreateAssets: RouteHandler = async (req, reply) => {
 
   for await (const part of partsIt) {
     if (part.type === "field") {
-      if (part.fieldname === "bucket") formBucket = String(part.value);
+      if (part.fieldname === "bucket") formBucket = String(part.value || "");
       if (part.fieldname === "folder")
-        formFolder = normalizeFolder(String(part.value));
+        formFolder = normalizeFolder(String(part.value || ""));
       if (part.fieldname === "metadata") {
         try {
-          formMeta = JSON.parse(String(part.value));
+          formMeta = JSON.parse(String(part.value || ""));
         } catch {
           formMeta = null;
         }
@@ -424,6 +536,24 @@ export const adminBulkCreateAssets: RouteHandler = async (req, reply) => {
     const cleanName = sanitizeName(part.filename || "file");
     const publicIdBase = cleanName.replace(/\.[^.]+$/, "");
 
+    const fileLog = {
+      ...baseLog,
+      action: "bulk_upload",
+      driver: cfg.driver,
+      cloud: cfg.cloudName,
+      filename: cleanName,
+      fieldname: part.fieldname,
+      mimetype: part.mimetype,
+      bytes: buf.length,
+      bucket,
+      folder,
+    };
+
+    req.log.info(
+      fileLog,
+      "storage bulk upload: file received, starting provider upload",
+    );
+
     let up: UploadResult;
     try {
       up = await uploadBufferAuto(cfg, buf, {
@@ -433,6 +563,15 @@ export const adminBulkCreateAssets: RouteHandler = async (req, reply) => {
       });
     } catch (e) {
       const err = e as { message?: string; http_code?: number };
+      req.log.error(
+        {
+          ...fileLog,
+          err_msg: err?.message,
+          http_code: err?.http_code ?? null,
+        },
+        "storage bulk upload: provider upload failed",
+      );
+
       out.push({
         file: cleanName,
         error: {
@@ -443,6 +582,18 @@ export const adminBulkCreateAssets: RouteHandler = async (req, reply) => {
       });
       continue;
     }
+
+    req.log.info(
+      {
+        ...fileLog,
+        provider_public_id: up.public_id,
+        provider_url: up.secure_url,
+        provider_bytes: up.bytes,
+        provider_format: up.format,
+        provider_resource_type: up.resource_type,
+      },
+      "storage bulk upload: provider upload succeeded",
+    );
 
     const path = folder ? `${folder}/${cleanName}` : cleanName;
     const recId = randomUUID();
@@ -473,6 +624,15 @@ export const adminBulkCreateAssets: RouteHandler = async (req, reply) => {
 
     try {
       await repoInsert(omitNullish(recBase));
+      req.log.info(
+        {
+          ...fileLog,
+          rec_id: recId,
+          db_path: path,
+          db_bucket: bucket,
+        },
+        "storage bulk upload: db insert succeeded",
+      );
       out.push({
         ...recBase,
         url: publicUrlOf(recBase.bucket, recBase.path, recBase.url),
@@ -482,6 +642,13 @@ export const adminBulkCreateAssets: RouteHandler = async (req, reply) => {
       if (isDup(err)) {
         const existing = await getByBucketPath(bucket, path);
         if (existing) {
+          req.log.warn(
+            {
+              ...fileLog,
+              rec_id: existing.id,
+            },
+            "storage bulk upload: duplicate key, returning existing row",
+          );
           out.push({
             ...existing,
             url: publicUrlOf(
@@ -493,6 +660,15 @@ export const adminBulkCreateAssets: RouteHandler = async (req, reply) => {
           continue;
         }
       }
+
+      req.log.error(
+        {
+          ...fileLog,
+          db_err_msg: err?.message ?? null,
+        },
+        "storage bulk upload: db insert failed",
+      );
+
       out.push({
         file: cleanName,
         error: {
@@ -513,7 +689,7 @@ export const adminListFolders: RouteHandler = async (_req, reply) => {
 };
 
 /** GET /admin/storage/_diag/cloud */
-export const adminDiagCloudinary: RouteHandler = async (_req, reply) => {
+export const adminDiagCloudinary: RouteHandler = async (req, reply) => {
   const cfg = await getCloudinaryConfig();
   if (!cfg || cfg.driver === "local") {
     return reply.code(501).send({ message: "cloudinary_not_configured" });

@@ -111,7 +111,7 @@ export async function runMysqlDumpAll(cfg: Cfg, outPath: string): Promise<void> 
     "--quick",
     "--skip-lock-tables",
     "--no-tablespaces",
-    "--set-gtid-purged=OFF",
+    // "--set-gtid-purged=OFF", // ❌ bazı mysqldump / mariadb-dump sürümleri bu flag'i tanımıyor
   ];
 
   const fullFlags = ["--routines", "--triggers", "--events"];

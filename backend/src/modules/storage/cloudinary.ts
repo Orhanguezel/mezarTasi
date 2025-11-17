@@ -129,8 +129,6 @@ function guessExt(mime?: string): string {
  *      3) process.cwd()/uploads
  *  - Eğer mkdir EACCES alırsa, otomatik olarak process.cwd()/uploads'a düşer.
  */
-// src/modules/storage/cloudinary.ts içindeki uploadLocal
-
 async function uploadLocal(
   cfg: Cfg,
   buffer: Buffer,
@@ -176,7 +174,6 @@ async function uploadLocal(
 
   await fs.writeFile(absFile, buffer);
 
-  // ❗ URL üretiminde artık //’ları global replace ETMİYORUZ
   const baseUrlRaw =
     cfg.localBaseUrl ||
     env.LOCAL_STORAGE_BASE_URL ||
@@ -212,57 +209,105 @@ export async function uploadBufferAuto(
 ): Promise<UploadResult> {
   const driver: Driver = cfg.driver ?? envDriver();
 
+  // LOCAL ise direkt dosyaya yaz
   if (driver === "local") {
+    // basit debug log (global)
+    console.debug?.("[storage] uploadBufferAuto LOCAL", {
+      folder: opts.folder ?? cfg.defaultFolder,
+      publicId: opts.publicId,
+      bytes: buffer.length,
+    });
     return uploadLocal(cfg, buffer, opts);
   }
 
   const folder = opts.folder ?? cfg.defaultFolder;
 
-  const rawResult = await new Promise<unknown>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        public_id: opts.publicId,
-        resource_type: "auto",
-        overwrite: true,
-      },
-      (err, res) => {
-        if (err || !res) {
-          return reject(err ?? new Error("upload_failed"));
-        }
-        resolve(res);
-      },
-    );
-    stream.end(buffer);
+  console.debug?.("[storage] uploadBufferAuto CLOUDINARY start", {
+    cloud: cfg.cloudName,
+    folder,
+    publicId: opts.publicId,
+    mime: opts.mime,
+    bytes: buffer.length,
   });
 
-  const r = rawResult as {
-    public_id?: string;
-    secure_url?: string;
-    bytes?: number;
-    width?: number;
-    height?: number;
-    format?: string;
-    resource_type?: string;
-    version?: number;
-    etag?: string;
-  };
+  try {
+    const rawResult = await new Promise<unknown>((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder,
+          public_id: opts.publicId,
+          resource_type: "auto",
+          overwrite: true,
+        },
+        (err, res) => {
+          if (err || !res) {
+            return reject(err ?? new Error("upload_failed"));
+          }
+          resolve(res);
+        },
+      );
+      stream.end(buffer);
+    });
 
-  if (!r.public_id || !r.secure_url) {
-    throw new Error("cloudinary_invalid_response");
+    const r = rawResult as {
+      public_id?: string;
+      secure_url?: string;
+      bytes?: number;
+      width?: number;
+      height?: number;
+      format?: string;
+      resource_type?: string;
+      version?: number;
+      etag?: string;
+    };
+
+    if (!r.public_id || !r.secure_url) {
+      console.error(
+        "[storage] uploadBufferAuto CLOUDINARY invalid_response",
+        { cloud: cfg.cloudName, folder, publicId: opts.publicId },
+      );
+      throw new Error("cloudinary_invalid_response");
+    }
+
+    console.debug?.("[storage] uploadBufferAuto CLOUDINARY ok", {
+      cloud: cfg.cloudName,
+      public_id: r.public_id,
+      bytes: r.bytes,
+      format: r.format,
+      resource_type: r.resource_type,
+    });
+
+    return {
+      public_id: r.public_id,
+      secure_url: r.secure_url,
+      bytes: typeof r.bytes === "number" ? r.bytes : buffer.length,
+      width: typeof r.width === "number" ? r.width : null,
+      height: typeof r.height === "number" ? r.height : null,
+      format: r.format ?? null,
+      resource_type: r.resource_type ?? null,
+      version: typeof r.version === "number" ? r.version : null,
+      etag: r.etag ?? null,
+    };
+  } catch (e) {
+    const err = e as {
+      name?: string;
+      message?: string;
+      http_code?: number;
+      error?: unknown;
+    };
+    console.error("[storage] uploadBufferAuto CLOUDINARY failed", {
+      cloud: cfg.cloudName,
+      folder,
+      publicId: opts.publicId,
+      mime: opts.mime,
+      bytes: buffer.length,
+      err_name: err?.name,
+      err_msg: err?.message,
+      http_code: err?.http_code,
+      cld_error: err?.error ?? null,
+    });
+    throw e;
   }
-
-  return {
-    public_id: r.public_id,
-    secure_url: r.secure_url,
-    bytes: typeof r.bytes === "number" ? r.bytes : buffer.length,
-    width: typeof r.width === "number" ? r.width : null,
-    height: typeof r.height === "number" ? r.height : null,
-    format: r.format ?? null,
-    resource_type: r.resource_type ?? null,
-    version: typeof r.version === "number" ? r.version : null,
-    etag: r.etag ?? null,
-  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -360,7 +405,6 @@ export async function renameCloudinaryPublicId(
     };
   }
 
-  // cloudinary branch aynı
   const raw = await cloudinary.uploader.rename(
     oldPublicId,
     newPublicId,
