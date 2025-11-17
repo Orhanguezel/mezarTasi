@@ -41,6 +41,26 @@ export type SqlImportParams = {
   truncate_before_import?: boolean; // eski alan adı
 };
 
+/* -------- Snapshot Types -------- */
+export type DbSnapshot = {
+  id: string;
+  filename?: string | null;
+  label?: string | null;
+  note?: string | null;
+  created_at: string;
+  size_bytes?: number | null;
+};
+
+export type CreateDbSnapshotBody = {
+  label?: string;
+  note?: string;
+};
+
+export type DeleteSnapshotResponse = {
+  ok: boolean;
+  message?: string;
+};
+
 export const dbAdminApi = baseApi.injectEndpoints({
   endpoints: (b) => ({
     /* ---------------------------------------------------------
@@ -50,8 +70,8 @@ export const dbAdminApi = baseApi.injectEndpoints({
       query: () => ({
         url: "/admin/db/export",
         method: "GET",
+        credentials: "include",
         // Blob'u TS uyumlu almak için arrayBuffer + transform
-        // @rtk: responseHandler function kullanımı desteklenir
         responseHandler: (resp: Response) => resp.arrayBuffer(),
       }),
       transformResponse: (ab: ArrayBuffer) =>
@@ -67,6 +87,7 @@ export const dbAdminApi = baseApi.injectEndpoints({
         url: "/admin/db/import-sql",
         method: "POST",
         body,
+        credentials: "include",
       }),
     }),
 
@@ -79,6 +100,7 @@ export const dbAdminApi = baseApi.injectEndpoints({
         url: "/admin/db/import-url",
         method: "POST",
         body,
+        credentials: "include",
       }),
     }),
 
@@ -100,6 +122,7 @@ export const dbAdminApi = baseApi.injectEndpoints({
           url: "/admin/db/import-file",
           method: "POST",
           body: form,
+          credentials: "include",
         };
       },
     }),
@@ -124,8 +147,64 @@ export const dbAdminApi = baseApi.injectEndpoints({
           url: "/admin/db/import-file",
           method: "POST",
           body: form,
+          credentials: "include",
         };
       },
+    }),
+
+    /* ---------------------------------------------------------
+     * SNAPSHOT LİSTESİ: GET /admin/db/snapshots
+     * --------------------------------------------------------- */
+    listDbSnapshots: b.query<DbSnapshot[], void>({
+      query: () => ({
+        url: "/admin/db/snapshots",
+        method: "GET",
+        credentials: "include",
+      }),
+    }),
+
+    /* ---------------------------------------------------------
+     * SNAPSHOT OLUŞTUR: POST /admin/db/snapshots
+     * body: { label?, note? }
+     * --------------------------------------------------------- */
+    createDbSnapshot: b.mutation<DbSnapshot, CreateDbSnapshotBody | void>({
+      query: (body) => ({
+        url: "/admin/db/snapshots",
+        method: "POST",
+        body: body ?? {},
+        credentials: "include",
+      }),
+    }),
+
+    /* ---------------------------------------------------------
+     * SNAPSHOT'TAN GERİ YÜKLE:
+     * POST /admin/db/snapshots/:id/restore
+     * body: { truncateBefore?: boolean, dryRun?: boolean }
+     * --------------------------------------------------------- */
+    restoreDbSnapshot: b.mutation<
+      DbImportResponse,
+      { id: string; dryRun?: boolean; truncateBefore?: boolean }
+    >({
+      query: ({ id, dryRun, truncateBefore }) => ({
+        url: `/admin/db/snapshots/${encodeURIComponent(id)}/restore`,
+        method: "POST",
+        body: {
+          truncateBefore: truncateBefore ?? true,
+          dryRun: dryRun ?? false,
+        },
+        credentials: "include",
+      }),
+    }),
+
+    /* ---------------------------------------------------------
+     * SNAPSHOT SİL: DELETE /admin/db/snapshots/:id
+     * --------------------------------------------------------- */
+    deleteDbSnapshot: b.mutation<DeleteSnapshotResponse, { id: string }>({
+      query: ({ id }) => ({
+        url: `/admin/db/snapshots/${encodeURIComponent(id)}`,
+        method: "DELETE",
+        credentials: "include",
+      }),
     }),
   }),
   overrideExisting: true,
@@ -138,4 +217,9 @@ export const {
   useImportSqlFileMutation,
   // geriye dönük:
   useImportSqlMutation,
+  // snapshot hooks:
+  useListDbSnapshotsQuery,
+  useCreateDbSnapshotMutation,
+  useRestoreDbSnapshotMutation,
+  useDeleteDbSnapshotMutation,
 } = dbAdminApi;

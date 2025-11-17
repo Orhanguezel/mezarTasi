@@ -38,6 +38,10 @@ type Props = {
   /** parent içinde currency normalize edip string veriyoruz */
   setPrice: (v: string) => void;
 
+  /** 🔹 ÜRÜN KODU (NO:1 vs) */
+  productCode: string;
+  setProductCode: (v: string) => void;
+
   description: string;
   setDescription: (v: string) => void;
 
@@ -64,6 +68,8 @@ export function BasicsSection(props: Props) {
     setSelectedSubCategory,
     price,
     setPrice,
+    productCode,
+    setProductCode,
     description,
     setDescription,
     isActive,
@@ -75,11 +81,17 @@ export function BasicsSection(props: Props) {
   return (
     <Section title="Temel Bilgiler">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Başlık */}
         <div className="space-y-2">
           <Label>Başlık</Label>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ürün başlığı" />
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Ürün başlığı"
+          />
         </div>
 
+        {/* Slug + otomatik switch */}
         <div className="space-y-1">
           <div className="flex items-center justify-between">
             <Label>Slug</Label>
@@ -102,6 +114,7 @@ export function BasicsSection(props: Props) {
           />
         </div>
 
+        {/* Kategori */}
         <div className="space-y-2">
           <Label>Kategori</Label>
           <select
@@ -121,6 +134,7 @@ export function BasicsSection(props: Props) {
           </select>
         </div>
 
+        {/* Alt kategori */}
         <div className="space-y-2">
           <Label>Alt Kategori</Label>
           <select
@@ -138,6 +152,7 @@ export function BasicsSection(props: Props) {
           </select>
         </div>
 
+        {/* Fiyat */}
         <div className="space-y-2">
           <Label>Fiyat (TRY)</Label>
           <Input
@@ -148,9 +163,23 @@ export function BasicsSection(props: Props) {
           />
         </div>
 
+        {/* 🔹 ÜRÜN KODU */}
         <div className="space-y-2">
+          <Label>Ürün Kodu</Label>
+          <Input
+            value={productCode}
+            onChange={(e) => setProductCode(e.target.value)}
+            placeholder="Örn: NO:1"
+          />
+          <p className="text-xs text-gray-500">
+            Müşteriye görünen ürün kodu (ör: NO:1, NO:12).
+          </p>
+        </div>
+
+        {/* Durumlar */}
+        <div className="space-y-2 sm:col-span-2">
           <Label>Durumlar</Label>
-          <div className="flex items-center gap-6 rounded-md border p-3">
+          <div className="flex flex-wrap items-center gap-6 rounded-md border p-3">
             <label className="flex items-center gap-2 text-sm">
               <Switch
                 checked={!!isActive}
@@ -170,9 +199,14 @@ export function BasicsSection(props: Props) {
           </div>
         </div>
 
+        {/* Açıklama */}
         <div className="sm:col-span-2 space-y-2">
           <Label>Açıklama</Label>
-          <Textarea rows={5} value={description} onChange={(e) => setDescription(e.target.value)} />
+          <Textarea
+            rows={5}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
         </div>
       </div>
     </Section>

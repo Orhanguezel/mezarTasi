@@ -1,9 +1,15 @@
-// helpers.ts
+// =============================================================
+// FILE: src/routes/admin/helpers.ts
+// =============================================================
 import { randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { existsSync, unlinkSync, createWriteStream } from "node:fs";
-import { createReadStream } from "node:fs";
+import {
+  existsSync,
+  unlinkSync,
+  createWriteStream,
+  createReadStream,
+} from "node:fs";
 import { pipeline } from "node:stream";
 import { promisify } from "node:util";
 import { createGunzip } from "node:zlib";
@@ -32,7 +38,13 @@ export async function gunzipIfNeeded(path: string): Promise<string> {
 
 /* ---- mysqldump & mysql ---- */
 
-type Cfg = { host: string; port: number; user: string; password: string; database: string };
+type Cfg = {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+};
 
 function baseArgs(cfg: Cfg) {
   const args = ["-h", cfg.host, "-P", String(cfg.port), "-u", cfg.user];
@@ -115,13 +127,18 @@ export async function runMysqlDumpAll(cfg: Cfg, outPath: string): Promise<void> 
 
   const attempts: DumpAttempt[] = [];
   for (const bin of bins) {
-    attempts.push({ bin, args: [...baseArgs(cfg), ...common, ...fullFlags, cfg.database] });
-    attempts.push({ bin, args: [...baseArgs(cfg), ...common, ...minimalFlags, cfg.database] });
+    attempts.push({
+      bin,
+      args: [...baseArgs(cfg), ...common, ...fullFlags, cfg.database],
+    });
+    attempts.push({
+      bin,
+      args: [...baseArgs(cfg), ...common, ...minimalFlags, cfg.database],
+    });
   }
 
   let lastErr = "";
   for (const a of attempts) {
-    // DEBUG log (isteğe bağlı, sonra kapatabilirsin)
     console.log("[mysqldump] trying:", a.bin, a.args.join(" "));
     const r = await tryDump(a.bin, a.args, outPath);
     if (r.ok) {

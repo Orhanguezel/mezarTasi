@@ -103,6 +103,9 @@ export default function ProductFormPage() {
   const [metaTitle, setMetaTitle] = React.useState<string>(base?.meta_title ?? "");
   const [metaDesc, setMetaDesc] = React.useState<string>(base?.meta_description ?? "");
 
+  // 🔹 ÜRÜN KODU (NO:1 vs)
+  const [productCode, setProductCode] = React.useState<string>(base?.product_code ?? "");
+
   // storage: kapak + galeri
   const [coverId, setCoverId] = React.useState<string | undefined>(
     base?.storage_asset_id ?? undefined
@@ -145,6 +148,9 @@ export default function ProductFormPage() {
       setTagsStr((existing.tags ?? []).join(", "));
       setMetaTitle(existing.meta_title ?? "");
       setMetaDesc(existing.meta_description ?? "");
+
+      // 🔹 ÜÜRÜN KODU
+      setProductCode(existing.product_code ?? "");
 
       // 🔽 normalizeProduct alias'ları zaten topladı
       setCoverId(existing.storage_asset_id ?? undefined);
@@ -189,6 +195,8 @@ export default function ProductFormPage() {
       tags: parseTags(tagsStr),
       meta_title: metaTitle || null,
       meta_description: metaDesc || null,
+      // 🔹 BE kolonu
+      product_code: productCode || null,
     };
     if (galleryIds.length) p.storage_image_ids = galleryIds;
     return p;
@@ -372,8 +380,7 @@ export default function ProductFormPage() {
     }
   };
 
-  /* ---------- render ---------- */
-// 🔧 void tipini garanti et
+  // 🔧 void tipini garanti et
   const onBack = (): void => {
     if (window.history.length) {
       window.history.back();
@@ -429,6 +436,8 @@ export default function ProductFormPage() {
         setSelectedSubCategory={setSelectedSubCategory}
         price={price}
         setPrice={(v) => setPrice(currencyInput(v))}
+        productCode={productCode}
+        setProductCode={setProductCode}
         description={description}
         setDescription={setDescription}
         isActive={isActive}
@@ -460,7 +469,7 @@ export default function ProductFormPage() {
         setTagsStr={setTagsStr}
       />
 
- {/* 🔧 exactOptionalPropertyTypes: productId zorunluysa sadece id varken render et */}
+      {/* 🔧 exactOptionalPropertyTypes: productId zorunluysa sadece id varken render et */}
       {productId ? <SpecsSection productId={productId} specs={specs ?? []} /> : null}
       {productId ? <FaqsSection productId={productId} faqs={faqs ?? []} /> : null}
       {productId ? <ReviewsSection productId={productId} reviews={reviews ?? []} /> : null}

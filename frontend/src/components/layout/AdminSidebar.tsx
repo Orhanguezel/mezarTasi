@@ -170,7 +170,7 @@ export default function AdminSidebar({
             {!isCollapsed && (
               <div className="min-w-0">
                 <h2 className="truncate text-sm font-semibold leading-none">Admin Panel</h2>
-                <p className="text-xs text-white/60">Mezar Taşı</p>
+                <p className="text-xs text-white/60">Mezarizm</p>
               </div>
             )}
           </div>
