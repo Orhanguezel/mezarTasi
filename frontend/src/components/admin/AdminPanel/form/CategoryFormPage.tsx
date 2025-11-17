@@ -22,7 +22,7 @@ import {
   useToggleFeaturedCategoryAdminMutation,
 } from "@/integrations/metahub/rtk/endpoints/admin/categories_admin.endpoints";
 
-// 🔸 ARTIK ADMIN STORAGE kullanıyoruz
+// 🔸 ADMIN STORAGE kullanıyoruz
 import { useCreateAssetAdminMutation } from "@/integrations/metahub/rtk/endpoints/admin/storage_admin.endpoints";
 
 import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
@@ -53,6 +53,8 @@ export default function CategoryFormPage() {
   const { id } = useParams() as { id?: string };
   const isNew = !id || id === "new";
   const navigate = useNavigate();
+
+  console.log("[CategoryFormPage] mount", { id, isNew });
 
   const { data: existing, isFetching: loadingExisting } =
     useGetCategoryAdminByIdQuery(id as string, {
@@ -101,6 +103,11 @@ export default function CategoryFormPage() {
   // ---------- hydrate ----------
   React.useEffect(() => {
     if (!isNew && existing) {
+      console.log("[CategoryFormPage] hydrate existing category", {
+        id,
+        existing,
+      });
+
       setName(existing.name ?? "");
       setSlug(existing.slug ?? "");
       setDescription(existing.description ?? "");
@@ -128,8 +135,13 @@ export default function CategoryFormPage() {
         undefined;
       setCoverId(existingAssetId);
       setStagedCoverId(undefined);
+
+      console.log("[CategoryFormPage] hydrate image state", {
+        imageUrl: existing.image_url,
+        existingAssetId,
+      });
     }
-  }, [existing, isNew]);
+  }, [existing, isNew, id]);
 
   // name değişince, kullanıcı alt'a dokunmadıysa otomatik doldur
   React.useEffect(() => {
@@ -147,19 +159,26 @@ export default function CategoryFormPage() {
     window.history.length ? window.history.back() : navigate("/admin/categories");
 
   // UpsertCategoryBody: alt + image_url + bool alanlar
-  const buildPayload = () => ({
-    name,
-    slug,
-    description: description || null,
-    image_url: imageUrl || null,
-    alt: alt || null,
-    is_active: isActive,
-    is_featured: isFeatured,
-    display_order: Number(displayOrder) || 0,
-  });
+  const buildPayload = () => {
+    const payload = {
+      name,
+      slug,
+      description: description || null,
+      image_url: imageUrl || null,
+      alt: alt || null,
+      is_active: isActive,
+      is_featured: isFeatured,
+      display_order: Number(displayOrder) || 0,
+    };
+
+    console.log("[CategoryFormPage] buildPayload", payload);
+    return payload;
+  };
 
   // ---------- create / update ----------
   const doCreate = async () => {
+    console.log("[CategoryFormPage] doCreate called");
+
     if (!name) {
       toast.error("Ad zorunlu");
       return;
@@ -170,14 +189,18 @@ export default function CategoryFormPage() {
     }
     try {
       const created = await createCategory(buildPayload()).unwrap();
+      console.log("[CategoryFormPage] createCategory OK", created);
       toast.success("Kategori oluşturuldu. Şimdi kapak görseli ekleyebilirsiniz.");
       navigate(`/admin/categories/${created.id}`);
     } catch (e: any) {
+      console.error("[CategoryFormPage] createCategory ERROR", e);
       toast.error(e?.data?.message || "Oluşturma başarısız");
     }
   };
 
   const doUpdate = async () => {
+    console.log("[CategoryFormPage] doUpdate called", { id, isNew });
+
     if (isNew || !id) return;
     if (!name) {
       toast.error("Ad zorunlu");
@@ -189,9 +212,11 @@ export default function CategoryFormPage() {
     }
     try {
       await updateCategory({ id, body: buildPayload() }).unwrap();
+      console.log("[CategoryFormPage] updateCategory OK");
       toast.success("Kategori güncellendi");
       navigate("/admin/categories");
     } catch (e: any) {
+      console.error("[CategoryFormPage] updateCategory ERROR", e);
       toast.error(e?.data?.message || "Güncelleme başarısız");
     }
   };
@@ -200,25 +225,37 @@ export default function CategoryFormPage() {
 
   /** Dosya yükle + admin storage asset + public URL + opsiyonel anında kaydetme */
   const uploadCover = async (file: File): Promise<void> => {
+    console.log("[CategoryFormPage] uploadCover CALLED", {
+      isNew,
+      id,
+      fileName: file?.name,
+      fileSize: file?.size,
+      fileType: file?.type,
+    });
+
     // 🔒 Yeni kayıt iken görsel ekleme yok
     if (isNew || !id) {
+      console.warn("[CategoryFormPage] uploadCover blocked (isNew or !id)", {
+        isNew,
+        id,
+      });
       toast.error("Önce Temel Bilgileri kaydedin, sonra kapak görseli ekleyin.");
       return;
     }
 
     try {
+      console.log("[CategoryFormPage] calling createAssetAdmin...");
       const asset = await createAssetAdmin({
         file,
         bucket: "categories",
-        // path yerine ADMIN tarafında folder/name pattern'i kullanıyoruz:
         folder: `categories/${id}/cover`,
-        // metadata istersen buraya ekleyebilirsin:
-        // metadata: { kind: "category_cover", category_id: id },
       }).unwrap();
+      console.log("[CategoryFormPage] createAssetAdmin OK", asset);
 
       const publicUrl: string | undefined = asset.url ?? undefined;
 
       if (!publicUrl) {
+        console.error("[CategoryFormPage] publicUrl yok (asset.url undefined)", asset);
         toast.error("Yükleme cevabı beklenen formatta değil");
         return;
       }
@@ -236,6 +273,12 @@ export default function CategoryFormPage() {
       setCoverId(asset.id);
       setStagedCoverId(undefined);
 
+      console.log("[CategoryFormPage] updating category with new cover", {
+        id,
+        publicUrl,
+        nextAlt,
+      });
+
       // Kayıtlı kategori: BE'ye anında tam payload ile yaz
       await updateCategory({
         id,
@@ -246,14 +289,18 @@ export default function CategoryFormPage() {
         },
       }).unwrap();
 
+      console.log("[CategoryFormPage] updateCategory after upload OK");
       toast.success("Kapak resmi güncellendi");
     } catch (e: any) {
+      console.error("[CategoryFormPage] uploadCover ERROR", e);
       toast.error(e?.data?.message || "Kapak yüklenemedi");
     }
   };
 
   /** Sadece ALT bilgisini güncelle (mevcut kayıtta) */
   const saveAltOnly = async () => {
+    console.log("[CategoryFormPage] saveAltOnly called", { id, isNew, alt });
+
     if (isNew || !id) return;
     if (!imageUrl) {
       toast.error("Önce bir görsel ekleyin.");
@@ -267,14 +314,18 @@ export default function CategoryFormPage() {
           alt: alt || null,
         },
       }).unwrap();
+      console.log("[CategoryFormPage] saveAltOnly OK");
       toast.success("Alt metin güncellendi");
     } catch (e: any) {
+      console.error("[CategoryFormPage] saveAltOnly ERROR", e);
       toast.error(e?.data?.message || "Alt metin güncellenemedi");
     }
   };
 
   /** Kapak kaldır */
   const removeCover = async () => {
+    console.log("[CategoryFormPage] removeCover called", { id, isNew });
+
     if (isNew) {
       setCoverId(undefined);
       setStagedCoverId(undefined);
@@ -299,13 +350,16 @@ export default function CategoryFormPage() {
       setImageUrl("");
       _setAlt("");
       setAltTouched(false);
+      console.log("[CategoryFormPage] removeCover OK");
       toast.success("Görsel kaldırıldı");
     } catch (e: any) {
+      console.error("[CategoryFormPage] removeCover ERROR", e);
       toast.error(e?.data?.message || "Görsel kaldırılamadı");
     }
   };
 
   const onUrlChange = (v: string) => {
+    console.log("[CategoryFormPage] onUrlChange", { v });
     setImageUrl(v);
     if (!altTouched && !alt && v) {
       // URL'den basit bir alt üret
@@ -405,6 +459,7 @@ export default function CategoryFormPage() {
               <Switch
                 checked={isActive}
                 onCheckedChange={async (v) => {
+                  console.log("[CategoryFormPage] toggle isActive", { v });
                   setIsActive(v);
                   if (!isNew && id) {
                     try {
@@ -427,6 +482,7 @@ export default function CategoryFormPage() {
               <Switch
                 checked={isFeatured}
                 onCheckedChange={async (v) => {
+                  console.log("[CategoryFormPage] toggle isFeatured", { v });
                   setIsFeatured(v);
                   if (!isNew && id) {
                     try {

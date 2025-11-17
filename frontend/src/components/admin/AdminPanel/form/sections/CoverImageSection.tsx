@@ -61,14 +61,47 @@ export function CoverImageSection({
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const hasAnyStorage = Boolean(coverId || stagedCoverId);
 
+  React.useEffect(() => {
+    console.log("[CoverImageSection] mount", {
+      coverId,
+      stagedCoverId,
+      imageUrl,
+      alt,
+      trigger,
+      inputId,
+    });
+  }, [coverId, stagedCoverId, imageUrl, alt, trigger, inputId]);
+
   const handleFileChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const f = e.target.files?.[0];
-    if (f) void onPickFile(f);
+
+    console.log("[CoverImageSection] file input change", {
+      hasFile: !!f,
+      name: f?.name,
+      size: f?.size,
+      type: f?.type,
+    });
+
+    if (f) {
+      try {
+        const maybe = onPickFile(f);
+        // onPickFile async ise olası hatayı yakala
+        if (maybe && typeof (maybe as any).then === "function") {
+          (maybe as Promise<void>).catch((err) => {
+            console.error("[CoverImageSection] onPickFile promise ERROR", err);
+          });
+        }
+      } catch (err) {
+        console.error("[CoverImageSection] onPickFile sync ERROR", err);
+      }
+    }
+
     // aynı dosyayı tekrar seçebilsin diye temizle
     e.currentTarget.value = "";
   };
 
   const openPicker = () => {
+    console.log("[CoverImageSection] openPicker");
     fileInputRef.current?.click();
   };
 
@@ -90,6 +123,9 @@ export function CoverImageSection({
             <label
               htmlFor={inputId}
               className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700"
+              onClick={() => {
+                console.log("[CoverImageSection] label click", { inputId });
+              }}
             >
               <ImagePlus className="h-4 w-4" />
               Kapak Yükle
@@ -109,7 +145,13 @@ export function CoverImageSection({
             <Button
               type="button"
               variant="ghost"
-              onClick={onRemove}
+              onClick={() => {
+                console.log("[CoverImageSection] onRemove click", {
+                  coverId,
+                  stagedCoverId,
+                });
+                onRemove();
+              }}
               className="text-rose-600"
             >
               <Trash2 className="mr-2 h-4 w-4" />
@@ -127,13 +169,21 @@ export function CoverImageSection({
             <Input
               placeholder="https://…"
               value={imageUrl}
-              onChange={(e) => onUrlChange(e.target.value)}
+              onChange={(e) => {
+                console.log("[CoverImageSection] imageUrl change", {
+                  value: e.target.value,
+                });
+                onUrlChange(e.target.value);
+              }}
             />
             {imageUrl && (
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => onUrlChange("")}
+                onClick={() => {
+                  console.log("[CoverImageSection] clear imageUrl");
+                  onUrlChange("");
+                }}
                 title="Temizle"
               >
                 <X className="h-4 w-4" />
@@ -156,14 +206,22 @@ export function CoverImageSection({
             <div className="flex gap-2">
               <Input
                 value={alt}
-                onChange={(e) => onAltChange(e.target.value)}
+                onChange={(e) => {
+                  console.log("[CoverImageSection] alt change", {
+                    value: e.target.value,
+                  });
+                  onAltChange(e.target.value);
+                }}
                 placeholder="Kapak resmi alternatif metin"
               />
               {onSaveAlt && (
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={onSaveAlt}
+                  onClick={() => {
+                    console.log("[CoverImageSection] onSaveAlt click");
+                    onSaveAlt();
+                  }}
                   title="Sadece ALT bilgisini kaydet"
                 >
                   <SaveIcon className="mr-2 h-4 w-4" />
@@ -198,6 +256,3 @@ export function CoverImageSection({
     </Section>
   );
 }
-
-// /home/orhan/Documents/mezarTasi/backend/uploads/categories/aaaa0001-1111-4111-8111-aaaaaaaa0001/cover/Bildschirmfoto_vom_2025-10-17_22-27-09.png
-//  http://localhost:8083/uploads/categories/aaaa0001-1111-4111-8111-aaaaaaaa0001/cover/Bildschirmfoto_vom_2025-10-17_22-27-09.png
