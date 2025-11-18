@@ -60,6 +60,21 @@ export default function CategoryFormPage() {
       skip: isNew,
     });
 
+  // ---------- GLOBAL DEBUG: native change dinleyicisi ----------
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const t = e.target as HTMLInputElement | null;
+      if (t && t.type === "file") {
+        console.log("[GLOBAL change listener] FILE INPUT change (native)", {
+          filesLength: t.files?.length ?? 0,
+          name: t.files?.[0]?.name,
+        });
+      }
+    };
+    document.addEventListener("change", handler, true); // capture fazında
+    return () => document.removeEventListener("change", handler, true);
+  }, []);
+
   // ---------- form state ----------
   const [name, setName] = React.useState("");
   const [slug, setSlug] = React.useState("");
@@ -70,7 +85,7 @@ export default function CategoryFormPage() {
   const [isFeatured, setIsFeatured] = React.useState(false);
   const [displayOrder, setDisplayOrder] = React.useState<number>(0);
 
-  // ---------- image state (tek kapak pattern) ----------
+  // ---------- image state ----------
   const [imageUrl, setImageUrl] = React.useState<string>("");
   const [alt, _setAlt] = React.useState<string>("");
   const [altTouched, setAltTouched] = React.useState(false);
@@ -517,28 +532,36 @@ export default function CategoryFormPage() {
         </div>
       </Section>
 
-      {/* KAPAK GÖRSELİ – DİREKT INPUT TEST */}
+      {/* KAPAK GÖRSELİ – DİREKT NATIVE INPUT + GLOBAL DEBUG */}
       {!isNew ? (
-        <Section title="Kapak Görseli (DİREKT INPUT TEST)">
+        <Section title="Kapak Görseli (NATIVE INPUT DEBUG)">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Sol: dosya seç + preview */}
             <div className="space-y-2">
               <Label htmlFor="image_upload">Kapak Görseli</Label>
-              <Input
+              <input
                 id="image_upload"
                 type="file"
                 accept="image/*"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
-                  console.log("[CategoryFormPage] DIRECT file change", {
+                  console.log("[CategoryFormPage] NATIVE onChange handler", {
                     hasFile: !!file,
                     name: file?.name,
                   });
                   if (!file) return;
                   await uploadCover(file);
-                  // aynı dosyayı tekrar seçebilmek için temizle
+                  // aynı dosyayı tekrar seçebilelim
                   e.currentTarget.value = "";
                 }}
+                onInput={(e) => {
+                  const t = e.target as HTMLInputElement;
+                  console.log("[CategoryFormPage] NATIVE onInput handler", {
+                    filesLength: t.files?.length ?? 0,
+                    name: t.files?.[0]?.name,
+                  });
+                }}
+                className="block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100"
               />
 
               {imageUrl ? (
