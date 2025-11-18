@@ -26,6 +26,7 @@ import {
 import { useCreateAssetAdminMutation } from "@/integrations/metahub/rtk/endpoints/admin/storage_admin.endpoints";
 
 import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
+import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";
 
 const slugifyTr = (s: string) =>
   s
@@ -70,7 +71,7 @@ export default function CategoryFormPage() {
   const [isFeatured, setIsFeatured] = React.useState(false);
   const [displayOrder, setDisplayOrder] = React.useState<number>(0);
 
-  // ---------- image state ----------
+  // ---------- image state (tek kapak pattern) ----------
   const [imageUrl, setImageUrl] = React.useState<string>("");
   const [alt, _setAlt] = React.useState<string>("");
   const [altTouched, setAltTouched] = React.useState(false);
@@ -82,14 +83,6 @@ export default function CategoryFormPage() {
   const setAlt = (v: string) => {
     setAltTouched(true);
     _setAlt(v);
-  };
-
-  // Debug formdaki gibi: input ref + openPicker
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-
-  const openPicker = () => {
-    console.log("[CategoryFormPage] openPicker");
-    fileInputRef.current?.click();
   };
 
   // ---------- mutations ----------
@@ -105,6 +98,7 @@ export default function CategoryFormPage() {
     useCreateAssetAdminMutation();
 
   const saving = creating || updating || uploading;
+  const savingImg = uploading || updating;
 
   // ---------- hydrate ----------
   React.useEffect(() => {
@@ -370,6 +364,20 @@ export default function CategoryFormPage() {
     }
   };
 
+  const onUrlChange = (v: string) => {
+    console.log("[CategoryFormPage] onUrlChange", { v });
+    setImageUrl(v);
+    if (!altTouched && !alt && v) {
+      try {
+        const u = new URL(v);
+        const base = u.pathname.split("/").pop() || "";
+        _setAlt(name || base.replace(/\.[^.]+$/, ""));
+      } catch {
+        // noop
+      }
+    }
+  };
+
   if (!isNew && loadingExisting) {
     return (
       <div className="p-4 text-sm text-gray-500">
@@ -525,96 +533,22 @@ export default function CategoryFormPage() {
         </div>
       </Section>
 
-            {/* KAPAK GÖRSELİ – NATIVE INPUT DEBUG + DIŞ CLICK’LERİ BLOKLA */}
+      {/* KAPAK GÖRSELİ */}
       {!isNew ? (
-        <Section title="Kapak Görseli (NATIVE INPUT DEBUG)">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* Sol: dosya seç + preview */}
-            <div className="space-y-2">
-              <Label htmlFor="image_upload">Kapak Görseli</Label>
-              <input
-                id="image_upload"
-                type="file"
-                accept="image/*"
-                // 🔴 Kritik nokta: capture fazında tıklamayı yakalayıp
-                // dışarıya BUBBLE etmeden durduruyoruz.
-                onClickCapture={(e) => {
-                  console.log(
-                    "[CategoryFormPage] file input CLICK CAPTURE",
-                    { defaultPrevented: e.defaultPrevented },
-                  );
-                  // Dış parent'ların onClick'ine gitmesin:
-                  e.stopPropagation();
-                  // Kesinlikle preventDefault yok!
-                }}
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  console.log("[CategoryFormPage] NATIVE onChange handler", {
-                    hasFile: !!file,
-                    name: file?.name,
-                  });
-                  if (!file) return;
-                  await uploadCover(file);
-                  // aynı dosyayı tekrar seçebilmek için
-                  e.currentTarget.value = "";
-                }}
-                className="block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100"
-              />
-
-              {imageUrl ? (
-                <>
-                  <img
-                    src={imageUrl}
-                    alt={alt || "Kapak"}
-                    className="mt-2 h-32 w-56 rounded border object-cover"
-                  />
-                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
-                    {coverId && (
-                      <span className="px-2 py-1 rounded border bg-gray-50">
-                        Storage ID: {coverId}
-                      </span>
-                    )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={removeCover}
-                    >
-                      Görseli Kaldır
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <p className="mt-1 text-xs text-gray-500">
-                  Henüz kapak görseli seçilmedi.
-                </p>
-              )}
-            </div>
-
-            {/* Sağ: ALT metni */}
-            <div className="space-y-2">
-              <Label htmlFor="alt">Alt (alt) metin</Label>
-              <Input
-                id="alt"
-                value={alt}
-                onChange={(e) => setAlt(e.target.value)}
-                placeholder="Kapak resmi alternatif metin"
-              />
-              {!isNew && imageUrl && (
-                <div className="mt-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={saveAltOnly}
-                  >
-                    Alt&apos;ı Kaydet
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </Section>
+        <CoverImageSection
+          title="Kapak Görseli"
+          coverId={coverId}
+          stagedCoverId={stagedCoverId}
+          imageUrl={imageUrl}
+          alt={alt}
+          saving={savingImg}
+          onPickFile={uploadCover}
+          onRemove={removeCover}
+          onUrlChange={onUrlChange}
+          onAltChange={setAlt}
+          onSaveAlt={id ? saveAltOnly : undefined}
+          accept="image/*"
+        />
       ) : (
         <Section title="Kapak Görseli">
           <div className="flex items-start gap-3 rounded-md border p-3 bg-amber-50 text-amber-800">
@@ -626,7 +560,6 @@ export default function CategoryFormPage() {
           </div>
         </Section>
       )}
-
     </div>
   );
 }
