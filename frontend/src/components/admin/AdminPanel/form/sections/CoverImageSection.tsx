@@ -14,6 +14,7 @@ import { ImagePlus, Trash2, X, Save as SaveIcon } from "lucide-react";
 export type CoverImageSectionProps = {
   title?: string;
 
+  // ⬇️ exactOptionalPropertyTypes ile uyumlu: undefined da geçerli
   coverId?: string | undefined;
   stagedCoverId?: string | undefined;
 
@@ -28,15 +29,16 @@ export type CoverImageSectionProps = {
   onUrlChange: (url: string) => void;
   onAltChange: (alt: string) => void;
 
+  // ⬇️ burada da bazen `undefined` geçiyoruz: onSaveAlt={id ? ... : undefined}
   onSaveAlt?: (() => void) | undefined;
 
   /** Dosya input accept (default: image/*) */
   accept?: string;
 
-  /** tetikleme modu (varsayılan "button") – şimdilik sadece stil farkı için */
+  /** 🔸 Opsiyonel: tetikleme modu (varsayılan "label") */
   trigger?: "label" | "button";
 
-  /** input id (debug için, zorunlu değil) */
+  /** 🔸 Opsiyonel: input id (varsayılan "file-cover") */
   inputId?: string;
 };
 
@@ -53,13 +55,23 @@ export function CoverImageSection({
   onAltChange,
   onSaveAlt,
   accept = "image/*",
-  trigger = "button",
+  trigger = "label",
   inputId = "file-cover",
 }: CoverImageSectionProps) {
-  const hasAnyStorage = Boolean(coverId || stagedCoverId);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const hasAnyStorage = Boolean(coverId || stagedCoverId);
+
+  // 🔎 Tarayıcı tespiti (özellikle Firefox için)
+  const [isFirefox, setIsFirefox] = React.useState(false);
 
   React.useEffect(() => {
+    const ua =
+      typeof navigator !== "undefined"
+        ? navigator.userAgent.toLowerCase()
+        : "";
+    const ff = ua.includes("firefox");
+    setIsFirefox(ff);
+
     console.log("[CoverImageSection] mount", {
       coverId,
       stagedCoverId,
@@ -67,6 +79,7 @@ export function CoverImageSection({
       alt,
       trigger,
       inputId,
+      isFirefox: ff,
     });
   }, [coverId, stagedCoverId, imageUrl, alt, trigger, inputId]);
 
@@ -83,6 +96,7 @@ export function CoverImageSection({
     if (f) {
       try {
         const maybe = onPickFile(f);
+        // onPickFile async ise olası hatayı yakala
         if (maybe && typeof (maybe as any).then === "function") {
           (maybe as Promise<void>).catch((err) => {
             console.error("[CoverImageSection] onPickFile promise ERROR", err);
@@ -93,6 +107,7 @@ export function CoverImageSection({
       }
     }
 
+    // aynı dosyayı tekrar seçebilsin diye temizle
     e.currentTarget.value = "";
   };
 
@@ -101,15 +116,11 @@ export function CoverImageSection({
       hasRef: !!fileInputRef.current,
       inputId,
     });
-    try {
-      fileInputRef.current?.click();
-    } catch (err) {
-      console.error("[CoverImageSection] openPicker ERROR", err);
-    }
+    fileInputRef.current?.click();
   };
 
-  // input'u display:none yapmıyoruz; ekrandan taşıyoruz
-  const inputStyle: React.CSSProperties = {
+  // 🔹 input'u display:none yapmıyoruz; ekrandan taşıyoruz (Firefox için daha güvenli)
+  const hiddenInputStyle: React.CSSProperties = {
     position: "absolute",
     left: "-9999px",
     top: "auto",
@@ -118,30 +129,94 @@ export function CoverImageSection({
     opacity: 0,
   };
 
-  return (
-    <Section
-      title={title}
-      action={
-        <div className="flex items-center gap-2">
-          {/* 🔹 Hidden file input (ref üzerinden kontrol) */}
+  const renderTrigger = () => {
+    // 🔥 Firefox Fallback: direkt native <input type="file">
+    if (isFirefox) {
+      return (
+        <div className="flex flex-col gap-1">
+          <Button
+            type="button"
+            className="inline-flex items-center gap-2 bg-rose-600 text-white hover:bg-rose-700"
+            onClick={() => {
+              console.log("[CoverImageSection] firefox openPicker", {
+                hasRef: !!fileInputRef.current,
+                inputId,
+              });
+              fileInputRef.current?.click();
+            }}
+          >
+            <ImagePlus className="h-4 w-4" />
+            Kapak Yükle (Firefox)
+          </Button>
           <input
             ref={fileInputRef}
             id={inputId}
             type="file"
             accept={accept}
             onChange={handleFileChange}
-            style={inputStyle}
+            // Firefox'ta da görsel olarak minimal kalsın diye ekrandan taşıyoruz
+            style={hiddenInputStyle}
           />
+        </div>
+      );
+    }
 
-          {/* Görünür tetikleyici – her durumda sadece button kullanıyoruz */}
+    // 🌐 Diğer tarayıcılar: label + off-screen input + programmatic click
+    if (trigger === "button") {
+      // Görünüş olarak button, davranış olarak label benzeri
+      return (
+        <>
+          <input
+            ref={fileInputRef}
+            id={inputId}
+            type="file"
+            accept={accept}
+            onChange={handleFileChange}
+            style={hiddenInputStyle}
+          />
           <Button
             type="button"
             onClick={openPicker}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700"
+            className="inline-flex items-center gap-2 bg-rose-600 text-white hover:bg-rose-700"
           >
             <ImagePlus className="h-4 w-4" />
             Kapak Yükle
           </Button>
+        </>
+      );
+    }
+
+    // Klasik label trigger
+    return (
+      <>
+        <input
+          ref={fileInputRef}
+          id={inputId}
+          type="file"
+          accept={accept}
+          onChange={handleFileChange}
+          style={hiddenInputStyle}
+        />
+        <label
+          htmlFor={inputId}
+          className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700"
+          onClick={() => {
+            console.log("[CoverImageSection] label click", { inputId });
+          }}
+        >
+          <ImagePlus className="h-4 w-4" />
+          Kapak Yükle
+        </label>
+      </>
+    );
+  };
+
+  return (
+    <Section
+      title={title}
+      action={
+        <div className="flex items-center gap-2">
+          {renderTrigger()}
 
           {hasAnyStorage && (
             <Button
