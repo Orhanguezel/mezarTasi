@@ -7,6 +7,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from "re
 import { Header } from "./components/layout/Header";
 import { HeroSection } from "./components/home/HeroSection";
 import { ProductGallery } from "./components/public/ProductGallery";
+import CategoryFormPage from "@/components/admin/AdminPanel/form/CategoryFormPage";
 import { ServicesSection } from "./components/public/ServicesSection";
 import { Footer } from "./components/layout/Footer";
 import { FloatingCallButton } from "./components/public/FloatingCallButton";
@@ -35,8 +36,6 @@ import { DataProvider } from "./contexts/DataContext";
 import { useListSimpleCampaignsQuery } from "@/integrations/metahub/rtk/endpoints/campaigns.endpoints";
 import type { SimpleCampaignView } from "@/integrations/metahub/db/types/campaigns";
 
-
-import FileUploadTestPage from "@/components/admin/AdminPanel/form/debug/FileUploadTestPage";
 
 /** ------- Yardımcılar ------- */
 function ScrollToTop() {
@@ -346,6 +345,7 @@ export default function App() {
             <Route path="/faq" element={<FAQPage onNavigate={onNavigateString} />} />
             <Route path="/cemetery" element={<CemeteriesPage onNavigate={onNavigateString} />} />
             <Route path="/campaigns" element={<RamadanCampaignCMS />} />
+            <Route path="/file-upload-test" element={<CategoryFormPage />} />
 
             <Route
               path="/pricing"
