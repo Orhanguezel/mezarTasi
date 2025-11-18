@@ -525,50 +525,41 @@ export default function CategoryFormPage() {
         </div>
       </Section>
 
-      {/* KAPAK GÖRSELİ – DEBUG SAYFASI PATTERNİ */}
+            {/* KAPAK GÖRSELİ – NATIVE INPUT DEBUG + DIŞ CLICK’LERİ BLOKLA */}
       {!isNew ? (
-        <Section title="Kapak Görseli (BASİT FILE INPUT PATTERN)">
+        <Section title="Kapak Görseli (NATIVE INPUT DEBUG)">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* Sol: input + buton + preview */}
+            {/* Sol: dosya seç + preview */}
             <div className="space-y-2">
               <Label htmlFor="image_upload">Kapak Görseli</Label>
-
-              {/* Debug sayfasındaki gibi: görünür input */}
               <input
-                ref={fileInputRef}
                 id="image_upload"
                 type="file"
                 accept="image/*"
+                // 🔴 Kritik nokta: capture fazında tıklamayı yakalayıp
+                // dışarıya BUBBLE etmeden durduruyoruz.
+                onClickCapture={(e) => {
+                  console.log(
+                    "[CategoryFormPage] file input CLICK CAPTURE",
+                    { defaultPrevented: e.defaultPrevented },
+                  );
+                  // Dış parent'ların onClick'ine gitmesin:
+                  e.stopPropagation();
+                  // Kesinlikle preventDefault yok!
+                }}
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
-
-                  console.log(
-                    "[CategoryFormPage] FILE INPUT change (debug pattern)",
-                    {
-                      hasFile: !!file,
-                      name: file?.name,
-                      size: file?.size,
-                      type: file?.type,
-                    },
-                  );
-
+                  console.log("[CategoryFormPage] NATIVE onChange handler", {
+                    hasFile: !!file,
+                    name: file?.name,
+                  });
                   if (!file) return;
                   await uploadCover(file);
-                  // aynı dosyayı tekrar seçebilelim
+                  // aynı dosyayı tekrar seçebilmek için
                   e.currentTarget.value = "";
                 }}
-                // tamamen düz, gizleme yok (debug sayfası ile birebir)
-                style={{ display: "block", marginBottom: "1rem" }}
+                className="block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100"
               />
-
-              {/* Programatik click butonu (debug sayfasındaki gibi) */}
-              <Button
-                type="button"
-                onClick={openPicker}
-                className="gap-2"
-              >
-                Kapak Seç (programatik click)
-              </Button>
 
               {imageUrl ? (
                 <>
@@ -578,9 +569,9 @@ export default function CategoryFormPage() {
                     className="mt-2 h-32 w-56 rounded border object-cover"
                   />
                   <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
-                    {(coverId || stagedCoverId) && (
+                    {coverId && (
                       <span className="px-2 py-1 rounded border bg-gray-50">
-                        Storage ID: {coverId ?? stagedCoverId}
+                        Storage ID: {coverId}
                       </span>
                     )}
                     <Button
@@ -635,6 +626,7 @@ export default function CategoryFormPage() {
           </div>
         </Section>
       )}
+
     </div>
   );
 }
