@@ -435,7 +435,7 @@ export default function CategoryFormPage() {
 
           {/* Slug */}
           <div className="space-y-1">
-            <div className="flex items-center justify_between">
+            <div className="flex items-center justify-between">
               <Label>
                 Slug
                 <RequiredMark />

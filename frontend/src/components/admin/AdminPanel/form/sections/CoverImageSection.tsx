@@ -49,8 +49,6 @@ export function CoverImageSection({
 }: CoverImageSectionProps) {
   const hasAnyStorage = Boolean(coverId || stagedCoverId);
 
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-
   React.useEffect(() => {
     console.log("[CoverImageSection] mount", {
       coverId,
@@ -59,24 +57,6 @@ export function CoverImageSection({
       alt,
     });
   }, [coverId, stagedCoverId, imageUrl, alt]);
-
-  const handleClickUpload = () => {
-    const el = fileInputRef.current;
-    console.log("[CoverImageSection] upload button click", {
-      hasRef: !!el,
-    });
-    if (!el) return;
-
-    // Aynı dosyayı tekrar seçebilmek için temizle
-    try {
-      el.value = "";
-    } catch {
-      // noop
-    }
-
-    // Kullanıcı etkileşimi içinde programatik click → tüm browser’larda güvenli
-    el.click();
-  };
 
   const handleFileChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const f = e.target.files?.[0];
@@ -101,7 +81,7 @@ export function CoverImageSection({
       }
     }
 
-    // input’u temizle ki aynı dosya yeniden seçilebilsin
+    // aynı dosyayı tekrar seçebilelim
     e.currentTarget.value = "";
   };
 
@@ -110,32 +90,22 @@ export function CoverImageSection({
       title={title}
       action={
         <div className="flex items-center gap-2">
-          {/* 🔹 Tek, ref’li file input (DOM’da id yok, label yok) */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={accept}
-            onChange={handleFileChange}
-            // Görünmez + ekrandan taşınmış ama DOM’da mevcut
-            style={{
-              position: "absolute",
-              left: "-9999px",
-              top: "auto",
-              width: "1px",
-              height: "1px",
-              opacity: 0,
+          {/* 🔹 SADE PATTERN: sadece label + input (FileUploadTestPage ile aynı mantık) */}
+          <label
+            className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700"
+            onClick={() => {
+              console.log("[CoverImageSection] upload label click");
             }}
-          />
-
-          {/* Kullanıcı bu butona tıklıyor, biz ref üzerinden .click() yapıyoruz */}
-          <Button
-            type="button"
-            className="inline-flex items-center gap-2 bg-rose-600 text-white hover:bg-rose-700"
-            onClick={handleClickUpload}
           >
             <ImagePlus className="h-4 w-4" />
-            Kapak Yükle
-          </Button>
+            <span>Kapak Yükle</span>
+            <input
+              type="file"
+              accept={accept}
+              onChange={handleFileChange}
+              className="sr-only"
+            />
+          </label>
 
           {hasAnyStorage && (
             <Button
