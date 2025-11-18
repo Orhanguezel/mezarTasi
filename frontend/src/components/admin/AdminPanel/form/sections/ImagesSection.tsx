@@ -44,22 +44,12 @@ export function ImagesSection(props: Props) {
     onRemoveFromGallery,
   } = props;
 
-  const [isFirefox, setIsFirefox] = React.useState(false);
-
   React.useEffect(() => {
-    const ua =
-      typeof navigator !== "undefined"
-        ? navigator.userAgent.toLowerCase()
-        : "";
-    const ff = ua.includes("firefox");
-    setIsFirefox(ff);
-
     console.log("[ImagesSection] mount", {
       coverId,
       galleryCount: galleryIds.length,
       imageUrl,
       alt,
-      isFirefox: ff,
     });
   }, [coverId, galleryIds.length, imageUrl, alt]);
 
@@ -136,13 +126,15 @@ export function ImagesSection(props: Props) {
     e.currentTarget.value = "";
   };
 
-  const hiddenInputStyle: React.CSSProperties = {
+  // Ortak stil: label + içinde tam ekran input
+  const buttonLabelStyle =
+    "relative inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm text-white overflow-hidden";
+
+  const hiddenInputOverlay: React.CSSProperties = {
     position: "absolute",
-    left: "-9999px",
-    top: "auto",
-    width: "1px",
-    height: "1px",
+    inset: 0,
     opacity: 0,
+    cursor: "pointer",
   };
 
   return (
@@ -150,108 +142,54 @@ export function ImagesSection(props: Props) {
       title="Görseller (Kapak ayrı + Galeri ayrı)"
       action={
         <div className="flex flex-wrap items-center gap-2">
-          {isFirefox ? (
-            <>
-              {/* Firefox: native input'lar */}
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs font-medium text-slate-700">
-                  Galeri: Çoklu (Firefox)
-                </Label>
-                <input
-                  id="file-multi"
-                  type="file"
-                  multiple
-                  onChange={handleMultiChange}
-                  className="block text-xs text-slate-700"
-                />
-              </div>
+          {/* Çoklu galeri yükle */}
+          <label
+            className={`${buttonLabelStyle} bg-sky-600 hover:bg-sky-700`}
+            onClick={() => {
+              console.log("[ImagesSection] multi label click");
+            }}
+          >
+            <Upload className="h-4 w-4" />
+            Galeri: Çoklu
+            <input
+              type="file"
+              multiple
+              onChange={handleMultiChange}
+              style={hiddenInputOverlay}
+            />
+          </label>
 
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs font-medium text-slate-700">
-                  Galeri: Tekli (Firefox)
-                </Label>
-                <input
-                  id="file-one"
-                  type="file"
-                  onChange={handleSingleGalleryChange}
-                  className="block text-xs text-slate-700"
-                />
-              </div>
+          {/* Tekli galeri yükle */}
+          <label
+            className={`${buttonLabelStyle} bg-indigo-600 hover:bg-indigo-700`}
+            onClick={() => {
+              console.log("[ImagesSection] single gallery label click");
+            }}
+          >
+            <ImagePlus className="h-4 w-4" />
+            Galeri: Tekli
+            <input
+              type="file"
+              onChange={handleSingleGalleryChange}
+              style={hiddenInputOverlay}
+            />
+          </label>
 
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs font-medium text-slate-700">
-                  Kapak: Tekli (Firefox)
-                </Label>
-                <input
-                  id="file-cover"
-                  type="file"
-                  onChange={handleCoverChange}
-                  className="block text-xs text-slate-700"
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Diğer tarayıcılar: label + gizli input */}
-              <label
-                htmlFor="file-multi"
-                className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-sky-600 px-3 py-2 text-sm text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
-                onClick={() => {
-                  console.log("[ImagesSection] multi label click", {
-                    inputId: "file-multi",
-                  });
-                }}
-              >
-                <Upload className="h-4 w-4" />
-                Galeri: Çoklu
-              </label>
-              <input
-                id="file-multi"
-                type="file"
-                multiple
-                style={hiddenInputStyle}
-                onChange={handleMultiChange}
-              />
-
-              <label
-                htmlFor="file-one"
-                className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
-                onClick={() => {
-                  console.log("[ImagesSection] single gallery label click", {
-                    inputId: "file-one",
-                  });
-                }}
-              >
-                <ImagePlus className="h-4 w-4" />
-                Galeri: Tekli
-              </label>
-              <input
-                id="file-one"
-                type="file"
-                style={hiddenInputStyle}
-                onChange={handleSingleGalleryChange}
-              />
-
-              <label
-                htmlFor="file-cover"
-                className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-400"
-                onClick={() => {
-                  console.log("[ImagesSection] cover label click", {
-                    inputId: "file-cover",
-                  });
-                }}
-              >
-                <ImagePlus className="h-4 w-4" />
-                Kapak: Tekli
-              </label>
-              <input
-                id="file-cover"
-                type="file"
-                style={hiddenInputStyle}
-                onChange={handleCoverChange}
-              />
-            </>
-          )}
+          {/* Kapak yükle */}
+          <label
+            className={`${buttonLabelStyle} bg-rose-600 hover:bg-rose-700`}
+            onClick={() => {
+              console.log("[ImagesSection] cover label click");
+            }}
+          >
+            <ImagePlus className="h-4 w-4" />
+            Kapak: Tekli
+            <input
+              type="file"
+              onChange={handleCoverChange}
+              style={hiddenInputOverlay}
+            />
+          </label>
         </div>
       }
     >

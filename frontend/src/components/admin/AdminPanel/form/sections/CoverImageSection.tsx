@@ -31,8 +31,6 @@ export type CoverImageSectionProps = {
   onSaveAlt?: (() => void) | undefined;
 
   accept?: string;
-  trigger?: "label" | "button";
-  inputId?: string;
 };
 
 export function CoverImageSection({
@@ -48,32 +46,17 @@ export function CoverImageSection({
   onAltChange,
   onSaveAlt,
   accept = "image/*",
-  trigger = "label",
-  inputId = "file-cover",
 }: CoverImageSectionProps) {
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const hasAnyStorage = Boolean(coverId || stagedCoverId);
 
-  const [isFirefox, setIsFirefox] = React.useState(false);
-
   React.useEffect(() => {
-    const ua =
-      typeof navigator !== "undefined"
-        ? navigator.userAgent.toLowerCase()
-        : "";
-    const ff = ua.includes("firefox");
-    setIsFirefox(ff);
-
     console.log("[CoverImageSection] mount", {
       coverId,
       stagedCoverId,
       imageUrl,
       alt,
-      trigger,
-      inputId,
-      isFirefox: ff,
     });
-  }, [coverId, stagedCoverId, imageUrl, alt, trigger, inputId]);
+  }, [coverId, stagedCoverId, imageUrl, alt]);
 
   const handleFileChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const f = e.target.files?.[0];
@@ -101,97 +84,37 @@ export function CoverImageSection({
     e.currentTarget.value = "";
   };
 
-  const openPicker = () => {
-    console.log("[CoverImageSection] openPicker", {
-      hasRef: !!fileInputRef.current,
-      inputId,
-    });
-    fileInputRef.current?.click();
-  };
-
-  const hiddenInputStyle: React.CSSProperties = {
-    position: "absolute",
-    left: "-9999px",
-    top: "auto",
-    width: "1px",
-    height: "1px",
-    opacity: 0,
-  };
-
-  const renderTrigger = () => {
-    // 🔥 Firefox: en sade, direkt input
-    if (isFirefox) {
-      return (
-        <div className="flex flex-col gap-1">
-          <Label className="text-xs font-medium text-slate-700">
-            Kapak Yükle (Firefox)
-          </Label>
-          <input
-            id={inputId}
-            type="file"
-            accept={accept}
-            onChange={handleFileChange}
-            className="block text-xs text-slate-700"
-          />
-        </div>
-      );
-    }
-
-    // 🌐 Diğer tarayıcılar: şık button + gizli input
-    if (trigger === "button") {
-      return (
-        <>
-          <input
-            ref={fileInputRef}
-            id={inputId}
-            type="file"
-            accept={accept}
-            onChange={handleFileChange}
-            style={hiddenInputStyle}
-          />
-          <Button
-            type="button"
-            onClick={openPicker}
-            className="inline-flex items-center gap-2 bg-rose-600 text-white hover:bg-rose-700"
-          >
-            <ImagePlus className="h-4 w-4" />
-            Kapak Yükle
-          </Button>
-        </>
-      );
-    }
-
-    // Label pattern
-    return (
-      <>
-        <input
-          ref={fileInputRef}
-          id={inputId}
-          type="file"
-          accept={accept}
-          onChange={handleFileChange}
-          style={hiddenInputStyle}
-        />
-        <label
-          htmlFor={inputId}
-          className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700"
-          onClick={() => {
-            console.log("[CoverImageSection] label click", { inputId });
-          }}
-        >
-          <ImagePlus className="h-4 w-4" />
-          Kapak Yükle
-        </label>
-      </>
-    );
-  };
+  // Buton görünümlü, içinde file input olan label
+  const UploadLabel: React.FC = () => (
+    <label
+      className="relative inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700 overflow-hidden"
+      onClick={() => {
+        console.log("[CoverImageSection] upload label click");
+      }}
+    >
+      <ImagePlus className="h-4 w-4" />
+      Kapak Yükle
+      <input
+        type="file"
+        accept={accept}
+        onChange={handleFileChange}
+        // input görünmesin ama tıklanabilir olsun
+        style={{
+          position: "absolute",
+          inset: 0,
+          opacity: 0,
+          cursor: "pointer",
+        }}
+      />
+    </label>
+  );
 
   return (
     <Section
       title={title}
       action={
         <div className="flex items-center gap-2">
-          {renderTrigger()}
+          <UploadLabel />
 
           {hasAnyStorage && (
             <Button

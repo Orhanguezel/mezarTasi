@@ -540,9 +540,7 @@ export default function CategoryFormPage() {
           onUrlChange={onUrlChange}
           onAltChange={setAlt}
           onSaveAlt={id ? saveAltOnly : undefined}
-          accept="image/*"
-          trigger="button"              // 🔴 YENİ: label yerine button kullandırıyoruz
-          inputId="category-cover-file" 
+          accept="image/*"  
         />
       ) : (
         <Section title="Kapak Görseli">
