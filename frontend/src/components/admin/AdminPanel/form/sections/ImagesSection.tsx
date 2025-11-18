@@ -12,7 +12,6 @@ import { Section } from "./shared/Section";
 import { ThumbById } from "./shared/ThumbById";
 
 type Props = {
-  /** kapak id undefined olabilir (yeni üründe) */
   coverId?: string | undefined;
   galleryIds: string[];
 
@@ -137,7 +136,6 @@ export function ImagesSection(props: Props) {
     e.currentTarget.value = "";
   };
 
-  // input'ları display:none yerine ekrandan taşıyoruz
   const hiddenInputStyle: React.CSSProperties = {
     position: "absolute",
     left: "-9999px",
@@ -152,92 +150,49 @@ export function ImagesSection(props: Props) {
       title="Görseller (Kapak ayrı + Galeri ayrı)"
       action={
         <div className="flex flex-wrap items-center gap-2">
-          {/* 🔥 Firefox Fallback: Daha düz pattern */}
           {isFirefox ? (
             <>
-              {/* Çoklu galeri yükle */}
+              {/* Firefox: native input'lar */}
               <div className="flex flex-col gap-1">
-                <Button
-                  type="button"
-                  className="inline-flex items-center gap-2 bg-sky-600 text-white hover:bg-sky-700"
-                  onClick={() => {
-                    const el = document.getElementById(
-                      "file-multi"
-                    ) as HTMLInputElement | null;
-                    console.log("[ImagesSection] firefox multi open", {
-                      hasEl: !!el,
-                    });
-                    el?.click();
-                  }}
-                >
-                  <Upload className="h-4 w-4" />
+                <Label className="text-xs font-medium text-slate-700">
                   Galeri: Çoklu (Firefox)
-                </Button>
+                </Label>
                 <input
                   id="file-multi"
                   type="file"
                   multiple
                   onChange={handleMultiChange}
-                  style={hiddenInputStyle}
+                  className="block text-xs text-slate-700"
                 />
               </div>
 
-              {/* Tekli galeri yükle */}
               <div className="flex flex-col gap-1">
-                <Button
-                  type="button"
-                  className="inline-flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700"
-                  onClick={() => {
-                    const el = document.getElementById(
-                      "file-one"
-                    ) as HTMLInputElement | null;
-                    console.log("[ImagesSection] firefox single open", {
-                      hasEl: !!el,
-                    });
-                    el?.click();
-                  }}
-                >
-                  <ImagePlus className="h-4 w-4" />
+                <Label className="text-xs font-medium text-slate-700">
                   Galeri: Tekli (Firefox)
-                </Button>
+                </Label>
                 <input
                   id="file-one"
                   type="file"
                   onChange={handleSingleGalleryChange}
-                  style={hiddenInputStyle}
+                  className="block text-xs text-slate-700"
                 />
               </div>
 
-              {/* Kapak yükle */}
               <div className="flex flex-col gap-1">
-                <Button
-                  type="button"
-                  className="inline-flex items-center gap-2 bg-rose-600 text-white hover:bg-rose-700"
-                  onClick={() => {
-                    const el = document.getElementById(
-                      "file-cover"
-                    ) as HTMLInputElement | null;
-                    console.log("[ImagesSection] firefox cover open", {
-                      hasEl: !!el,
-                    });
-                    el?.click();
-                  }}
-                >
-                  <ImagePlus className="h-4 w-4" />
+                <Label className="text-xs font-medium text-slate-700">
                   Kapak: Tekli (Firefox)
-                </Button>
+                </Label>
                 <input
                   id="file-cover"
                   type="file"
                   onChange={handleCoverChange}
-                  style={hiddenInputStyle}
+                  className="block text-xs text-slate-700"
                 />
               </div>
             </>
           ) : (
             <>
-              {/* 🌐 Diğer tarayıcılar: eski label pattern'i */}
-              {/* Çoklu galeri yükle */}
+              {/* Diğer tarayıcılar: label + gizli input */}
               <label
                 htmlFor="file-multi"
                 className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-sky-600 px-3 py-2 text-sm text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
@@ -258,7 +213,6 @@ export function ImagesSection(props: Props) {
                 onChange={handleMultiChange}
               />
 
-              {/* Tekli galeri yükle */}
               <label
                 htmlFor="file-one"
                 className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
@@ -278,7 +232,6 @@ export function ImagesSection(props: Props) {
                 onChange={handleSingleGalleryChange}
               />
 
-              {/* Kapak yükle (ayrı) */}
               <label
                 htmlFor="file-cover"
                 className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-400"
@@ -364,7 +317,7 @@ export function ImagesSection(props: Props) {
               </div>
             ) : (
               <div className="mt-2 text-xs text-gray-500">
-                Henüz storage kapak seçilmedi.
+                Henüz görsel yok.
               </div>
             )}
           </div>

@@ -14,7 +14,6 @@ import { ImagePlus, Trash2, X, Save as SaveIcon } from "lucide-react";
 export type CoverImageSectionProps = {
   title?: string;
 
-  // ⬇️ exactOptionalPropertyTypes ile uyumlu: undefined da geçerli
   coverId?: string | undefined;
   stagedCoverId?: string | undefined;
 
@@ -29,16 +28,10 @@ export type CoverImageSectionProps = {
   onUrlChange: (url: string) => void;
   onAltChange: (alt: string) => void;
 
-  // ⬇️ burada da bazen `undefined` geçiyoruz: onSaveAlt={id ? ... : undefined}
   onSaveAlt?: (() => void) | undefined;
 
-  /** Dosya input accept (default: image/*) */
   accept?: string;
-
-  /** 🔸 Opsiyonel: tetikleme modu (varsayılan "label") */
   trigger?: "label" | "button";
-
-  /** 🔸 Opsiyonel: input id (varsayılan "file-cover") */
   inputId?: string;
 };
 
@@ -61,7 +54,6 @@ export function CoverImageSection({
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const hasAnyStorage = Boolean(coverId || stagedCoverId);
 
-  // 🔎 Tarayıcı tespiti (özellikle Firefox için)
   const [isFirefox, setIsFirefox] = React.useState(false);
 
   React.useEffect(() => {
@@ -96,7 +88,6 @@ export function CoverImageSection({
     if (f) {
       try {
         const maybe = onPickFile(f);
-        // onPickFile async ise olası hatayı yakala
         if (maybe && typeof (maybe as any).then === "function") {
           (maybe as Promise<void>).catch((err) => {
             console.error("[CoverImageSection] onPickFile promise ERROR", err);
@@ -107,7 +98,6 @@ export function CoverImageSection({
       }
     }
 
-    // aynı dosyayı tekrar seçebilsin diye temizle
     e.currentTarget.value = "";
   };
 
@@ -119,7 +109,6 @@ export function CoverImageSection({
     fileInputRef.current?.click();
   };
 
-  // 🔹 input'u display:none yapmıyoruz; ekrandan taşıyoruz (Firefox için daha güvenli)
   const hiddenInputStyle: React.CSSProperties = {
     position: "absolute",
     left: "-9999px",
@@ -130,40 +119,26 @@ export function CoverImageSection({
   };
 
   const renderTrigger = () => {
-    // 🔥 Firefox Fallback: direkt native <input type="file">
+    // 🔥 Firefox: en sade, direkt input
     if (isFirefox) {
       return (
         <div className="flex flex-col gap-1">
-          <Button
-            type="button"
-            className="inline-flex items-center gap-2 bg-rose-600 text-white hover:bg-rose-700"
-            onClick={() => {
-              console.log("[CoverImageSection] firefox openPicker", {
-                hasRef: !!fileInputRef.current,
-                inputId,
-              });
-              fileInputRef.current?.click();
-            }}
-          >
-            <ImagePlus className="h-4 w-4" />
+          <Label className="text-xs font-medium text-slate-700">
             Kapak Yükle (Firefox)
-          </Button>
+          </Label>
           <input
-            ref={fileInputRef}
             id={inputId}
             type="file"
             accept={accept}
             onChange={handleFileChange}
-            // Firefox'ta da görsel olarak minimal kalsın diye ekrandan taşıyoruz
-            style={hiddenInputStyle}
+            className="block text-xs text-slate-700"
           />
         </div>
       );
     }
 
-    // 🌐 Diğer tarayıcılar: label + off-screen input + programmatic click
+    // 🌐 Diğer tarayıcılar: şık button + gizli input
     if (trigger === "button") {
-      // Görünüş olarak button, davranış olarak label benzeri
       return (
         <>
           <input
@@ -186,7 +161,7 @@ export function CoverImageSection({
       );
     }
 
-    // Klasik label trigger
+    // Label pattern
     return (
       <>
         <input
