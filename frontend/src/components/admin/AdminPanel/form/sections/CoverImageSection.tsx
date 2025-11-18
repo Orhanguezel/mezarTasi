@@ -1,5 +1,6 @@
 // =============================================================
 // FILE: src/components/admin/AdminPanel/form/sections/CoverImageSection.tsx
+// (DEBUG – en sade file input)
 // =============================================================
 "use client";
 
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Section } from "./shared/Section";
 import { ThumbById } from "./shared/ThumbById";
-import { ImagePlus, Trash2, X, Save as SaveIcon } from "lucide-react";
+import { Trash2, X, Save as SaveIcon } from "lucide-react";
 
 export type CoverImageSectionProps = {
   title?: string;
@@ -29,7 +30,6 @@ export type CoverImageSectionProps = {
   onAltChange: (alt: string) => void;
 
   onSaveAlt?: (() => void) | undefined;
-
   accept?: string;
 };
 
@@ -84,37 +84,20 @@ export function CoverImageSection({
     e.currentTarget.value = "";
   };
 
-  // Buton görünümlü, içinde file input olan label
-  const UploadLabel: React.FC = () => (
-    <label
-      className="relative inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700 overflow-hidden"
-      onClick={() => {
-        console.log("[CoverImageSection] upload label click");
-      }}
-    >
-      <ImagePlus className="h-4 w-4" />
-      Kapak Yükle
-      <input
-        type="file"
-        accept={accept}
-        onChange={handleFileChange}
-        // input görünmesin ama tıklanabilir olsun
-        style={{
-          position: "absolute",
-          inset: 0,
-          opacity: 0,
-          cursor: "pointer",
-        }}
-      />
-    </label>
-  );
-
   return (
     <Section
       title={title}
       action={
         <div className="flex items-center gap-2">
-          <UploadLabel />
+          {/* DEBUG: tamamen düz, görünür file input */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-700">Kapak seç:</span>
+            <input
+              type="file"
+              accept={accept}
+              onChange={handleFileChange}
+            />
+          </div>
 
           {hasAnyStorage && (
             <Button
