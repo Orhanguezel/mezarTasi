@@ -60,21 +60,6 @@ export default function CategoryFormPage() {
       skip: isNew,
     });
 
-  // ---------- GLOBAL DEBUG: native change dinleyicisi ----------
-  React.useEffect(() => {
-    const handler = (e: Event) => {
-      const t = e.target as HTMLInputElement | null;
-      if (t && t.type === "file") {
-        console.log("[GLOBAL change listener] FILE INPUT change (native)", {
-          filesLength: t.files?.length ?? 0,
-          name: t.files?.[0]?.name,
-        });
-      }
-    };
-    document.addEventListener("change", handler, true); // capture fazında
-    return () => document.removeEventListener("change", handler, true);
-  }, []);
-
   // ---------- form state ----------
   const [name, setName] = React.useState("");
   const [slug, setSlug] = React.useState("");
@@ -97,6 +82,14 @@ export default function CategoryFormPage() {
   const setAlt = (v: string) => {
     setAltTouched(true);
     _setAlt(v);
+  };
+
+  // Debug formdaki gibi: input ref + openPicker
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const openPicker = () => {
+    console.log("[CategoryFormPage] openPicker");
+    fileInputRef.current?.click();
   };
 
   // ---------- mutations ----------
@@ -532,37 +525,50 @@ export default function CategoryFormPage() {
         </div>
       </Section>
 
-      {/* KAPAK GÖRSELİ – DİREKT NATIVE INPUT + GLOBAL DEBUG */}
+      {/* KAPAK GÖRSELİ – DEBUG SAYFASI PATTERNİ */}
       {!isNew ? (
-        <Section title="Kapak Görseli (NATIVE INPUT DEBUG)">
+        <Section title="Kapak Görseli (BASİT FILE INPUT PATTERN)">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* Sol: dosya seç + preview */}
+            {/* Sol: input + buton + preview */}
             <div className="space-y-2">
               <Label htmlFor="image_upload">Kapak Görseli</Label>
+
+              {/* Debug sayfasındaki gibi: görünür input */}
               <input
+                ref={fileInputRef}
                 id="image_upload"
                 type="file"
                 accept="image/*"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
-                  console.log("[CategoryFormPage] NATIVE onChange handler", {
-                    hasFile: !!file,
-                    name: file?.name,
-                  });
+
+                  console.log(
+                    "[CategoryFormPage] FILE INPUT change (debug pattern)",
+                    {
+                      hasFile: !!file,
+                      name: file?.name,
+                      size: file?.size,
+                      type: file?.type,
+                    },
+                  );
+
                   if (!file) return;
                   await uploadCover(file);
                   // aynı dosyayı tekrar seçebilelim
                   e.currentTarget.value = "";
                 }}
-                onInput={(e) => {
-                  const t = e.target as HTMLInputElement;
-                  console.log("[CategoryFormPage] NATIVE onInput handler", {
-                    filesLength: t.files?.length ?? 0,
-                    name: t.files?.[0]?.name,
-                  });
-                }}
-                className="block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100"
+                // tamamen düz, gizleme yok (debug sayfası ile birebir)
+                style={{ display: "block", marginBottom: "1rem" }}
               />
+
+              {/* Programatik click butonu (debug sayfasındaki gibi) */}
+              <Button
+                type="button"
+                onClick={openPicker}
+                className="gap-2"
+              >
+                Kapak Seç (programatik click)
+              </Button>
 
               {imageUrl ? (
                 <>
@@ -572,9 +578,9 @@ export default function CategoryFormPage() {
                     className="mt-2 h-32 w-56 rounded border object-cover"
                   />
                   <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
-                    {coverId && (
+                    {(coverId || stagedCoverId) && (
                       <span className="px-2 py-1 rounded border bg-gray-50">
-                        Storage ID: {coverId}
+                        Storage ID: {coverId ?? stagedCoverId}
                       </span>
                     )}
                     <Button
