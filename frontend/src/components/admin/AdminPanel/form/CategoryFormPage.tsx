@@ -26,7 +26,6 @@ import {
 import { useCreateAssetAdminMutation } from "@/integrations/metahub/rtk/endpoints/admin/storage_admin.endpoints";
 
 import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
-import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";
 
 const slugifyTr = (s: string) =>
   s
@@ -98,7 +97,6 @@ export default function CategoryFormPage() {
     useCreateAssetAdminMutation();
 
   const saving = creating || updating || uploading;
-  const savingImg = uploading || updating;
 
   // ---------- hydrate ----------
   React.useEffect(() => {
@@ -364,20 +362,6 @@ export default function CategoryFormPage() {
     }
   };
 
-  const onUrlChange = (v: string) => {
-    console.log("[CategoryFormPage] onUrlChange", { v });
-    setImageUrl(v);
-    if (!altTouched && !alt && v) {
-      try {
-        const u = new URL(v);
-        const base = u.pathname.split("/").pop() || "";
-        _setAlt(name || base.replace(/\.[^.]+$/, ""));
-      } catch {
-        // noop
-      }
-    }
-  };
-
   if (!isNew && loadingExisting) {
     return (
       <div className="p-4 text-sm text-gray-500">
@@ -533,22 +517,84 @@ export default function CategoryFormPage() {
         </div>
       </Section>
 
-      {/* KAPAK GÖRSELİ */}
+      {/* KAPAK GÖRSELİ – DİREKT INPUT TEST */}
       {!isNew ? (
-        <CoverImageSection
-          title="Kapak Görseli"
-          coverId={coverId}
-          stagedCoverId={stagedCoverId}
-          imageUrl={imageUrl}
-          alt={alt}
-          saving={savingImg}
-          onPickFile={uploadCover}
-          onRemove={removeCover}
-          onUrlChange={onUrlChange}
-          onAltChange={setAlt}
-          onSaveAlt={id ? saveAltOnly : undefined}
-          accept="image/*"
-        />
+        <Section title="Kapak Görseli (DİREKT INPUT TEST)">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* Sol: dosya seç + preview */}
+            <div className="space-y-2">
+              <Label htmlFor="image_upload">Kapak Görseli</Label>
+              <Input
+                id="image_upload"
+                type="file"
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  console.log("[CategoryFormPage] DIRECT file change", {
+                    hasFile: !!file,
+                    name: file?.name,
+                  });
+                  if (!file) return;
+                  await uploadCover(file);
+                  // aynı dosyayı tekrar seçebilmek için temizle
+                  e.currentTarget.value = "";
+                }}
+              />
+
+              {imageUrl ? (
+                <>
+                  <img
+                    src={imageUrl}
+                    alt={alt || "Kapak"}
+                    className="mt-2 h-32 w-56 rounded border object-cover"
+                  />
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                    {coverId && (
+                      <span className="px-2 py-1 rounded border bg-gray-50">
+                        Storage ID: {coverId}
+                      </span>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={removeCover}
+                    >
+                      Görseli Kaldır
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <p className="mt-1 text-xs text-gray-500">
+                  Henüz kapak görseli seçilmedi.
+                </p>
+              )}
+            </div>
+
+            {/* Sağ: ALT metni */}
+            <div className="space-y-2">
+              <Label htmlFor="alt">Alt (alt) metin</Label>
+              <Input
+                id="alt"
+                value={alt}
+                onChange={(e) => setAlt(e.target.value)}
+                placeholder="Kapak resmi alternatif metin"
+              />
+              {!isNew && imageUrl && (
+                <div className="mt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={saveAltOnly}
+                  >
+                    Alt&apos;ı Kaydet
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </Section>
       ) : (
         <Section title="Kapak Görseli">
           <div className="flex items-start gap-3 rounded-md border p-3 bg-amber-50 text-amber-800">
