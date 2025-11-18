@@ -1,6 +1,5 @@
 // =============================================================
 // FILE: src/components/admin/AdminPanel/form/sections/CoverImageSection.tsx
-// (DEBUG – en sade file input)
 // =============================================================
 "use client";
 
@@ -10,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Section } from "./shared/Section";
 import { ThumbById } from "./shared/ThumbById";
-import { Trash2, X, Save as SaveIcon } from "lucide-react";
+import { ImagePlus, Trash2, X, Save as SaveIcon } from "lucide-react";
 
 export type CoverImageSectionProps = {
   title?: string;
@@ -30,6 +29,7 @@ export type CoverImageSectionProps = {
   onAltChange: (alt: string) => void;
 
   onSaveAlt?: (() => void) | undefined;
+
   accept?: string;
 };
 
@@ -49,6 +49,8 @@ export function CoverImageSection({
 }: CoverImageSectionProps) {
   const hasAnyStorage = Boolean(coverId || stagedCoverId);
 
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
   React.useEffect(() => {
     console.log("[CoverImageSection] mount", {
       coverId,
@@ -57,6 +59,24 @@ export function CoverImageSection({
       alt,
     });
   }, [coverId, stagedCoverId, imageUrl, alt]);
+
+  const handleClickUpload = () => {
+    const el = fileInputRef.current;
+    console.log("[CoverImageSection] upload button click", {
+      hasRef: !!el,
+    });
+    if (!el) return;
+
+    // Aynı dosyayı tekrar seçebilmek için temizle
+    try {
+      el.value = "";
+    } catch {
+      // noop
+    }
+
+    // Kullanıcı etkileşimi içinde programatik click → tüm browser’larda güvenli
+    el.click();
+  };
 
   const handleFileChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const f = e.target.files?.[0];
@@ -81,6 +101,7 @@ export function CoverImageSection({
       }
     }
 
+    // input’u temizle ki aynı dosya yeniden seçilebilsin
     e.currentTarget.value = "";
   };
 
@@ -89,15 +110,32 @@ export function CoverImageSection({
       title={title}
       action={
         <div className="flex items-center gap-2">
-          {/* DEBUG: tamamen düz, görünür file input */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-700">Kapak seç:</span>
-            <input
-              type="file"
-              accept={accept}
-              onChange={handleFileChange}
-            />
-          </div>
+          {/* 🔹 Tek, ref’li file input (DOM’da id yok, label yok) */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={accept}
+            onChange={handleFileChange}
+            // Görünmez + ekrandan taşınmış ama DOM’da mevcut
+            style={{
+              position: "absolute",
+              left: "-9999px",
+              top: "auto",
+              width: "1px",
+              height: "1px",
+              opacity: 0,
+            }}
+          />
+
+          {/* Kullanıcı bu butona tıklıyor, biz ref üzerinden .click() yapıyoruz */}
+          <Button
+            type="button"
+            className="inline-flex items-center gap-2 bg-rose-600 text-white hover:bg-rose-700"
+            onClick={handleClickUpload}
+          >
+            <ImagePlus className="h-4 w-4" />
+            Kapak Yükle
+          </Button>
 
           {hasAnyStorage && (
             <Button

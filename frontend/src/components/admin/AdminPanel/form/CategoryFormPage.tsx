@@ -76,9 +76,9 @@ export default function CategoryFormPage() {
   const [alt, _setAlt] = React.useState<string>("");
   const [altTouched, setAltTouched] = React.useState(false);
   const [coverId, setCoverId] = React.useState<string | undefined>(undefined);
-  const [stagedCoverId, setStagedCoverId] = React.useState<
-    string | undefined
-  >(undefined);
+  const [stagedCoverId, setStagedCoverId] = React.useState<string | undefined>(
+    undefined,
+  );
 
   const setAlt = (v: string) => {
     setAltTouched(true);
@@ -127,7 +127,6 @@ export default function CategoryFormPage() {
         setAltTouched(!!existing.alt);
       }
 
-      // olası eski asset id var ise, sadece state'te tut (şimdilik kullanmıyoruz)
       const existingAssetId =
         (existing as any).asset_id ??
         (existing as any).storage_asset_id ??
@@ -156,7 +155,9 @@ export default function CategoryFormPage() {
   }, [name, autoSlug]);
 
   const onBack = () =>
-    window.history.length ? window.history.back() : navigate("/admin/categories");
+    window.history.length
+      ? window.history.back()
+      : navigate("/admin/categories");
 
   // UpsertCategoryBody: alt + image_url + bool alanlar
   const buildPayload = () => {
@@ -190,7 +191,9 @@ export default function CategoryFormPage() {
     try {
       const created = await createCategory(buildPayload()).unwrap();
       console.log("[CategoryFormPage] createCategory OK", created);
-      toast.success("Kategori oluşturuldu. Şimdi kapak görseli ekleyebilirsiniz.");
+      toast.success(
+        "Kategori oluşturuldu. Şimdi kapak görseli ekleyebilirsiniz.",
+      );
       navigate(`/admin/categories/${created.id}`);
     } catch (e: any) {
       console.error("[CategoryFormPage] createCategory ERROR", e);
@@ -221,7 +224,7 @@ export default function CategoryFormPage() {
     }
   };
 
-  // ---------- image handlers (artık ADMIN STORAGE) ----------
+  // ---------- image handlers (ADMIN STORAGE) ----------
 
   /** Dosya yükle + admin storage asset + public URL + opsiyonel anında kaydetme */
   const uploadCover = async (file: File): Promise<void> => {
@@ -239,7 +242,9 @@ export default function CategoryFormPage() {
         isNew,
         id,
       });
-      toast.error("Önce Temel Bilgileri kaydedin, sonra kapak görseli ekleyin.");
+      toast.error(
+        "Önce Temel Bilgileri kaydedin, sonra kapak görseli ekleyin.",
+      );
       return;
     }
 
@@ -255,7 +260,10 @@ export default function CategoryFormPage() {
       const publicUrl: string | undefined = asset.url ?? undefined;
 
       if (!publicUrl) {
-        console.error("[CategoryFormPage] publicUrl yok (asset.url undefined)", asset);
+        console.error(
+          "[CategoryFormPage] publicUrl yok (asset.url undefined)",
+          asset,
+        );
         toast.error("Yükleme cevabı beklenen formatta değil");
         return;
       }
@@ -268,7 +276,6 @@ export default function CategoryFormPage() {
         _setAlt(nextAlt);
       }
 
-      // yeni upload: URL + asset id (UI için)
       setImageUrl(publicUrl);
       setCoverId(asset.id);
       setStagedCoverId(undefined);
@@ -279,7 +286,6 @@ export default function CategoryFormPage() {
         nextAlt,
       });
 
-      // Kayıtlı kategori: BE'ye anında tam payload ile yaz
       await updateCategory({
         id,
         body: {
@@ -362,7 +368,6 @@ export default function CategoryFormPage() {
     console.log("[CategoryFormPage] onUrlChange", { v });
     setImageUrl(v);
     if (!altTouched && !alt && v) {
-      // URL'den basit bir alt üret
       try {
         const u = new URL(v);
         const base = u.pathname.split("/").pop() || "";
@@ -374,7 +379,11 @@ export default function CategoryFormPage() {
   };
 
   if (!isNew && loadingExisting) {
-    return <div className="p-4 text-sm text-gray-500">Yükleniyor…</div>;
+    return (
+      <div className="p-4 text-sm text-gray-500">
+        Yükleniyor…
+      </div>
+    );
   }
 
   return (
@@ -426,7 +435,7 @@ export default function CategoryFormPage() {
 
           {/* Slug */}
           <div className="space-y-1">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify_between">
               <Label>
                 Slug
                 <RequiredMark />
@@ -507,9 +516,7 @@ export default function CategoryFormPage() {
             <Input
               inputMode="numeric"
               value={String(displayOrder)}
-              onChange={(e) =>
-                setDisplayOrder(Number(e.target.value) || 0)
-              }
+              onChange={(e) => setDisplayOrder(Number(e.target.value) || 0)}
               placeholder="0"
             />
           </div>
@@ -540,7 +547,7 @@ export default function CategoryFormPage() {
           onUrlChange={onUrlChange}
           onAltChange={setAlt}
           onSaveAlt={id ? saveAltOnly : undefined}
-          accept="image/*"  
+          accept="image/*"
         />
       ) : (
         <Section title="Kapak Görseli">
