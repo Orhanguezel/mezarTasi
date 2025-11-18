@@ -45,6 +45,98 @@ export function ImagesSection(props: Props) {
     onRemoveFromGallery,
   } = props;
 
+  React.useEffect(() => {
+    console.log("[ImagesSection] mount", {
+      coverId,
+      galleryCount: galleryIds.length,
+      imageUrl,
+      alt,
+    });
+  }, [coverId, galleryIds.length, imageUrl, alt]);
+
+  const handleMultiChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const files = e.target.files;
+    console.log("[ImagesSection] multi file input change", {
+      hasFiles: !!files && files.length > 0,
+      count: files?.length ?? 0,
+    });
+
+    try {
+      const maybe = onUploadGalleryMultiple(files);
+      if (maybe && typeof (maybe as any).then === "function") {
+        (maybe as Promise<void>).catch((err) => {
+          console.error("[ImagesSection] onUploadGalleryMultiple ERROR", err);
+        });
+      }
+    } catch (err) {
+      console.error("[ImagesSection] onUploadGalleryMultiple sync ERROR", err);
+    }
+
+    e.currentTarget.value = "";
+  };
+
+  const handleSingleGalleryChange: React.ChangeEventHandler<HTMLInputElement> = (
+    e,
+  ) => {
+    const f = e.target.files?.[0];
+    console.log("[ImagesSection] single gallery input change", {
+      hasFile: !!f,
+      name: f?.name,
+      size: f?.size,
+      type: f?.type,
+    });
+
+    if (f) {
+      try {
+        const maybe = onUploadGallerySingle(f);
+        if (maybe && typeof (maybe as any).then === "function") {
+          (maybe as Promise<void>).catch((err) => {
+            console.error("[ImagesSection] onUploadGallerySingle ERROR", err);
+          });
+        }
+      } catch (err) {
+        console.error("[ImagesSection] onUploadGallerySingle sync ERROR", err);
+      }
+    }
+
+    e.currentTarget.value = "";
+  };
+
+  const handleCoverChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const f = e.target.files?.[0];
+    console.log("[ImagesSection] cover input change", {
+      hasFile: !!f,
+      name: f?.name,
+      size: f?.size,
+      type: f?.type,
+    });
+
+    if (f) {
+      try {
+        const maybe = onUploadCover(f);
+        if (maybe && typeof (maybe as any).then === "function") {
+          (maybe as Promise<void>).catch((err) => {
+            console.error("[ImagesSection] onUploadCover ERROR", err);
+          });
+        }
+      } catch (err) {
+        console.error("[ImagesSection] onUploadCover sync ERROR", err);
+      }
+    }
+
+    e.currentTarget.value = "";
+  };
+
+  // input'ları display:none yerine ekrandan taşıyoruz
+  const hiddenInputStyle: React.CSSProperties = {
+    position: "absolute",
+    left: "-9999px",
+    top: "auto",
+    width: "1px",
+    height: "1px",
+    opacity: 0,
+  };
+
   return (
     <Section
       title="Görseller (Kapak ayrı + Galeri ayrı)"
@@ -54,6 +146,11 @@ export function ImagesSection(props: Props) {
           <label
             htmlFor="file-multi"
             className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-sky-600 px-3 py-2 text-sm text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
+            onClick={() => {
+              console.log("[ImagesSection] multi label click", {
+                inputId: "file-multi",
+              });
+            }}
           >
             <Upload className="h-4 w-4" />
             Galeri: Çoklu
@@ -62,14 +159,19 @@ export function ImagesSection(props: Props) {
             id="file-multi"
             type="file"
             multiple
-            className="hidden"
-            onChange={(e) => onUploadGalleryMultiple(e.target.files)}
+            style={hiddenInputStyle}
+            onChange={handleMultiChange}
           />
 
           {/* Tekli galeri yükle */}
           <label
             htmlFor="file-one"
             className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
+            onClick={() => {
+              console.log("[ImagesSection] single gallery label click", {
+                inputId: "file-one",
+              });
+            }}
           >
             <ImagePlus className="h-4 w-4" />
             Galeri: Tekli
@@ -77,16 +179,19 @@ export function ImagesSection(props: Props) {
           <input
             id="file-one"
             type="file"
-            className="hidden"
-            onChange={(e) =>
-              e.target.files?.[0] && onUploadGallerySingle(e.target.files[0])
-            }
+            style={hiddenInputStyle}
+            onChange={handleSingleGalleryChange}
           />
 
           {/* Kapak yükle (ayrı) */}
           <label
             htmlFor="file-cover"
             className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-400"
+            onClick={() => {
+              console.log("[ImagesSection] cover label click", {
+                inputId: "file-cover",
+              });
+            }}
           >
             <ImagePlus className="h-4 w-4" />
             Kapak: Tekli
@@ -94,10 +199,8 @@ export function ImagesSection(props: Props) {
           <input
             id="file-cover"
             type="file"
-            className="hidden"
-            onChange={(e) =>
-              e.target.files?.[0] && onUploadCover(e.target.files[0])
-            }
+            style={hiddenInputStyle}
+            onChange={handleCoverChange}
           />
         </div>
       }
@@ -110,13 +213,21 @@ export function ImagesSection(props: Props) {
             <Input
               placeholder="https://…"
               value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
+              onChange={(e) => {
+                console.log("[ImagesSection] imageUrl change", {
+                  value: e.target.value,
+                });
+                setImageUrl(e.target.value);
+              }}
             />
             {imageUrl && (
               <Button
                 variant="ghost"
                 type="button"
-                onClick={() => setImageUrl("")}
+                onClick={() => {
+                  console.log("[ImagesSection] clear imageUrl");
+                  setImageUrl("");
+                }}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -135,7 +246,12 @@ export function ImagesSection(props: Props) {
             <Label>Alt (alt) metin</Label>
             <Input
               value={alt}
-              onChange={(e) => setAlt(e.target.value)}
+              onChange={(e) => {
+                console.log("[ImagesSection] alt change", {
+                  value: e.target.value,
+                });
+                setAlt(e.target.value);
+              }}
               placeholder="Kapak resmi alternatif metin"
             />
           </div>
@@ -166,7 +282,10 @@ export function ImagesSection(props: Props) {
                 key={gid}
                 id={gid}
                 isCover={coverId === gid}
-                onRemove={() => onRemoveFromGallery(gid)}
+                onRemove={() => {
+                  console.log("[ImagesSection] remove from gallery", { id: gid });
+                  onRemoveFromGallery(gid);
+                }}
               />
             ))}
             {!galleryIds.length && (

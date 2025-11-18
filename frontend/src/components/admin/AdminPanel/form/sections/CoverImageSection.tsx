@@ -100,9 +100,39 @@ export function CoverImageSection({
     e.currentTarget.value = "";
   };
 
-  const openPicker = () => {
-    console.log("[CoverImageSection] openPicker");
-    fileInputRef.current?.click();
+  // 🔸 Artık .click() KULLANMIYORUZ — tamamen label/htmlFor'a güveniyoruz
+  const renderTrigger = () => {
+    if (trigger === "button") {
+      // Görünüş olarak button, davranış olarak label
+      return (
+        <label
+          htmlFor={inputId}
+          className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700"
+          onClick={() => {
+            console.log("[CoverImageSection] button-like label click", {
+              inputId,
+            });
+          }}
+        >
+          <ImagePlus className="h-4 w-4" />
+          Kapak Yükle
+        </label>
+      );
+    }
+
+    // Klasik label trigger
+    return (
+      <label
+        htmlFor={inputId}
+        className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700"
+        onClick={() => {
+          console.log("[CoverImageSection] label click", { inputId });
+        }}
+      >
+        <ImagePlus className="h-4 w-4" />
+        Kapak Yükle
+      </label>
+    );
   };
 
   return (
@@ -110,36 +140,24 @@ export function CoverImageSection({
       title={title}
       action={
         <div className="flex items-center gap-2">
+          {/* 🔹 input artık display:none DEĞİL, sadece ekrandan taşındı */}
           <input
             ref={fileInputRef}
             id={inputId}
             type="file"
-            className="hidden"
             accept={accept}
             onChange={handleFileChange}
+            style={{
+              position: "absolute",
+              left: "-9999px",
+              top: "auto",
+              width: "1px",
+              height: "1px",
+              opacity: 0,
+            }}
           />
 
-          {trigger === "label" ? (
-            <label
-              htmlFor={inputId}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700"
-              onClick={() => {
-                console.log("[CoverImageSection] label click", { inputId });
-              }}
-            >
-              <ImagePlus className="h-4 w-4" />
-              Kapak Yükle
-            </label>
-          ) : (
-            <Button
-              type="button"
-              onClick={openPicker}
-              className="inline-flex items-center gap-2 bg-rose-600 text-white hover:bg-rose-700"
-            >
-              <ImagePlus className="h-4 w-4" />
-              Kapak Yükle
-            </Button>
-          )}
+          {renderTrigger()}
 
           {hasAnyStorage && (
             <Button
