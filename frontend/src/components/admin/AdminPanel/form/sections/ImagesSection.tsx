@@ -127,7 +127,7 @@ export function ImagesSection(props: Props) {
     e.currentTarget.value = "";
   };
 
-  // input'ları display:none yerine ekrandan taşıyoruz
+  // input'ları display:none yerine ekrandan taşıyoruz (Firefox hassasiyetini kırmak için)
   const hiddenInputStyle: React.CSSProperties = {
     position: "absolute",
     left: "-9999px",

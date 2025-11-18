@@ -14,7 +14,6 @@ import { ImagePlus, Trash2, X, Save as SaveIcon } from "lucide-react";
 export type CoverImageSectionProps = {
   title?: string;
 
-  // ⬇️ exactOptionalPropertyTypes ile uyumlu: undefined da geçerli
   coverId?: string | undefined;
   stagedCoverId?: string | undefined;
 
@@ -29,16 +28,15 @@ export type CoverImageSectionProps = {
   onUrlChange: (url: string) => void;
   onAltChange: (alt: string) => void;
 
-  // ⬇️ burada da bazen `undefined` geçiyoruz: onSaveAlt={id ? ... : undefined}
   onSaveAlt?: (() => void) | undefined;
 
   /** Dosya input accept (default: image/*) */
   accept?: string;
 
-  /** 🔸 Opsiyonel: tetikleme modu (varsayılan "label") */
+  /** tetikleme modu (varsayılan "label") */
   trigger?: "label" | "button";
 
-  /** 🔸 Opsiyonel: input id (varsayılan "file-cover") */
+  /** input id (varsayılan "file-cover") */
   inputId?: string;
 };
 
@@ -58,7 +56,6 @@ export function CoverImageSection({
   trigger = "label",
   inputId = "file-cover",
 }: CoverImageSectionProps) {
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const hasAnyStorage = Boolean(coverId || stagedCoverId);
 
   React.useEffect(() => {
@@ -85,7 +82,6 @@ export function CoverImageSection({
     if (f) {
       try {
         const maybe = onPickFile(f);
-        // onPickFile async ise olası hatayı yakala
         if (maybe && typeof (maybe as any).then === "function") {
           (maybe as Promise<void>).catch((err) => {
             console.error("[CoverImageSection] onPickFile promise ERROR", err);
@@ -96,14 +92,22 @@ export function CoverImageSection({
       }
     }
 
-    // aynı dosyayı tekrar seçebilsin diye temizle
     e.currentTarget.value = "";
   };
 
-  // 🔸 Artık .click() KULLANMIYORUZ — tamamen label/htmlFor'a güveniyoruz
+  // input'u display:none yapmıyoruz; ekrandan taşıyoruz (Firefox için daha güvenli)
+  const inputStyle: React.CSSProperties = {
+    position: "absolute",
+    left: "-9999px",
+    top: "auto",
+    width: "1px",
+    height: "1px",
+    opacity: 0,
+  };
+
   const renderTrigger = () => {
     if (trigger === "button") {
-      // Görünüş olarak button, davranış olarak label
+      // Görünüş olarak button, davranış olarak label (htmlFor)
       return (
         <label
           htmlFor={inputId}
@@ -140,21 +144,13 @@ export function CoverImageSection({
       title={title}
       action={
         <div className="flex items-center gap-2">
-          {/* 🔹 input artık display:none DEĞİL, sadece ekrandan taşındı */}
+          {/* 🔹 input ekran dışında, ama DOM’da (Firefox için güvenli pattern) */}
           <input
-            ref={fileInputRef}
             id={inputId}
             type="file"
             accept={accept}
             onChange={handleFileChange}
-            style={{
-              position: "absolute",
-              left: "-9999px",
-              top: "auto",
-              width: "1px",
-              height: "1px",
-              opacity: 0,
-            }}
+            style={inputStyle}
           />
 
           {renderTrigger()}

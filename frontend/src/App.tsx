@@ -2,14 +2,7 @@
 // FILE: src/App.tsx
 // =============================================================
 import { useEffect, useMemo, useState } from "react";
-import {
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-  useNavigate,
-  useParams,
-} from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { Header } from "./components/layout/Header";
 import { HeroSection } from "./components/home/HeroSection";
@@ -41,6 +34,7 @@ import { DataProvider } from "./contexts/DataContext";
 
 import { useListSimpleCampaignsQuery } from "@/integrations/metahub/rtk/endpoints/campaigns.endpoints";
 import type { SimpleCampaignView } from "@/integrations/metahub/db/types/campaigns";
+
 
 import FileUploadTestPage from "@/components/admin/AdminPanel/form/debug/FileUploadTestPage";
 
@@ -85,7 +79,7 @@ const routeMap: Record<PageKey, string> = {
   contact: "/contact",
   adminAccess: "/adminkotrol",
   admin: "/admin",
-  productDetail: "/product/:slug",
+  productDetail: "/product/:slug", // 🔹 slug route
   cemetery: "/cemetery",
   campaigns: "/campaigns",
 };
@@ -142,11 +136,9 @@ function resolveAnnouncementId(a: any): string | undefined {
   return undefined;
 }
 
-/** İlgili aktif kampanyalar şeridi */
-function RelatedActiveCampaigns(props: {
-  currentId: string;
-  onOpen: (id: string) => void;
-}) {
+
+/** İlgili aktif kampanyalar şeridi (detay modalı içinde kullanılıyor) */
+function RelatedActiveCampaigns(props: { currentId: string; onOpen: (id: string) => void }) {
   const { data: campaigns = [] } = useListSimpleCampaignsQuery(undefined, {
     refetchOnMountOrArgChange: 30,
   });
@@ -157,9 +149,7 @@ function RelatedActiveCampaigns(props: {
 
   return (
     <div className="mt-6">
-      <h3 className="text-sm font-medium text-slate-700 mb-3">
-        Diğer aktif kampanyalar
-      </h3>
+      <h3 className="text-sm font-medium text-slate-700 mb-3">Diğer aktif kampanyalar</h3>
       <div className="flex gap-3 overflow-x-auto pb-2">
         {items.map((x: SimpleCampaignView) => (
           <button
@@ -179,12 +169,8 @@ function RelatedActiveCampaigns(props: {
               className="w-full h-24 object-cover rounded-t-lg"
             />
             <div className="p-2">
-              <div className="text-[10px] text-emerald-700 font-semibold mb-1">
-                Kampanya
-              </div>
-              <div className="text-xs text-slate-800 line-clamp-2">
-                {x.title}
-              </div>
+              <div className="text-[10px] text-emerald-700 font-semibold mb-1">Kampanya</div>
+              <div className="text-xs text-slate-800 line-clamp-2">{x.title}</div>
             </div>
           </button>
         ))}
@@ -206,7 +192,7 @@ function HomeComposition(props: {
 }) {
   return (
     <>
-      <HeroSection onNavigate={() => {}} />
+      <HeroSection onNavigate={() => { }} />
       <ProductGallery
         searchTerm={props.searchTerm}
         showSearchResults={props.showSearchResults}
@@ -215,7 +201,7 @@ function HomeComposition(props: {
         refreshKey={props.refreshKey}
       />
       <ServicesSection
-        onNavigate={() => {}}
+        onNavigate={() => { }}
         onOpenRecentWorkModal={(w) => props.openRecentWork(w)}
         onOpenCampaignsModal={(c) => props.openCampaigns(c)}
         onOpenAnnouncementModal={(a) => props.openAnnouncement(a)}
@@ -224,9 +210,7 @@ function HomeComposition(props: {
   );
 }
 
-function ProductDetailWrapper(props: {
-  onProductDetail: (slug: string) => void;
-}) {
+function ProductDetailWrapper(props: { onProductDetail: (slug: string) => void }) {
   const params = useParams();
   const slug = params.slug;
 
@@ -235,12 +219,14 @@ function ProductDetailWrapper(props: {
   return (
     <ProductDetailPage
       key={`product-${slug}`}
+      // ProductDetailPage içinde slug ile ürün çekilecek
       productId={slug as string}
       onNavigate={() => {}}
       onProductDetail={props.onProductDetail}
     />
   );
 }
+
 
 /** ------- App ------- */
 export default function App() {
@@ -254,28 +240,18 @@ export default function App() {
 
   const [showCampaignsModal, setShowCampaignsModal] = useState(false);
   const [showRecentWorkModal, setShowRecentWorkModal] = useState(false);
-  const [selectedRecentWork, setSelectedRecentWork] =
-    useState<{ id: string; slug?: string } | null>(null);
+  const [selectedRecentWork, setSelectedRecentWork] = useState<{ id: string; slug?: string } | null>(null);
 
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(
-    null
-  );
-  const [selectedAnnouncementId, setSelectedAnnouncementId] = useState<
-    string | null
-  >(null);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+  const [selectedAnnouncementId, setSelectedAnnouncementId] = useState<string | null>(null);
 
   const hidePublicChrome = useMemo(
-    () =>
-      location.pathname.startsWith("/admin") ||
-      location.pathname.startsWith("/adminkotrol"),
+    () => location.pathname.startsWith("/admin") || location.pathname.startsWith("/adminkotrol"),
     [location.pathname]
   );
 
   useEffect(() => {
-    document.documentElement.setAttribute(
-      "data-app",
-      hidePublicChrome ? "admin" : "site"
-    );
+    document.documentElement.setAttribute("data-app", hidePublicChrome ? "admin" : "site");
     (document.body || document.documentElement).id = "site-root";
   }, [hidePublicChrome]);
 
@@ -312,6 +288,7 @@ export default function App() {
     navigate(`/product/${slug}`);
   };
 
+  // Artık { id, slug? } payload bekliyoruz
   const openRecentWork = (payload: { id: string; slug?: string }) => {
     setSelectedRecentWork(payload);
     setShowRecentWorkModal(true);
@@ -320,14 +297,14 @@ export default function App() {
   const openCampaigns = (c?: any) => {
     const cid = resolveCampaignId(c);
     setSelectedCampaignId(cid ?? null);
-    setSelectedAnnouncementId(null);
+    setSelectedAnnouncementId(null); // kampanya açılırken duyuru seçimi temizle
     setShowCampaignsModal(true);
   };
 
   const openAnnouncement = (a?: any) => {
     const aid = resolveAnnouncementId(a);
     setSelectedAnnouncementId(aid ?? null);
-    setSelectedCampaignId(null);
+    setSelectedCampaignId(null); // duyuru açılırken kampanya seçimi temizle
     setShowCampaignsModal(true);
   };
 
@@ -363,26 +340,11 @@ export default function App() {
               }
             />
 
-            <Route
-              path="/about"
-              element={<AboutPage onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/mission"
-              element={<MissionVisionPage onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/quality"
-              element={<QualityPolicyPage onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/faq"
-              element={<FAQPage onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/cemetery"
-              element={<CemeteriesPage onNavigate={onNavigateString} />}
-            />
+            <Route path="/about" element={<AboutPage onNavigate={onNavigateString} />} />
+            <Route path="/mission" element={<MissionVisionPage onNavigate={onNavigateString} />} />
+            <Route path="/quality" element={<QualityPolicyPage onNavigate={onNavigateString} />} />
+            <Route path="/faq" element={<FAQPage onNavigate={onNavigateString} />} />
+            <Route path="/cemetery" element={<CemeteriesPage onNavigate={onNavigateString} />} />
             <Route path="/campaigns" element={<RamadanCampaignCMS />} />
 
             <Route
@@ -397,29 +359,12 @@ export default function App() {
             />
             <Route
               path="/models"
-              element={
-                <ModelsPage
-                  onNavigate={onNavigateString}
-                  onProductDetail={onProductDetail}
-                />
-              }
+              element={<ModelsPage onNavigate={onNavigateString} onProductDetail={onProductDetail} />}
             />
-            <Route
-              path="/accessories"
-              element={<AccessoriesPage onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/gardening"
-              element={<GardeningPage onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/soilfilling"
-              element={<SoilFillingPage onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/contact"
-              element={<ContactPage onNavigate={onNavigateString} />}
-            />
+            <Route path="/accessories" element={<AccessoriesPage onNavigate={onNavigateString} />} />
+            <Route path="/gardening" element={<GardeningPage onNavigate={onNavigateString} />} />
+            <Route path="/soilfilling" element={<SoilFillingPage onNavigate={onNavigateString} />} />
+            <Route path="/contact" element={<ContactPage onNavigate={onNavigateString} />} />
 
             {/* Ürün detay */}
             <Route
@@ -427,222 +372,76 @@ export default function App() {
               element={<ProductDetailWrapper onProductDetail={onProductDetail} />}
             />
 
-            {/* Admin giriş */}
-            <Route
-              path="/adminkotrol"
-              element={<AdminSecretAccess onNavigate={onNavigateString} />}
-            />
+            {/* Admin akışı */}
+            <Route path="/adminkotrol" element={<AdminSecretAccess onNavigate={onNavigateString} />} />
 
-            {/* Admin panel + tüm form rotaları */}
-            <Route
-              path="/admin"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/products"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/products/new"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/products/:id"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            {/* ✅ Admin panel VE tüm form rotaları */}
+            <Route path="/admin" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/products" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/products/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/products/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route
-              path="/admin/categories"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/categories/new"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/categories/:id"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            <Route path="/admin/categories" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/categories/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/categories/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route
-              path="/admin/subcategories"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/subcategories/new"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/subcategories/:id"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            <Route path="/admin/subcategories" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/subcategories/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/subcategories/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route
-              path="/admin/pages"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/pages/new"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/pages/:id"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            <Route path="/admin/pages" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/pages/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/pages/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route
-              path="/admin/faqs"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/faqs/new"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/faqs/:id"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            <Route path="/admin/faqs" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/faqs/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/faqs/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route
-              path="/admin/recent_works"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/recent_works/new"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/recent_works/:id"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            <Route path="/admin/recent_works" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/recent_works/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/recent_works/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route
-              path="/admin/settings"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/settings/:id"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/settings/new"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            <Route path="/admin/settings" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/settings/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/settings/new" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route
-              path="/admin/sitesettings"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            <Route path="/admin/sitesettings" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route
-              path="/admin/announcements"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/announcements/new"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/announcements/:id"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            <Route path="/admin/announcements" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/announcements/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/announcements/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route
-              path="/admin/users"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/users/new"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/users/:id"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            <Route path="/admin/users" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/users/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/users/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route
-              path="/admin/campaigns"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/campaigns/new"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/campaigns/:id"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            <Route path="/admin/campaigns" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/campaigns/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/campaigns/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route
-              path="/admin/contacts"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/contacts/new"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/contacts/:id"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            <Route path="/admin/recent_works" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/recent_works/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/recent_works/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route
-              path="/admin/services"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/services/new"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/services/:id"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            <Route path="/admin/contacts" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/contacts/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/contacts/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route
-              path="/admin/accessories"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/accessories/new"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/accessories/:id"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            <Route path="/admin/services" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/services/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/services/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route
-              path="/admin/sliders"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/sliders/new"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/sliders/:id"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            <Route path="/admin/accessories" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/accessories/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/accessories/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            <Route
-              path="/admin/reviews"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/reviews/new"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
-            <Route
-              path="/admin/reviews/:id"
-              element={<AdminPanel onNavigate={onNavigateString} />}
-            />
+            <Route path="/admin/sliders" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/sliders/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/sliders/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
-            {/* 🔍 DEBUG: Basit file input test sayfası */}
-            <Route
-              path="/admin/debug/file-upload"
-              element={<FileUploadTestPage />}
-            />
+            <Route path="/admin/reviews" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/reviews/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/reviews/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
@@ -672,10 +471,7 @@ export default function App() {
           {selectedCampaignId ? (
             <>
               <DetailPanel kind="campaign" id={selectedCampaignId} />
-              <RelatedActiveCampaigns
-                currentId={selectedCampaignId}
-                onOpen={(id) => setSelectedCampaignId(id)}
-              />
+              <RelatedActiveCampaigns currentId={selectedCampaignId} onOpen={(id) => setSelectedCampaignId(id)} />
             </>
           ) : selectedAnnouncementId ? (
             <DetailPanel kind="announcement" id={selectedAnnouncementId} />
