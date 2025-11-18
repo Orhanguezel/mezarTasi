@@ -45,6 +45,10 @@ export function ImagesSection(props: Props) {
     onRemoveFromGallery,
   } = props;
 
+  const multiInputRef = React.useRef<HTMLInputElement | null>(null);
+  const singleInputRef = React.useRef<HTMLInputElement | null>(null);
+  const coverInputRef = React.useRef<HTMLInputElement | null>(null);
+
   React.useEffect(() => {
     console.log("[ImagesSection] mount", {
       coverId,
@@ -127,7 +131,7 @@ export function ImagesSection(props: Props) {
     e.currentTarget.value = "";
   };
 
-  // input'ları display:none yerine ekrandan taşıyoruz (Firefox hassasiyetini kırmak için)
+  // input'ları display:none yerine ekrandan taşıyoruz
   const hiddenInputStyle: React.CSSProperties = {
     position: "absolute",
     left: "-9999px",
@@ -137,26 +141,43 @@ export function ImagesSection(props: Props) {
     opacity: 0,
   };
 
+  const openMultiPicker = () => {
+    console.log("[ImagesSection] openMultiPicker", {
+      hasRef: !!multiInputRef.current,
+    });
+    multiInputRef.current?.click();
+  };
+
+  const openSinglePicker = () => {
+    console.log("[ImagesSection] openSinglePicker", {
+      hasRef: !!singleInputRef.current,
+    });
+    singleInputRef.current?.click();
+  };
+
+  const openCoverPicker = () => {
+    console.log("[ImagesSection] openCoverPicker", {
+      hasRef: !!coverInputRef.current,
+    });
+    coverInputRef.current?.click();
+  };
+
   return (
     <Section
       title="Görseller (Kapak ayrı + Galeri ayrı)"
       action={
         <div className="flex items-center gap-2">
           {/* Çoklu galeri yükle */}
-          <label
-            htmlFor="file-multi"
+          <Button
+            type="button"
+            onClick={openMultiPicker}
             className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-sky-600 px-3 py-2 text-sm text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
-            onClick={() => {
-              console.log("[ImagesSection] multi label click", {
-                inputId: "file-multi",
-              });
-            }}
           >
             <Upload className="h-4 w-4" />
             Galeri: Çoklu
-          </label>
+          </Button>
           <input
-            id="file-multi"
+            ref={multiInputRef}
             type="file"
             multiple
             style={hiddenInputStyle}
@@ -164,40 +185,32 @@ export function ImagesSection(props: Props) {
           />
 
           {/* Tekli galeri yükle */}
-          <label
-            htmlFor="file-one"
+          <Button
+            type="button"
+            onClick={openSinglePicker}
             className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
-            onClick={() => {
-              console.log("[ImagesSection] single gallery label click", {
-                inputId: "file-one",
-              });
-            }}
           >
             <ImagePlus className="h-4 w-4" />
             Galeri: Tekli
-          </label>
+          </Button>
           <input
-            id="file-one"
+            ref={singleInputRef}
             type="file"
             style={hiddenInputStyle}
             onChange={handleSingleGalleryChange}
           />
 
           {/* Kapak yükle (ayrı) */}
-          <label
-            htmlFor="file-cover"
+          <Button
+            type="button"
+            onClick={openCoverPicker}
             className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-400"
-            onClick={() => {
-              console.log("[ImagesSection] cover label click", {
-                inputId: "file-cover",
-              });
-            }}
           >
             <ImagePlus className="h-4 w-4" />
             Kapak: Tekli
-          </label>
+          </Button>
           <input
-            id="file-cover"
+            ref={coverInputRef}
             type="file"
             style={hiddenInputStyle}
             onChange={handleCoverChange}

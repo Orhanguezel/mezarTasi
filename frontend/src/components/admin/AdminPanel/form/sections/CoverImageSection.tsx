@@ -33,10 +33,10 @@ export type CoverImageSectionProps = {
   /** Dosya input accept (default: image/*) */
   accept?: string;
 
-  /** tetikleme modu (varsayılan "label") */
+  /** tetikleme modu (varsayılan "button") – şimdilik sadece stil farkı için */
   trigger?: "label" | "button";
 
-  /** input id (varsayılan "file-cover") */
+  /** input id (debug için, zorunlu değil) */
   inputId?: string;
 };
 
@@ -53,10 +53,11 @@ export function CoverImageSection({
   onAltChange,
   onSaveAlt,
   accept = "image/*",
-  trigger = "label",
+  trigger = "button",
   inputId = "file-cover",
 }: CoverImageSectionProps) {
   const hasAnyStorage = Boolean(coverId || stagedCoverId);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   React.useEffect(() => {
     console.log("[CoverImageSection] mount", {
@@ -95,7 +96,19 @@ export function CoverImageSection({
     e.currentTarget.value = "";
   };
 
-  // input'u display:none yapmıyoruz; ekrandan taşıyoruz (Firefox için daha güvenli)
+  const openPicker = () => {
+    console.log("[CoverImageSection] openPicker", {
+      hasRef: !!fileInputRef.current,
+      inputId,
+    });
+    try {
+      fileInputRef.current?.click();
+    } catch (err) {
+      console.error("[CoverImageSection] openPicker ERROR", err);
+    }
+  };
+
+  // input'u display:none yapmıyoruz; ekrandan taşıyoruz
   const inputStyle: React.CSSProperties = {
     position: "absolute",
     left: "-9999px",
@@ -105,47 +118,14 @@ export function CoverImageSection({
     opacity: 0,
   };
 
-  const renderTrigger = () => {
-    if (trigger === "button") {
-      // Görünüş olarak button, davranış olarak label (htmlFor)
-      return (
-        <label
-          htmlFor={inputId}
-          className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700"
-          onClick={() => {
-            console.log("[CoverImageSection] button-like label click", {
-              inputId,
-            });
-          }}
-        >
-          <ImagePlus className="h-4 w-4" />
-          Kapak Yükle
-        </label>
-      );
-    }
-
-    // Klasik label trigger
-    return (
-      <label
-        htmlFor={inputId}
-        className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700"
-        onClick={() => {
-          console.log("[CoverImageSection] label click", { inputId });
-        }}
-      >
-        <ImagePlus className="h-4 w-4" />
-        Kapak Yükle
-      </label>
-    );
-  };
-
   return (
     <Section
       title={title}
       action={
         <div className="flex items-center gap-2">
-          {/* 🔹 input ekran dışında, ama DOM’da (Firefox için güvenli pattern) */}
+          {/* 🔹 Hidden file input (ref üzerinden kontrol) */}
           <input
+            ref={fileInputRef}
             id={inputId}
             type="file"
             accept={accept}
@@ -153,7 +133,15 @@ export function CoverImageSection({
             style={inputStyle}
           />
 
-          {renderTrigger()}
+          {/* Görünür tetikleyici – her durumda sadece button kullanıyoruz */}
+          <Button
+            type="button"
+            onClick={openPicker}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-rose-600 px-3 py-2 text-sm text-white hover:bg-rose-700"
+          >
+            <ImagePlus className="h-4 w-4" />
+            Kapak Yükle
+          </Button>
 
           {hasAnyStorage && (
             <Button
