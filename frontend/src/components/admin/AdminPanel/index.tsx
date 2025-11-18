@@ -58,6 +58,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     isFetching: statusFetching,
     refetch: refetchStatus,
   } = useStatusQuery();
+
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
@@ -103,14 +104,18 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     isAccessoryFormRoute ||
     isReviewFormRoute ||
     isSliderFormRoute ||
+    isSiteSettingFormRoute ||
     isSettingFormRoute;
 
   const isRootAdmin = pathname === "/admin";
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("dashboard");
-  const [loading, setLoading] = useState(true);
+
+  // 🔹 Artık "loading" sürekli değişmeyecek, sadece ilk auth check için bir flag
+  const [initialCheckDone, setInitialCheckDone] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
 
+  // 🔁 Focus olduğunda yalnızca arka planda status refetch yap
   useEffect(() => {
     refetchStatus();
     const onFocus = () => refetchStatus();
@@ -118,13 +123,12 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     return () => window.removeEventListener("focus", onFocus);
   }, [refetchStatus]);
 
+  // ✅ Sadece ilk kez authStatus geldiğinde "initialCheckDone" işaretle
   useEffect(() => {
-    if (statusFetching) {
-      setLoading(true);
-      return;
+    if (!statusFetching) {
+      setInitialCheckDone(true);
+      setIsAuthorized(!!(authStatus?.authenticated && authStatus.is_admin));
     }
-    setLoading(false);
-    setIsAuthorized(!!(authStatus?.authenticated && authStatus.is_admin));
   }, [authStatus, statusFetching]);
 
   // ✅ Form rotasındayken ilgili sekmeyi aktif tut
@@ -239,14 +243,23 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   }, [pathname, isAnyFormRoute, activeTab]);
 
   /* ================== Auth/Yetki ================== */
-  if (loading) {
+
+  // 🔹 İlk auth cevabı gelene kadar sadece skeleton göster
+  if (!initialCheckDone) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-white text-gray-900" />
+      <div className="flex min-h-dvh items-center justify-center bg-white text-gray-900">
+        {/* burada istersen spinner koyabilirsin */}
+      </div>
     );
   }
+
+  // 🔹 Sonradan refetch olsa bile artık layout'u unmount ETMİYORUZ;
+  // sadece yetkisizse blokluyoruz.
   if (!isAuthorized) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-white text-gray-900" />
+      <div className="flex min-h-dvh items-center justify-center bg-white text-gray-900">
+        {/* basit bir "yetkisiz" ekranı */}
+      </div>
     );
   }
 
@@ -355,7 +368,9 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                 <Card className="border border-gray-200 shadow-none">
                   <CardHeader className="border-b border-gray-200 py-4">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base sm:text-lg">Alt Kategoriler</CardTitle>
+                      <CardTitle className="text-base sm:text-lg">
+                        Alt Kategoriler
+                      </CardTitle>
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 sm:p-6">
