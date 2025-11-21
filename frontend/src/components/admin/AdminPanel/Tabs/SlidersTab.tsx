@@ -18,8 +18,8 @@ import {
   useAdminUpdateSlideMutation,
   useAdminReorderSlidesMutation,
   useAdminSetSlideStatusMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/sliders_admin.endpoints";
-import type { SliderAdminListParams } from "@/integrations/metahub/db/types/slider";
+} from "@/integrations/rtk/endpoints/admin/sliders_admin.endpoints";
+import type { SliderAdminListParams } from "@/integrations/rtk/types/slider";
 
 type Row = {
   id: number;
@@ -155,7 +155,7 @@ export default function SlidersTab() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Yenile
           </Button>
-          <Button onClick={onAdd} className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button onClick={onAdd} className="bg-emerald-600 hover:bg-emerald-700 text-white">
             <Plus className="h-4 w-4 mr-2" />
             Yeni Slider
           </Button>

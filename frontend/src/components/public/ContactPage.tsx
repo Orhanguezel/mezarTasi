@@ -1,6 +1,8 @@
 // -------------------------------------------------------------
 // FILE: src/.../ContactPage.tsx
 // -------------------------------------------------------------
+"use client";
+
 import * as React from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -8,12 +10,14 @@ import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import backgroundImage from "figma:asset/0a9012ca17bfb48233c0877277b7fb8427a12d4c.png";
 
-import { useCreateContactMutation } from "@/integrations/metahub/rtk/endpoints/contacts.endpoints";
-import type { ContactCreateInput } from "@/integrations/metahub/db/types/contacts";
+import { toast } from "sonner";
+
+import { useCreateContactMutation } from "@/integrations/rtk/endpoints/contacts.endpoints";
+import type { ContactCreateInput } from "@/integrations/rtk/types/contacts";
 import {
   useListSiteSettingsQuery,
   type SiteSetting,
-} from "@/integrations/metahub/rtk/endpoints/site_settings.endpoints";
+} from "@/integrations/rtk/endpoints/site_settings.endpoints";
 
 interface ContactPageProps {
   onNavigate: (page: string) => void;
@@ -51,7 +55,6 @@ const getStringFromSettings = (
 const toTelHref = (phoneRaw: string): string => {
   const clean = phoneRaw.replace(/\D/g, ""); // sadece rakam
   if (!clean) return "";
-  // 0 ile başlıyorsa kırp: 0533... -> 533...
   const withoutZero = clean.startsWith("0") ? clean.slice(1) : clean;
   return `+90${withoutZero}`;
 };
@@ -129,24 +132,52 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // ✅ Trimlenmiş değerler
+    const name = formData.name.trim();
+    const email = formData.email.trim();
+    const phone = formData.phone.trim();
+    const subject = formData.subject.trim();
+    const message = formData.message.trim();
+    const websiteTrim = formData.website.trim();
+
+    // ✅ Basit FE validasyonu (backend 400 atmadan önce yakala)
+    if (!name || !email || !phone || !subject || !message) {
+      toast.error("Lütfen tüm zorunlu alanları doldurun.");
+      return;
+    }
+
+    if (message.length < 10) {
+      toast.error("Mesajınız en az 10 karakter olmalıdır.");
+      return;
+    }
+
+    // çok kaba email kontrolü (asıl kontrol backend'de)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Lütfen geçerli bir e-posta adresi girin.");
+      return;
+    }
+
     const basePayload = {
-      name: formData.name.trim(),
-      email: formData.email.trim(),
-      phone: formData.phone.trim(),
-      subject: formData.subject.trim(),
-      message: formData.message.trim(),
+      name,
+      email,
+      phone,
+      subject,
+      message,
     };
 
-    // website'i ya hiç gönder (omit) ya da null gönder
-    const websiteTrim = formData.website.trim();
+    // website'i boşsa hiç gönderme (schema optional/nullable zaten destekliyor)
     const payload: ContactCreateInput = websiteTrim
       ? { ...basePayload, website: websiteTrim }
-      : { ...basePayload, website: null };
+      : (basePayload as ContactCreateInput);
 
     try {
       const res = await createContact(payload).unwrap();
       console.log("Contact created:", res);
-      alert("Mesajınız başarıyla gönderildi! En kısa sürede size dönüş yapacağız.");
+
+      toast.success(
+        "Mesajınız başarıyla gönderildi. En kısa sürede size dönüş yapacağız."
+      );
 
       setFormData({
         name: "",
@@ -158,9 +189,33 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
       });
     } catch (err: any) {
       console.error("Contact create error:", err);
-      alert(
+
+      // Zod body hatası
+      if (err?.status === 400 && err?.data?.error === "INVALID_BODY") {
+        const fieldErrors = err.data.details?.fieldErrors as
+          | Record<string, string[]>
+          | undefined;
+
+        const firstError =
+          fieldErrors && Object.values(fieldErrors).flat()[0];
+
+        toast.error(
+          firstError ??
+            "Form alanlarını kontrol edin ve tekrar deneyin (geçersiz veri)."
+        );
+        return;
+      }
+
+      const code =
         typeof err?.data?.error === "string"
-          ? `Hata: ${err.data.error}`
+          ? err.data.error
+          : typeof err?.error === "string"
+          ? err.error
+          : null;
+
+      toast.error(
+        code
+          ? `Mesaj gönderilirken bir hata oluştu (${code}). Lütfen tekrar deneyin.`
           : "Mesaj gönderilirken bir hata oluştu. Lütfen tekrar deneyin."
       );
     }
@@ -188,7 +243,8 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
             </nav>
             <h1 className="text-2xl md:text-4xl mb-2">BİZE ULAŞIN!</h1>
             <p className="text-base md:text-lg opacity-90">
-              Daha fazla bilgi edinmek ve fiyat teklifi almak için bizimle iletişime geçin!
+              Daha fazla bilgi edinmek ve fiyat teklifi almak için bizimle
+              iletişime geçin!
             </p>
           </div>
         </div>
@@ -208,7 +264,9 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                   {/* Company Name */}
                   <div className="flex items-start space-x-3 md:space-x-4">
                     <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 bg-teal-100 rounded-full flex items-center justify-center">
-                      <span className="text-teal-500 text-sm md:text-lg">🏢</span>
+                      <span className="text-teal-500 text-sm md:text-lg">
+                        🏢
+                      </span>
                     </div>
                     <div>
                       <h3 className="text-sm md:text-base text-gray-800 mb-1">
@@ -223,7 +281,9 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                   {/* Address */}
                   <div className="flex items-start space-x-3 md:space-x-4">
                     <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 bg-teal-100 rounded-full flex items-center justify-center">
-                      <span className="text-teal-500 text-sm md:text-lg">📍</span>
+                      <span className="text-teal-500 text-sm md:text-lg">
+                        📍
+                      </span>
                     </div>
                     <div>
                       <h3 className="text-sm md:text-base text-gray-800 mb-1">
@@ -238,7 +298,9 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                   {/* Email */}
                   <div className="flex items-start space-x-3 md:space-x-4">
                     <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 bg-teal-100 rounded-full flex items-center justify-center">
-                      <span className="text-teal-500 text-sm md:text-lg">✉️</span>
+                      <span className="text-teal-500 text-sm md:text-lg">
+                        ✉️
+                      </span>
                     </div>
                     <div>
                       <h3 className="text-sm md:text-base text-gray-800 mb-1">
@@ -256,7 +318,9 @@ export function ContactPage({ onNavigate }: ContactPageProps) {
                   {/* Phone */}
                   <div className="flex items-start space-x-3 md:space-x-4">
                     <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 bg-teal-100 rounded-full flex items-center justify-center">
-                      <span className="text-teal-500 text-sm md:text-lg">📞</span>
+                      <span className="text-teal-500 text-sm md:text-lg">
+                        📞
+                      </span>
                     </div>
                     <div>
                       <h3 className="text-sm md:text-base text-gray-800 mb-1">

@@ -8,7 +8,7 @@ import { ArrowLeft, Tag, Phone } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { ImageOptimized } from "./ImageOptimized";
-import { useGetSimpleCampaignByIdQuery } from "@/integrations/metahub/rtk/endpoints/campaigns.endpoints";
+import { useGetSimpleCampaignByIdQuery } from "@/integrations/rtk/endpoints/campaigns.endpoints";
 
 type SimpleCampaignPageProps = {
   onNavigate: (page: string) => void;

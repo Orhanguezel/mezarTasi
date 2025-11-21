@@ -17,9 +17,9 @@ import {
   useAdminUpdateProductSpecMutation,
   useAdminDeleteProductSpecMutation,
   useAdminReplaceSpecsMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/products_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/products_admin.endpoints";
 
-import type { ProductSpecRow } from "@/integrations/metahub/db/types/products.rows";
+import type { ProductSpecRow } from "@/integrations/rtk/types/products.rows";
 
 type Spec = {
   id?: string;
@@ -132,12 +132,12 @@ export function SpecsSection({ productId, specs }: Props) {
           arr.map((x, i) =>
             i === idx
               ? {
-                  id: updated.id,
-                  name: updated.name,
-                  value: updated.value,
-                  category: updated.category as Spec["category"],
-                  order_num: updated.order_num,
-                }
+                id: updated.id,
+                name: updated.name,
+                value: updated.value,
+                category: updated.category as Spec["category"],
+                order_num: updated.order_num,
+              }
               : x
           )
         );
@@ -156,12 +156,12 @@ export function SpecsSection({ productId, specs }: Props) {
           arr.map((x, i) =>
             i === idx
               ? {
-                  id: created.id,
-                  name: created.name,
-                  value: created.value,
-                  category: created.category as Spec["category"],
-                  order_num: created.order_num,
-                }
+                id: created.id,
+                name: created.name,
+                value: created.value,
+                category: created.category as Spec["category"],
+                order_num: created.order_num,
+              }
               : x
           )
         );

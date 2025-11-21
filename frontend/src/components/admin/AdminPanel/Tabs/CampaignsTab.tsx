@@ -14,7 +14,7 @@ import {
   useListCampaignsAdminQuery,
   useDeleteCampaignAdminMutation,
   useUpdateCampaignAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/campaigns_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/campaigns_admin.endpoints";
 import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
 import { ThumbById } from "@/components/admin/AdminPanel/form/sections/shared/ThumbById";
 
@@ -132,7 +132,7 @@ export default function CampaignsTab() {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Yenile
               </Button>
-              <Button onClick={onAdd} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button onClick={onAdd} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                 <Plus className="h-4 w-4 mr-2" />
                 Yeni Kampanya
               </Button>

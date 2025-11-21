@@ -20,7 +20,7 @@ import {
   useAdminListCategoriesQuery,
   useAdminListSubcategoriesQuery,
   type AdminProductListParams,
-} from "@/integrations/metahub/rtk/endpoints/admin/products_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/products_admin.endpoints";
 import { cn } from "@/components/ui/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Plus, Search, Trash2, Pencil, Home } from "lucide-react";
@@ -275,9 +275,9 @@ export function TabsProducts() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-end bg-emerald-600 p-2 rounded-md text-white">
               <Button onClick={() => navigate("/admin/products/new")} className="gap-2">
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4 " />
                 Yeni Ürün
               </Button>
             </div>

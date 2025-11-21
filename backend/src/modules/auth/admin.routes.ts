@@ -6,19 +6,22 @@ import { requireAdmin } from "@/common/middleware/roles";
 
 export async function registerUserAdmin(app: FastifyInstance) {
   const c = makeAdminController(app);
+
+  // 🔹 FE uçları ile uyumlu: /admin/users
   const BASE = "/users";
 
-  // Tek guard: önce auth, sonra admin
+  // ✔ Tek preHandler: önce auth, sonra admin
   const adminGuard = async (req: FastifyRequest, reply: FastifyReply) => {
     await requireAuth(req, reply);
     if (reply.sent) return;
     await requireAdmin(req, reply);
   };
 
-  app.get   (`${BASE}`,             { preHandler: adminGuard }, c.list);
-  app.get   (`${BASE}/:id`,         { preHandler: adminGuard }, c.get);
-  app.patch (`${BASE}/:id`,         { preHandler: adminGuard }, c.update);
-  app.post  (`${BASE}/:id/active`,  { preHandler: adminGuard }, c.setActive);
-  app.post  (`${BASE}/:id/roles`,   { preHandler: adminGuard }, c.setRoles);
-  app.delete(`${BASE}/:id`,         { preHandler: adminGuard }, c.remove);
+  app.get(`${BASE}`,               { preHandler: adminGuard }, c.list);
+  app.get(`${BASE}/:id`,           { preHandler: adminGuard }, c.get);
+  app.patch(`${BASE}/:id`,         { preHandler: adminGuard }, c.update);
+  app.post(`${BASE}/:id/active`,   { preHandler: adminGuard }, c.setActive);
+  app.post(`${BASE}/:id/roles`,    { preHandler: adminGuard }, c.setRoles);
+  app.post(`${BASE}/:id/password`, { preHandler: adminGuard }, c.setPassword);
+  app.delete(`${BASE}/:id`,        { preHandler: adminGuard }, c.remove);
 }

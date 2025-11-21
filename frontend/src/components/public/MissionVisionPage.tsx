@@ -10,7 +10,7 @@ import missionImage from "figma:asset/86ac622a937f78742905aa1b265687cf5a66c70f.p
 import { getMissionVisionPageData } from "../../data/pageContent";
 
 // RTK – custom_pages
-import { useGetCustomPageBySlugQuery } from "@/integrations/metahub/rtk/endpoints/custom_pages.endpoints";
+import { useGetCustomPageBySlugQuery } from "@/integrations/rtk/endpoints/custom_pages.endpoints";
 
 interface MissionVisionPageProps {
   onNavigate: (page: string) => void;
@@ -158,13 +158,13 @@ export function MissionVisionPage({ onNavigate }: MissionVisionPageProps) {
                 <div className="sticky top-8">
                   <div className="mb-6">
                     <div className="w-full h-48 md:h-64 bg-white rounded-lg shadow-lg overflow-hidden flex items-center justify-center">
-  <img
-    src="/mezartasi.png"            // public/mezartasi.png
-    alt="Mezartaşı – marka görseli"
-    className="max-w-full max-h-full object-contain"
-    loading="lazy"
-  />
-</div>
+                      <img
+                        src="/mezartasi.png"            // public/mezartasi.png
+                        alt="Mezartaşı – marka görseli"
+                        className="max-w-full max-h-full object-contain"
+                        loading="lazy"
+                      />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 mb-6">

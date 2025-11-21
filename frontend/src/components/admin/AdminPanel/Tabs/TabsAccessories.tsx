@@ -14,10 +14,10 @@ import {
   useAdminListAccessoriesQuery,
   useAdminDeleteAccessoryMutation,
   useAdminUpdateAccessoryMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/accessories_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/accessories_admin.endpoints";
 import type {
- AccessoriesAdminListParams,
-} from "@/integrations/metahub/db/types/accessories";
+  AccessoriesAdminListParams,
+} from "@/integrations/rtk/types/accessories";
 import { Plus, Pencil, Trash2, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
 
 type LocalRow = {
@@ -157,7 +157,7 @@ export default function TabsAccessories() {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Yenile
               </Button>
-              <Button onClick={onAdd} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button onClick={onAdd} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                 <Plus className="h-4 w-4 mr-2" />
                 Yeni Aksesuar
               </Button>

@@ -8,11 +8,11 @@ import { useEffect, useMemo } from "react";
 import {
   useListSlidesPublicQuery,
   useGetSlidePublicQuery,
-} from "@/integrations/metahub/rtk/endpoints/slider_public.endpoints";
+} from "@/integrations/rtk/endpoints/slider_public.endpoints";
 import type {
   SliderPublic,
   SliderListParams,
-} from "@/integrations/metahub/db/types/slider";
+} from "@/integrations/rtk/types/slider";
 
 // --------- FE tipi ---------
 export interface SlideData {

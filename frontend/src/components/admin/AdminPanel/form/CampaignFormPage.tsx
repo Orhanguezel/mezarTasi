@@ -20,10 +20,10 @@ import {
   useUpdateCampaignAdminMutation,
   useAttachCampaignImageAdminMutation,
   useDetachCampaignImageAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/campaigns_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/campaigns_admin.endpoints";
 
 // 🔸 Yeni public storage pattern
-import { useUploadToBucketMutation } from "@/integrations/metahub/rtk/endpoints/storage_public.endpoints";
+import { useUploadToBucketMutation } from "@/integrations/rtk/endpoints/storage_public.endpoints";
 
 import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
 import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";
@@ -135,9 +135,9 @@ export default function CampaignFormPage() {
         ? { image_url: imageUrl, alt: alt || title || null }
         : coverId ?? stagedCoverId
           ? {
-              storage_asset_id: (coverId ?? stagedCoverId)!,
-              alt: alt || title || null,
-            }
+            storage_asset_id: (coverId ?? stagedCoverId)!,
+            alt: alt || title || null,
+          }
           : null;
 
     if (!body) return;
@@ -248,9 +248,9 @@ export default function CampaignFormPage() {
         ? { image_url: imageUrl, alt: alt || title || null }
         : coverId ?? stagedCoverId
           ? {
-              storage_asset_id: (coverId ?? stagedCoverId)!,
-              alt: alt || title || null,
-            }
+            storage_asset_id: (coverId ?? stagedCoverId)!,
+            alt: alt || title || null,
+          }
           : null;
 
     if (!body) {

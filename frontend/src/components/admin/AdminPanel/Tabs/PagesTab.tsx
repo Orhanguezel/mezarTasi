@@ -14,7 +14,7 @@ import {
   useListCustomPagesAdminQuery,
   useDeleteCustomPageAdminMutation,
   useUpdateCustomPageAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/custom_pages_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/custom_pages_admin.endpoints";
 import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
 
 type LocalRow = {
@@ -25,7 +25,7 @@ type LocalRow = {
   image_url: string | null;
   alt: string | null;
   is_published: boolean;
-  created_at?: string | undefined;  
+  created_at?: string | undefined;
   updated_at?: string | undefined;
 };
 
@@ -116,7 +116,7 @@ export default function PagesTab() {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Yenile
               </Button>
-              <Button onClick={onAdd} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button onClick={onAdd} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                 <Plus className="h-4 w-4 mr-2" />
                 Yeni Sayfa
               </Button>

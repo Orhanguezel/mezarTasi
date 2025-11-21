@@ -27,15 +27,15 @@ import {
   useUpdateServiceAdminMutation,
   useSetServiceStatusAdminMutation,
   // ❌ BURADA useAttachServiceImageMutation / useDetachServiceImageMutation OLMAYACAK
-} from "@/integrations/metahub/rtk/endpoints/admin/services_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/services_admin.endpoints";
 
 // ✅ Sadece bu storage hook kalsın
-import { useUploadToBucketMutation } from "@/integrations/metahub/rtk/endpoints/storage_public.endpoints";
+import { useUploadToBucketMutation } from "@/integrations/rtk/endpoints/storage_public.endpoints";
 
 import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
 import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";
 
-import type { ServiceType } from "@/integrations/metahub/db/types/services.types";
+import type { ServiceType } from "@/integrations/rtk/types/services.types";
 
 
 const slugifyTr = (s: string) =>

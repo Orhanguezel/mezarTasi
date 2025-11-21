@@ -6,15 +6,33 @@
 import * as React from "react";
 import { toast } from "sonner";
 import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
-  SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
-  BarChart3, Package, Settings, LogOut, Home, FileText, Menu,
-  MessageSquare, FolderTree, Megaphone, HelpCircle, Users, Mail
+  BarChart3,
+  Package,
+  Settings,
+  LogOut,
+  Home,
+  FileText,
+  MessageSquare,
+  FolderTree,
+  Megaphone,
+  HelpCircle,
+  Users,
+  Mail,
 } from "lucide-react";
-import { metahub } from "@/integrations/metahub/client";
 import type { ActiveTab } from "./AdminLayout";
+import { useAuthLogoutMutation } from "@/integrations/rtk/endpoints/auth_public.endpoints";
+import { tokenStore } from "@/integrations/core/token";
 
 type MenuValue =
   | "products"
@@ -36,7 +54,6 @@ type MenuValue =
   | "reviews"
   | "dashboard";
 
-
 const menuGroups: {
   label: string;
   items: { title: string; icon: React.ComponentType<any>; value: MenuValue }[];
@@ -48,7 +65,7 @@ const menuGroups: {
       { title: "Sayfa Ayarları", icon: Home, value: "sitesettings" },
       { title: "Kampanyalar", icon: Megaphone, value: "campaigns" },
       { title: "Duyurular", icon: Megaphone, value: "announcements" },
-      { title: "Son Çalışmalar", icon: FileText, value: "recent_works" }, 
+      { title: "Son Çalışmalar", icon: FileText, value: "recent_works" },
       { title: "Hizmetler", icon: FolderTree, value: "services" },
       { title: "Slaytlar", icon: FolderTree, value: "sliders" },
     ],
@@ -62,13 +79,15 @@ const menuGroups: {
       { title: "Aksesuarlar", icon: FolderTree, value: "accessories" },
       { title: "Sayfalar", icon: FileText, value: "pages" },
       { title: "SSS (FAQ)", icon: HelpCircle, value: "faqs" },
-      
       { title: "İletişim Mesajları", icon: Mail, value: "contacts" },
       { title: "Yorumlar", icon: MessageSquare, value: "reviews" },
       { title: "Kullanıcılar", icon: Users, value: "users" },
     ],
   },
-  { label: "Ayarlar", items: [{ title: "Genel Ayarlar", icon: Settings, value: "settings" }] },
+  {
+    label: "Ayarlar",
+    items: [{ title: "Veritabanı", icon: Settings, value: "settings" }],
+  },
 ];
 
 const MENU_TO_TAB: Partial<Record<MenuValue, ActiveTab>> = {
@@ -137,12 +156,15 @@ export default function AdminSidebar({
   activeTab,
   onTabChange,
   onNavigateHome,
-  onNavigateLogin,
+  onNavigateLogin, // şu an kullanmıyoruz ama interface kalsın
 }: AdminSidebarProps) {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
 
-  const matchesActive = (v: MenuValue, tab: ActiveTab) => (MENU_TO_TAB[v] ?? null) === tab;
+  const [logout] = useAuthLogoutMutation();
+
+  const matchesActive = (v: MenuValue, tab: ActiveTab) =>
+    (MENU_TO_TAB[v] ?? null) === tab;
 
   const handleClick = (v: MenuValue) => {
     const tab = MENU_TO_TAB[v];
@@ -152,15 +174,32 @@ export default function AdminSidebar({
 
   const handleLogout = async () => {
     try {
-      await metahub.auth.signOut();
-      onNavigateLogin?.();
+      // 1) BE'ye logout isteği at
+      await logout().unwrap();
     } catch {
-      toast.error("Çıkış yapılırken bir hata oluştu.");
+      // BE hata verirse bile FE tarafını yine de temizle
+      toast.error("Çıkış yapılırken bir hata oluştu (sunucu).");
+    } finally {
+      // 2) FE'deki tokenları mutlaka temizle
+      try {
+        tokenStore.set(null); // mh_access_token sil
+        localStorage.removeItem("mh_refresh_token");
+      } catch {
+        // localStorage erişilemezse sessiz geç
+      }
+
+      // 3) Ana sayfaya yönlendir
+      onNavigateHome?.();
+      // Eğer burada history tabanlı router yoksa alternatif:
+      // window.location.href = "/";
     }
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r bg-sidebar text-sidebar-foreground border-sidebar-border">
+    <Sidebar
+      collapsible="icon"
+      className="border-r bg-sidebar text-sidebar-foreground border-sidebar-border"
+    >
       <SidebarContent className="h-dvh">
         <div className="border-b border-sidebar-border">
           <div className="flex items-center gap-2 p-3 sm:p-4">
@@ -169,7 +208,9 @@ export default function AdminSidebar({
             </div>
             {!isCollapsed && (
               <div className="min-w-0">
-                <h2 className="truncate text-sm font-semibold leading-none">Admin Panel</h2>
+                <h2 className="truncate text-sm font-semibold leading-none">
+                  Admin Panel
+                </h2>
                 <p className="text-xs text-white/60">Mezarizm</p>
               </div>
             )}
@@ -194,7 +235,9 @@ export default function AdminSidebar({
                         titleWhenCollapsed={item.title}
                       >
                         <Icon className="h-4 w-4" />
-                        {!isCollapsed && <span className="truncate">{item.title}</span>}
+                        {!isCollapsed && (
+                          <span className="truncate">{item.title}</span>
+                        )}
                       </NavButton>
                     </SidebarMenuItem>
                   );
@@ -205,7 +248,10 @@ export default function AdminSidebar({
         ))}
 
         <div className="mt-auto space-y-2 border-t border-sidebar-border p-3 sm:p-4">
-          <NavButton onClick={() => onNavigateHome?.()} titleWhenCollapsed="Ana Sayfaya Dön">
+          <NavButton
+            onClick={() => onNavigateHome?.()}
+            titleWhenCollapsed="Ana Sayfaya Dön"
+          >
             <Home className="h-4 w-4" />
             {!isCollapsed && <span>Ana Sayfaya Dön</span>}
           </NavButton>

@@ -14,8 +14,8 @@ import {
   useGetContactAdminQuery,
   useUpdateContactAdminMutation,
   useRemoveContactAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/contacts_admin.endpoints";
-import type { ContactUpdateInput, ContactStatus } from "@/integrations/metahub/db/types/contacts";
+} from "@/integrations/rtk/endpoints/admin/contacts_admin.endpoints";
+import type { ContactUpdateInput, ContactStatus } from "@/integrations/rtk/types/contacts";
 
 export default function ContactFormPage() {
   // ✅ Route tam olarak: /admin/contacts/:id

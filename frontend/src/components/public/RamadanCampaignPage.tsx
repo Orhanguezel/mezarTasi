@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useGetCustomPageBySlugQuery } from "@/integrations/metahub/rtk/endpoints/custom_pages.endpoints";
+import { useGetCustomPageBySlugQuery } from "@/integrations/rtk/endpoints/custom_pages.endpoints";
 import { MobileSEOOptimizer } from "./MobileSEOOptimizer";
 
 export default function RamazanCampaignCMS() {
@@ -29,7 +29,7 @@ export default function RamazanCampaignCMS() {
         {...(data?.meta_description ? { description: data.meta_description } : {})}
         {...(canonical ? { canonicalUrl: canonical } : {})}
         {...(og ? { ogImage: og } : {})}
-        // keywords göndermiyoruz; undefined ise exactOptionalPropertyTypes uyarısı üretmesin
+      // keywords göndermiyoruz; undefined ise exactOptionalPropertyTypes uyarısı üretmesin
       />
       <div dangerouslySetInnerHTML={{ __html: data?.content || "" }} />
     </>

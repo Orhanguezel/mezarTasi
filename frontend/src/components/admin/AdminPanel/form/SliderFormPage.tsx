@@ -19,10 +19,10 @@ import {
   useAdminCreateSlideMutation,
   useAdminUpdateSlideMutation,
   useAdminSetSlideStatusMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/sliders_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/sliders_admin.endpoints";
 
 // ✅ public storage (services’te kullandığın)
-import { useUploadToBucketMutation } from "@/integrations/metahub/rtk/endpoints/storage_public.endpoints";
+import { useUploadToBucketMutation } from "@/integrations/rtk/endpoints/storage_public.endpoints";
 
 import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
 import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";

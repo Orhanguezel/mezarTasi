@@ -15,7 +15,7 @@ import {
   useUpdateSiteSettingAdminMutation,
   useDeleteSiteSettingAdminMutation,
   type SiteSetting,
-} from "@/integrations/metahub/rtk/endpoints/admin/site_settings_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/site_settings_admin.endpoints";
 
 type PrefixTab = "all" | "seo_" | "contact_" | "home_";
 

@@ -24,9 +24,9 @@ export const signupBody = z.object({
 });
 
 export const tokenBody = z.object({
-  grant_type: z.literal('password'),
   email: z.string().email(),
   password: z.string().min(6),
+  grant_type: z.literal("password").optional(),
 });
 
 export const updateBody = z.object({

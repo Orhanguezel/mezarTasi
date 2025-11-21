@@ -15,12 +15,12 @@ import {
 import { ImageWithFallback } from "../figma/ImageWithFallback";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useActiveSlidesRtk } from "../../data/sliderData";
-import { useListCategoriesQuery } from "@/integrations/metahub/rtk/endpoints/categories.endpoints";
-import { useListProductsQuery } from "@/integrations/metahub/rtk/endpoints/products.endpoints";
+import { useListCategoriesQuery } from "@/integrations/rtk/endpoints/categories.endpoints";
+import { useListProductsQuery } from "@/integrations/rtk/endpoints/products.endpoints";
 import type {
   Product as ApiProduct,
   ProductSpecifications,
-} from "@/integrations/metahub/db/types/products.rows";
+} from "@/integrations/rtk/types/products.rows";
 import backgroundImage from "figma:asset/0a9012ca17bfb48233c0877277b7fb8427a12d4c.png";
 
 interface ModelsPageProps {
@@ -66,10 +66,10 @@ type DynamicProduct = ApiProduct & {
   productCode?: string;
   image?: string;
   specifications?:
-    | ProductSpecifications
-    | Record<string, unknown>
-    | Array<{ name?: string; value?: unknown }>
-    | null;
+  | ProductSpecifications
+  | Record<string, unknown>
+  | Array<{ name?: string; value?: unknown }>
+  | null;
 };
 
 type SpecDict = Record<string, string>;
@@ -467,13 +467,12 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
             {slides.map((slide, index) => (
               <div
                 key={slide.id}
-                className={`absolute inset-0 transition-transform duration-700 ease-in-out ${
-                  index === currentSlide
-                    ? "translate-x-0"
-                    : index < currentSlide
+                className={`absolute inset-0 transition-transform duration-700 ease-in-out ${index === currentSlide
+                  ? "translate-x-0"
+                  : index < currentSlide
                     ? "-translate-x-full"
                     : "translate-x-full"
-                }`}
+                  }`}
               >
                 <div className="relative w-full h-full">
                   <ImageWithFallback
@@ -521,11 +520,10 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
                 <button
                   key={index}
                   onClick={() => setCurrentSlide(index)}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                    index === currentSlide
-                      ? "bg-white scale-125"
-                      : "bg-white bg-opacity-40 hover:bg-opacity-70"
-                  }`}
+                  className={`w-3 h-3 rounded-full transition-all duration-300 ${index === currentSlide
+                    ? "bg-white scale-125"
+                    : "bg-white bg-opacity-40 hover:bg-opacity-70"
+                    }`}
                 />
               ))}
             </div>
@@ -543,20 +541,18 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
                   key={category.id}
                   onClick={() => setSelectedCategory(category.id)}
                   variant={selectedCategory === category.id ? "default" : "outline"}
-                  className={`px-5 py-2.5 rounded-full transition-all duration-300 text-sm ${
-                    selectedCategory === category.id
-                      ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
-                      : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
-                  }`}
+                  className={`px-5 py-2.5 rounded-full transition-all duration-300 text-sm ${selectedCategory === category.id
+                    ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
+                    : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
+                    }`}
                 >
                   {category.name}
                   <Badge
                     variant="secondary"
-                    className={`ml-2 text-xs ${
-                      selectedCategory === category.id
-                        ? "bg-teal-400 text-teal-900"
-                        : "bg-teal-100 text-teal-700"
-                    }`}
+                    className={`ml-2 text-xs ${selectedCategory === category.id
+                      ? "bg-teal-400 text-teal-900"
+                      : "bg-teal-100 text-teal-700"
+                      }`}
                   >
                     {category.count}
                   </Badge>
@@ -570,11 +566,10 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
                   key={category.id}
                   onClick={() => setSelectedCategory(category.id)}
                   variant={selectedCategory === category.id ? "default" : "outline"}
-                  className={`px-3 py-3 h-auto rounded-lg transition-all duration-300 text-center ${
-                    selectedCategory === category.id
-                      ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
-                      : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
-                  }`}
+                  className={`px-3 py-3 h-auto rounded-lg transition-all duration-300 text-center ${selectedCategory === category.id
+                    ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
+                    : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
+                    }`}
                 >
                   <span className="text-base font-bold leading-tight text-center break-words hyphens-auto">
                     {category.name}

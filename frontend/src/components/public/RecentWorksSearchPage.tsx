@@ -10,8 +10,8 @@ import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
 import { Card, CardContent } from "../ui/card";
 import { Search, MapPin, Calendar, Package, ChevronLeft } from "lucide-react";
-import { useListRecentWorksQuery } from "@/integrations/metahub/rtk/endpoints/recent_works.endpoints";
-import type { RecentWorkView } from "@/integrations/metahub/db/types/recent_works";
+import { useListRecentWorksQuery } from "@/integrations/rtk/endpoints/recent_works.endpoints";
+import type { RecentWorkView } from "@/integrations/rtk/types/recent_works";
 
 interface RecentWorksSearchPageProps {
   onNavigate: (page: string) => void;
@@ -91,7 +91,7 @@ const RecentWorksSearchPage: React.FC<RecentWorksSearchPageProps> = ({ onNavigat
                   placeholder="Anahtar kelime girin (örn: granit şile 2024)..."
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") {/* no-op */} }}
+                  onKeyDown={(e) => { if (e.key === "Enter") {/* no-op */ } }}
                   className="w-full pl-4 pr-12 py-3 text-lg border-2 border-teal-200 focus:border-teal-500 rounded-lg"
                 />
                 <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-teal-400 w-5 h-5" />

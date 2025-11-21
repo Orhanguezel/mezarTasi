@@ -17,18 +17,18 @@ import { Input } from "../ui/input";
 
 // Public klasöründeki görseller (uygun dosyayı sizde hangisi varsa ona göre bırakın)
 const COMMENT_IMAGE = "/calluns.avif";   // public/calluns.avif mevcut dediniz
-const PLACEHOLDER   = "/mezartasi.png";  // public/mezartasi.png (fallback)
+const PLACEHOLDER = "/mezartasi.png";  // public/mezartasi.png (fallback)
 
 import {
   useListReviewsQuery,
   useCreateReviewMutation,
-} from "@/integrations/metahub/rtk/endpoints/reviews.endpoints";
-import { useListRecentWorksQuery } from "@/integrations/metahub/rtk/endpoints/recent_works.endpoints";
-import { useListSimpleCampaignsQuery } from "@/integrations/metahub/rtk/endpoints/campaigns.endpoints";
-import { useListAnnouncementsQuery } from "@/integrations/metahub/rtk/endpoints/announcements.endpoints";
+} from "@/integrations/rtk/endpoints/reviews.endpoints";
+import { useListRecentWorksQuery } from "@/integrations/rtk/endpoints/recent_works.endpoints";
+import { useListSimpleCampaignsQuery } from "@/integrations/rtk/endpoints/campaigns.endpoints";
+import { useListAnnouncementsQuery } from "@/integrations/rtk/endpoints/announcements.endpoints";
 
-import type { ReviewCreateInput } from "@/integrations/metahub/db/types/reviews";
-import type { RecentWorkView } from "@/integrations/metahub/db/types/recent_works";
+import type { ReviewCreateInput } from "@/integrations/rtk/types/reviews";
+import type { RecentWorkView } from "@/integrations/rtk/types/recent_works";
 
 function pickImageUrl(x: unknown): string | undefined {
   if (!x) return;
@@ -108,30 +108,30 @@ export function ServicesSection({
   const campaignsUi =
     Array.isArray(campRtk)
       ? campRtk.map((c: any) => ({
-          id: c.id,
-          title: c.title,
-          description: c.description ?? "",
-          date: c.created_at ? new Date(c.created_at).toLocaleDateString() : (c.date ?? ""),
-          type: c.tag ?? "Kampanya",
-          image: pickImageUrl(c.images?.[0]) || PLACEHOLDER,
-        }))
+        id: c.id,
+        title: c.title,
+        description: c.description ?? "",
+        date: c.created_at ? new Date(c.created_at).toLocaleDateString() : (c.date ?? ""),
+        type: c.tag ?? "Kampanya",
+        image: pickImageUrl(c.images?.[0]) || PLACEHOLDER,
+      }))
       : [];
 
   const announcementsUi =
     Array.isArray(annRtk)
       ? annRtk.map((a: any) => ({
-          id: a.id,
-          slug: a.slug,
-          uuid: a.uuid,
-          title: a.title,
-          date: a.published_at
-            ? new Date(a.published_at).toLocaleDateString()
-            : a.created_at
+        id: a.id,
+        slug: a.slug,
+        uuid: a.uuid,
+        title: a.title,
+        date: a.published_at
+          ? new Date(a.published_at).toLocaleDateString()
+          : a.created_at
             ? new Date(a.created_at).toLocaleDateString()
             : "",
-          html: a.html as string | undefined,
-          image: pickImageUrl(a.images?.[0]) || a.image || a.cover_image || PLACEHOLDER,
-        }))
+        html: a.html as string | undefined,
+        image: pickImageUrl(a.images?.[0]) || a.image || a.cover_image || PLACEHOLDER,
+      }))
       : [];
 
   /* -------- FORM STATE -------- */
@@ -465,9 +465,9 @@ export function ServicesSection({
               <h2 className="text-lg md:text-xl mb-4 md:mb-6 text-teal-600 leading-tight">MEZAR YAPIMI VE HİZMETLERİNDE EN UYGUN FİYAT GARANTİSİ!</h2>
               <div className="bg-teal-50 p-4 md:p-6 rounded-lg mb-4 md:mb-6">
                 <p className="text-sm md:text-base leading-relaxed">
-                  Mezar fiyatları konusunda endişe etmeyin! Mezar yapımı alanında 25 yıllık deneyimimizle, 
-                  mermer mezar modelleri ve granit mezar modelleri için en uygun fiyat garantisi sunuyoruz. 
-                  Ucuz mezar yapımı arayanlar için kaliteli malzeme ve profesyonel işçilik bir arada. 
+                  Mezar fiyatları konusunda endişe etmeyin! Mezar yapımı alanında 25 yıllık deneyimimizle,
+                  mermer mezar modelleri ve granit mezar modelleri için en uygun fiyat garantisi sunuyoruz.
+                  Ucuz mezar yapımı arayanlar için kaliteli malzeme ve profesyonel işçilik bir arada.
                   Tüm mezar modellerimizde uygun fiyat, yüksek kalite ve uzun garantiyle hizmetinizdeyiz!
                 </p>
               </div>
@@ -477,7 +477,7 @@ export function ServicesSection({
                 <div className="text-center">
                   <div className="w-20 h-20 md:w-28 md:h-28 bg-teal-500 rounded-full flex flex-col items-center justify-center text-white mx-auto shadow-lg">
                     <svg className="w-6 h-6 md:w-8 md:h-8 mb-1" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                     </svg>
                     <span className="text-xs md:text-sm font-semibold leading-tight">Hesaplı</span>
                   </div>
@@ -485,7 +485,7 @@ export function ServicesSection({
                 <div className="text-center">
                   <div className="w-20 h-20 md:w-28 md:h-28 bg-teal-500 rounded-full flex flex-col items-center justify-center text-white mx-auto shadow-lg">
                     <svg className="w-6 h-6 md:w-8 md:h-8 mb-1" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M23 12l-2.44-2.78.34-3.68-3.61-.82-1.89-3.18L12 3 8.6 1.54 6.71 4.72l-3.61.81.34 3.68L1 12l2.44 2.78-.34 3.69 3.61.82 1.89 3.18L12 21l3.4 1.46 1.89-3.18 3.61-.82-.34-3.68L23 12zm-10 5h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                      <path d="M23 12l-2.44-2.78.34-3.68-3.61-.82-1.89-3.18L12 3 8.6 1.54 6.71 4.72l-3.61.81.34 3.68L1 12l2.44 2.78-.34 3.69 3.61.82 1.89 3.18L12 21l3.4 1.46 1.89-3.18 3.61-.82-.34-3.68L23 12zm-10 5h-2v-2h2v2zm0-4h-2V7h2v6z" />
                     </svg>
                     <span className="text-xs md:text-sm font-semibold leading-tight">Kaliteli</span>
                   </div>
@@ -493,9 +493,9 @@ export function ServicesSection({
                 <div className="text-center">
                   <div className="w-20 h-20 md:w-28 md:h-28 bg-teal-500 rounded-full flex flex-col items-center justify-center text-white mx-auto shadow-lg">
                     <svg className="w-6 h-6 md:w-8 md:h-8 mb-1" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+                      <path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" />
                     </svg>
-                    <span className="text-xs md:text-sm font-semibold leading-tight text-center">Zamanında<br/>Teslimat</span>
+                    <span className="text-xs md:text-sm font-semibold leading-tight text-center">Zamanında<br />Teslimat</span>
                   </div>
                 </div>
               </div>

@@ -10,8 +10,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Section } from "./shared/Section";
 import { Check } from "lucide-react";
-import { useAdminCreateProductReviewMutation } from "@/integrations/metahub/rtk/endpoints/admin/products_admin.endpoints";
-import type { ProductReviewRow } from "@/integrations/metahub/db/types/products.rows";
+import { useAdminCreateProductReviewMutation } from "@/integrations/rtk/endpoints/admin/products_admin.endpoints";
+import type { ProductReviewRow } from "@/integrations/rtk/types/products.rows";
 
 type Props = {
   productId?: string;

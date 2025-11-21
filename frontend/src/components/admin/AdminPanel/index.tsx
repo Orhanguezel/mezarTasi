@@ -6,7 +6,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useStatusQuery } from "@/integrations/metahub/rtk/endpoints/auth.endpoints";
+import { useAuthStatusQuery } from "@/integrations/rtk/endpoints/auth_public.endpoints";
+
 
 import AdminLayout, { ActiveTab } from "@/components/layout/AdminLayout";
 import AdminHeader from "@/components/layout/AdminHeader";
@@ -57,7 +58,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     data: authStatus,
     isFetching: statusFetching,
     refetch: refetchStatus,
-  } = useStatusQuery();
+  } = useAuthStatusQuery();
 
   const { pathname } = useLocation();
   const navigate = useNavigate();

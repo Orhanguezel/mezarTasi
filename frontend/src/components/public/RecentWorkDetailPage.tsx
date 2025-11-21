@@ -10,8 +10,8 @@ import { Badge } from "../ui/badge";
 import {
   useGetRecentWorkBySlugQuery,
   useGetRecentWorkQuery,
-} from "@/integrations/metahub/rtk/endpoints/recent_works.endpoints";
-import type { RecentWorkView } from "@/integrations/metahub/db/types/recent_works";
+} from "@/integrations/rtk/endpoints/recent_works.endpoints";
+import type { RecentWorkView } from "@/integrations/rtk/types/recent_works";
 
 type Props = {
   onBack: () => void;
@@ -32,18 +32,18 @@ function pickWorkImage(w?: Partial<RecentWorkView> | null) {
 
 export const RecentWorkDetailPage: React.FC<Props> = ({ slug, id, onBack, work: hint }) => {
   // Prop’lardan ve hint’ten olası kimlikleri topla
-  const idStr   = id != null ? String(id) : (hint?.id != null ? String(hint.id) : undefined);
+  const idStr = id != null ? String(id) : (hint?.id != null ? String(hint.id) : undefined);
   const slugStr = (slug ?? hint?.slug ?? "").trim() || undefined;
 
   // ID varsa onu kullan, yoksa slug
-  const useId   = !!idStr;
+  const useId = !!idStr;
   const useSlug = !useId && !!slugStr;
 
-  const byId   = useGetRecentWorkQuery(idStr!,     { skip: !useId });
+  const byId = useGetRecentWorkQuery(idStr!, { skip: !useId });
   const bySlug = useGetRecentWorkBySlugQuery(slugStr!, { skip: !useSlug });
 
   const isFetching = (useId && byId.isFetching) || (useSlug && bySlug.isFetching);
-  const isError    = (useId && byId.isError)    || (useSlug && bySlug.isError);
+  const isError = (useId && byId.isError) || (useSlug && bySlug.isError);
 
   // Önce canlı veri, yoksa hint ile render et
   const work: Partial<RecentWorkView> | undefined =
@@ -125,12 +125,12 @@ export const RecentWorkDetailPage: React.FC<Props> = ({ slug, id, onBack, work: 
       <div className="text-center">
         <p className="text-lg text-teal-600 mb-4">{price}</p>
         <div className="flex gap-3 justify-center">
-          <Button 
+          <Button
             onClick={() => {
               const m = `Merhaba, "${work.title}" için fiyat teklifi almak istiyorum.`;
               window.open(`https://wa.me/905334838971?text=${encodeURIComponent(m)}`, "_blank");
             }}
-          className="bg-teal-500 hover:bg-teal-600 text-white px-6">Fiyat Teklifi Al
+            className="bg-teal-500 hover:bg-teal-600 text-white px-6">Fiyat Teklifi Al
           </Button>
           <Button
             variant="outline"

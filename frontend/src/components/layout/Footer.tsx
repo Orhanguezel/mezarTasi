@@ -3,7 +3,7 @@
 
 import { ChevronUp } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
-import { useListSiteSettingsQuery } from "@/integrations/metahub/rtk/endpoints/site_settings.endpoints";
+import { useListSiteSettingsQuery } from "@/integrations/rtk/endpoints/site_settings.endpoints";
 
 interface FooterProps {
   onNavigate?: (page: string) => void;
@@ -89,7 +89,7 @@ export function Footer({ onNavigate }: FooterProps) {
                 Hizmetlerimiz
               </h4>
               <ul className="space-y-1 text-sm">
-                {(services.length ? services : ["Mezar Yapımı","Mezar Onarımı","Mezar Bakımı","Çiçeklendirme"]).map((t) => (
+                {(services.length ? services : ["Mezar Yapımı", "Mezar Onarımı", "Mezar Bakımı", "Çiçeklendirme"]).map((t) => (
                   <li key={t}>
                     <span className="cursor-pointer font-medium transition-colors hover:text-teal-300">
                       {t}
@@ -108,11 +108,11 @@ export function Footer({ onNavigate }: FooterProps) {
                 {(quickLinks.length
                   ? quickLinks
                   : [
-                      { title: "Anasayfa", path: "/", pageKey: "home" },
-                      { title: "Hakkımızda", path: "/about", pageKey: "about" },
-                      { title: "Ürünlerimiz", path: "/pricing", pageKey: "pricing" },
-                      { title: "İletişim", path: "/contact", pageKey: "contact" },
-                    ]
+                    { title: "Anasayfa", path: "/", pageKey: "home" },
+                    { title: "Hakkımızda", path: "/about", pageKey: "about" },
+                    { title: "Ürünlerimiz", path: "/pricing", pageKey: "pricing" },
+                    { title: "İletişim", path: "/contact", pageKey: "contact" },
+                  ]
                 ).map((l) => (
                   <li key={l.title}>
                     <button
@@ -163,7 +163,7 @@ export function Footer({ onNavigate }: FooterProps) {
             <div className="grid grid-cols-2 gap-2 text-xs text-white/90 sm:grid-cols-4 md:text-sm">
               {(keywords.length
                 ? keywords
-                : ["Ucuz Mezar Yapımı","Mezar Yapımı İşleri","Mezar Yapımı Fiyatları","Mezar Baş Taşı Fiyatı","Mezar Taşına Resim","Ucuz Mezar İşleri","İstanbul Mezar Yapım","Mezar Taşı Fiyatları"]
+                : ["Ucuz Mezar Yapımı", "Mezar Yapımı İşleri", "Mezar Yapımı Fiyatları", "Mezar Baş Taşı Fiyatı", "Mezar Taşına Resim", "Ucuz Mezar İşleri", "İstanbul Mezar Yapım", "Mezar Taşı Fiyatları"]
               ).map((k) => (
                 <p key={k} className="cursor-pointer font-medium transition-colors hover:text-teal-300">
                   {k}

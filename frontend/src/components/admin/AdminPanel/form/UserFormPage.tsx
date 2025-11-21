@@ -1,3 +1,6 @@
+// ======================================================================
+// FILE: src/components/admin/AdminPanel/.../UserFormPage.tsx
+// ======================================================================
 "use client";
 
 import * as React from "react";
@@ -8,17 +11,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+
 import {
-  useGetUserAdminQuery,
-  useUpdateUserAdminMutation,
-  useSetUserActiveAdminMutation,
-  useSetUserRolesAdminMutation,
-  useInviteUserAdminMutation,
-  useDeleteUserAdminMutation,
-  type UpdateUserBody,
-  type InviteUserBody,
-} from "@/integrations/metahub/rtk/endpoints/admin/users_admin.endpoints";
-import type { UserRoleName } from "@/integrations/metahub/db/types/users";
+  useAdminGetQuery,
+  useAdminUpdateUserMutation,
+  useAdminSetActiveMutation,
+  useAdminSetRolesMutation,
+  useAdminSetPasswordMutation,
+  useAdminRemoveUserMutation,
+  type AdminUpdateUserBody,
+} from "@/integrations/rtk/endpoints/admin/auth_admin.endpoints";
+import type { UserRoleName } from "@/integrations/rtk/types/users";
 
 type Role = "admin" | "moderator" | "user";
 const ALL_ROLES: Role[] = ["admin", "moderator", "user"];
@@ -27,132 +30,218 @@ export default function UserFormPage() {
   const navigate = useNavigate();
   const params = useParams();
 
-  // ❗ Route paramını doğru oku (önce :id, sonra catch-all fallback)
-  const paramId = (params as Record<string, string | undefined>)["id"] ?? params["*"] ?? "";
+  const paramId =
+    (params as Record<string, string | undefined>)["id"] ??
+    (params as Record<string, string | undefined>)["*"] ??
+    "";
   const isNew = paramId === "new";
   const id = isNew ? "" : paramId;
 
-  const [invite, { isLoading: inviting }] = useInviteUserAdminMutation();
-
+  // RTK hooks (YENİ admin endpoints)
   const {
     data: u,
     isFetching,
     refetch: refetchUser,
-  } = useGetUserAdminQuery(id, { skip: isNew || !id });
+  } = useAdminGetQuery(
+    { id },
+    {
+      skip: isNew || !id,
+    },
+  );
 
-  const [updateUser, { isLoading: updating }] = useUpdateUserAdminMutation();
-  const [setActive,  { isLoading: toggling }] = useSetUserActiveAdminMutation();
-  const [setRoles,   { isLoading: savingRoles }] = useSetUserRolesAdminMutation();
-  const [deleteUser, { isLoading: deleting }] = useDeleteUserAdminMutation();
+  const [updateUser, { isLoading: updating }] =
+    useAdminUpdateUserMutation();
+  const [setActive, { isLoading: toggling }] =
+    useAdminSetActiveMutation();
+  const [setRoles, { isLoading: savingRoles }] =
+    useAdminSetRolesMutation();
+  const [setPassword, { isLoading: settingPassword }] =
+    useAdminSetPasswordMutation();
+  const [deleteUser, { isLoading: deleting }] =
+    useAdminRemoveUserMutation();
 
-  // local state
-  const [email, setEmail]       = React.useState("");
+  // Local state
+  const [email, setEmail] = React.useState("");
   const [fullName, setFullName] = React.useState<string | null>(null);
-  const [phone, setPhone]       = React.useState<string | null>(null);
+  const [phone, setPhone] = React.useState<string | null>(null);
   const [isActive, setIsActive] = React.useState<boolean>(true);
-  const [roles, setRolesState]  = React.useState<Role[]>([]);
+  const [roles, setRolesState] = React.useState<Role[]>(["user"]);
+
+  const [password, setPasswordValue] = React.useState("");
+  const [password2, setPassword2Value] = React.useState("");
 
   React.useEffect(() => {
     if (u && !isNew) {
-      setEmail(u.email);
-      setFullName(u.full_name);
-      setPhone(u.phone);
-      setIsActive(u.is_active);
-      setRolesState((u.roles as Role[]) ?? []);
+      // u tipini çok kasmadan, gelen alanları güvenli biçimde normalize et
+      const raw: any = u;
+      setEmail((raw.email as string) ?? "");
+      setFullName((raw.full_name as string | null) ?? null);
+      setPhone((raw.phone as string | null) ?? null);
+
+      const isActiveRaw = raw.is_active;
+      const nextActive =
+        typeof isActiveRaw === "boolean"
+          ? isActiveRaw
+          : Number(isActiveRaw ?? 1) === 1;
+      setIsActive(nextActive);
+
+      setRolesState((raw.roles as Role[]) ?? ["user"]);
     } else if (isNew) {
-      // yeni kayıt formu
       setEmail("");
       setFullName(null);
       setPhone(null);
       setIsActive(true);
-      setRolesState([]);
+      setRolesState(["user"]);
+      setPasswordValue("");
+      setPassword2Value("");
     }
   }, [u, isNew]);
 
   const toggleRole = (r: Role) => {
-    setRolesState(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]);
+    setRolesState((prev) =>
+      prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r],
+    );
   };
+
+  /* -------------------- EXISTING USER SAVE -------------------- */
 
   const onSaveExisting = async () => {
     if (!id) return;
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      toast.error("Email zorunludur.");
+      return;
+    }
+
     try {
-      const body: UpdateUserBody = {
-        full_name: fullName,   // string | null (undefined göndermiyoruz)
-        phone:     phone,      // string | null
+      // Yeni tip: AdminUpdateUserBody (id + patch alanları)
+      const body: AdminUpdateUserBody = {
+        id,
+        email: trimmedEmail,
         is_active: isActive,
       };
-      await updateUser({ id, body }).unwrap();
 
-      // Rolleri ayarla → sonra ekranı güncelle
-      await setRoles({ id, roles: roles as UserRoleName[] }).unwrap();
+      if (fullName && fullName.trim()) {
+        body.full_name = fullName.trim();
+      }
+      if (phone && phone.trim()) {
+        body.phone = phone.trim();
+      }
+
+      await updateUser(body).unwrap();
+
+      await setRoles({
+        id,
+        roles: roles as UserRoleName[],
+      }).unwrap();
+
       await refetchUser();
 
       toast.success("Kullanıcı güncellendi");
-      navigate("/admin");
-    } catch {
+      navigate("/admin/users");
+    } catch (err: any) {
+      console.error(err);
       toast.error("Kullanıcı güncellenemedi");
     }
   };
 
-  const onInvite = async () => {
-    if (!email.trim()) {
-      toast.error("Email gerekli");
+  /* -------------------- NEW USER CREATE (backend'de henüz yok) -------------------- */
+
+  const onCreateNew = () => {
+    // Şu an için backend'de POST /admin/users olmadığı için
+    // sadece uyarı veriyoruz.
+    toast.error(
+      "Yeni kullanıcı oluşturma endpoint'i (POST /admin/users) backend'de tanımlı değil. Şu an sadece mevcut kullanıcıları düzenleyebilirsiniz.",
+    );
+  };
+
+  /* -------------------- ACTIVE TOGGLE -------------------- */
+
+  const onToggleActive = async (next: boolean) => {
+    if (!id) {
+      // yeni user formunda sadece local state'i güncelle
+      setIsActive(next);
       return;
     }
     try {
-      const payload: InviteUserBody = {
-        email: email.trim(),
-        ...(fullName ? { full_name: fullName } : {}),
-        ...(roles.length ? { roles: roles as UserRoleName[] } : {}),
-      };
-      const res = await invite(payload).unwrap();
-
-      if (!res?.ok) {
-        toast.error("Davet başarısız");
-        return;
-      }
-      toast.success("Davet oluşturuldu");
-      if (res.id) navigate(`/admin/users/${res.id}`);
-      else navigate("/admin");
-    } catch {
-      toast.error("Davet başarısız (BE route eksik olabilir: POST /admin/users/invite)");
-    }
-  };
-
-  const onToggleActive = async () => {
-    if (!id) return;
-    try {
-      const next = !isActive;
-      await setActive({ id, is_active: next }).unwrap();
       setIsActive(next);
-      toast.success(next ? "Aktifleştirildi" : "Pasifleştirildi");
-    } catch {
+      await setActive({ id, is_active: next }).unwrap();
+      toast.success(
+        next
+          ? "Kullanıcı aktifleştirildi"
+          : "Kullanıcı pasifleştirildi",
+      );
+    } catch (err: any) {
+      console.error(err);
+      setIsActive(!next); // revert
       toast.error("Durum güncellenemedi");
     }
   };
 
+  /* -------------------- PASSWORD SET (EXISTING) -------------------- */
+
+  const onSetPassword = async () => {
+    if (!id) return;
+
+    if (password.length < 8) {
+      toast.error("Şifre en az 8 karakter olmalıdır.");
+      return;
+    }
+    if (password !== password2) {
+      toast.error("Şifreler eşleşmiyor.");
+      return;
+    }
+
+    try {
+      await setPassword({ id, password }).unwrap();
+      toast.success("Şifre güncellendi");
+      setPasswordValue("");
+      setPassword2Value("");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Şifre güncellenemedi");
+    }
+  };
+
+  /* -------------------- DELETE -------------------- */
+
   const onDelete = async () => {
     if (!id) return;
     if (!window.confirm("Bu kullanıcı silinsin mi?")) return;
+
     try {
       await deleteUser({ id }).unwrap();
       toast.success("Kullanıcı silindi");
-      navigate("/admin");
-    } catch {
+      navigate("/admin/users");
+    } catch (err: any) {
+      console.error(err);
       toast.error("Silme işlemi başarısız");
     }
   };
+
+  /* -------------------- RENDER -------------------- */
+
+  const busy =
+    isFetching ||
+    updating ||
+    toggling ||
+    savingRoles ||
+    settingPassword ||
+    deleting;
 
   return (
     <Card className="border border-gray-200 shadow-none">
       <CardHeader className="border-b border-gray-200 py-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base sm:text-lg">
-            {isNew ? "Yeni Kullanıcı / Davet" : "Kullanıcı Düzenle"}
+            {isNew ? "Yeni Kullanıcı" : "Kullanıcı Düzenle"}
           </CardTitle>
           <div className="flex gap-2">
-            {/* ❗ Listeye dön her zaman /admin/users */}
-            <Button variant="secondary" onClick={() => navigate("/admin/users")}>
+            <Button
+              variant="secondary"
+              onClick={() => navigate("/admin/users")}
+            >
               Listeye Dön
             </Button>
           </div>
@@ -166,12 +255,9 @@ export default function UserFormPage() {
           <Input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            disabled={!isNew}
             placeholder="user@example.com"
+            disabled={busy}
           />
-          {!isNew && (
-            <p className="text-xs text-gray-500">Email admin panelden değiştirilemez.</p>
-          )}
         </div>
 
         {/* Ad Soyad */}
@@ -179,8 +265,11 @@ export default function UserFormPage() {
           <Label>Ad Soyad</Label>
           <Input
             value={fullName ?? ""}
-            onChange={(e) => setFullName(e.target.value || null)}
+            onChange={(e) =>
+              setFullName(e.target.value ? e.target.value : null)
+            }
             placeholder="Ad Soyad"
+            disabled={busy}
           />
         </div>
 
@@ -189,22 +278,23 @@ export default function UserFormPage() {
           <Label>Telefon</Label>
           <Input
             value={phone ?? ""}
-            onChange={(e) => setPhone(e.target.value || null)}
+            onChange={(e) =>
+              setPhone(e.target.value ? e.target.value : null)
+            }
             placeholder="+90..."
+            disabled={busy}
           />
         </div>
 
-        {/* Aktif */}
-        {!isNew && (
-          <div className="flex items-center gap-3">
-            <Switch
-              checked={isActive}
-              onCheckedChange={() => onToggleActive()}
-              disabled={toggling || isFetching}
-            />
-            <span>Aktif</span>
-          </div>
-        )}
+        {/* Aktiflik */}
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={isActive}
+            onCheckedChange={(value) => onToggleActive(value)}
+            disabled={busy}
+          />
+          <span>{isNew ? "Aktif olarak oluştur" : "Aktif"}</span>
+        </div>
 
         {/* Roller */}
         <div className="grid gap-2">
@@ -216,6 +306,7 @@ export default function UserFormPage() {
                   type="checkbox"
                   checked={roles.includes(r)}
                   onChange={() => toggleRole(r)}
+                  disabled={busy}
                 />
                 <span className="capitalize">{r}</span>
               </label>
@@ -223,18 +314,52 @@ export default function UserFormPage() {
           </div>
         </div>
 
+        {/* Şifre alanları (hem yeni, hem mevcut için ortak state) */}
+        <div className="grid gap-2">
+          <Label>{isNew ? "Şifre" : "Yeni Şifre"}</Label>
+          <Input
+            type="password"
+            value={password}
+            onChange={(e) => setPasswordValue(e.target.value)}
+            placeholder="********"
+            disabled={busy}
+          />
+        </div>
+
+        <div className="grid gap-2">
+          <Label>Şifre (Tekrar)</Label>
+          <Input
+            type="password"
+            value={password2}
+            onChange={(e) => setPassword2Value(e.target.value)}
+            placeholder="********"
+            disabled={busy}
+          />
+        </div>
+
         {/* Actions */}
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           {isNew ? (
-            <Button onClick={onInvite} disabled={inviting}>
-              Davet Gönder
+            <Button onClick={onCreateNew} disabled={busy}>
+              Kullanıcı Oluştur
             </Button>
           ) : (
             <>
-              <Button onClick={onSaveExisting} disabled={updating || savingRoles}>
-                Kaydet
+              <Button onClick={onSaveExisting} disabled={busy}>
+                Bilgileri Kaydet
               </Button>
-              <Button variant="destructive" onClick={onDelete} disabled={deleting}>
+              <Button
+                variant="outline"
+                onClick={onSetPassword}
+                disabled={busy || !password || !password2}
+              >
+                Şifreyi Güncelle
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={onDelete}
+                disabled={busy}
+              >
                 Kullanıcıyı Sil
               </Button>
             </>

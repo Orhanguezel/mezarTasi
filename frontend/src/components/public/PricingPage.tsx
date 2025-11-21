@@ -17,13 +17,13 @@ import { useActiveSlidesRtk } from "../../data/sliderData";
 import backgroundImage from "figma:asset/0a9012ca17bfb48233c0877277b7fb8427a12d4c.png";
 
 // RTK hooks (PUBLIC)
-import { useListProductsQuery } from "@/integrations/metahub/rtk/endpoints/products.endpoints";
-import { useListCategoriesQuery } from "@/integrations/metahub/rtk/endpoints/categories.endpoints";
-import { useListSubCategoriesQuery } from "@/integrations/metahub/rtk/endpoints/sub_categories.endpoints";
+import { useListProductsQuery } from "@/integrations/rtk/endpoints/products.endpoints";
+import { useListCategoriesQuery } from "@/integrations/rtk/endpoints/categories.endpoints";
+import { useListSubCategoriesQuery } from "@/integrations/rtk/endpoints/sub_categories.endpoints";
 
-import type { Product as ApiProduct } from "@/integrations/metahub/db/types/products.rows";
-import type { Category } from "@/integrations/metahub/db/types/categories.rows";
-import type { SubCategory } from "@/integrations/metahub/db/types/sub_categories.rows";
+import type { Product as ApiProduct } from "@/integrations/rtk/types/products.rows";
+import type { Category } from "@/integrations/rtk/types/categories.rows";
+import type { SubCategory } from "@/integrations/rtk/types/sub_categories.rows";
 
 /* =========================== helpers =========================== */
 
@@ -44,8 +44,8 @@ function normalizeSpecs(specs: unknown): Record<string, string> {
         out[String((it as any).name)] = Array.isArray(v)
           ? v.join(", ")
           : v != null
-          ? String(v)
-          : "";
+            ? String(v)
+            : "";
       }
     }
     return out;
@@ -107,11 +107,11 @@ function productToModel(
   const slug =
     String(
       anyP.slug ??
-        anyP.slug_tr ??
-        anyP.slug_en ??
-        anyP.slug_de ??
-        anyP.product_code ??
-        realId
+      anyP.slug_tr ??
+      anyP.slug_en ??
+      anyP.slug_de ??
+      anyP.product_code ??
+      realId
     ).trim();
 
   const catId = String(anyP.category_id ?? "");
@@ -123,8 +123,8 @@ function productToModel(
   const material = catName.includes("granit")
     ? "Granit"
     : catName.includes("mermer")
-    ? "Mermer"
-    : "Ürün";
+      ? "Mermer"
+      : "Ürün";
 
   let priceText = "Fiyat İçin Arayınız";
   const price = anyP.price;
@@ -339,7 +339,7 @@ export function PricingPage({ onNavigate, onProductDetail }: PricingPageProps) {
     selectedSubCategory === "tümü"
       ? "Tüm Mezar Modelleri"
       : uiCategories.find((c) => c.id === selectedSubCategory)?.name ??
-        "Mezar Modelleri";
+      "Mezar Modelleri";
 
   return (
     <div className="min-h-screen">
@@ -372,13 +372,12 @@ export function PricingPage({ onNavigate, onProductDetail }: PricingPageProps) {
             {heroSlides.map((slide, index) => (
               <div
                 key={String(slide.id ?? slide.image ?? index)}
-                className={`absolute inset-0 transition-transform duration-700 ease-in-out ${
-                  index === currentSlide
-                    ? "translate-x-0"
-                    : index < currentSlide
+                className={`absolute inset-0 transition-transform duration-700 ease-in-out ${index === currentSlide
+                  ? "translate-x-0"
+                  : index < currentSlide
                     ? "-translate-x-full"
                     : "translate-x-full"
-                }`}
+                  }`}
               >
                 <div className="relative w-full h-full">
                   <ImageWithFallback
@@ -425,11 +424,10 @@ export function PricingPage({ onNavigate, onProductDetail }: PricingPageProps) {
                 <button
                   key={index}
                   onClick={() => setCurrentSlide(index)}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                    index === currentSlide
-                      ? "bg-white scale-125"
-                      : "bg-white bg-opacity-40 hover:bg-opacity-70"
-                  }`}
+                  className={`w-3 h-3 rounded-full transition-all duration-300 ${index === currentSlide
+                    ? "bg-white scale-125"
+                    : "bg-white bg-opacity-40 hover:bg-opacity-70"
+                    }`}
                 />
               ))}
             </div>
@@ -447,19 +445,17 @@ export function PricingPage({ onNavigate, onProductDetail }: PricingPageProps) {
                 <button
                   key={category.id}
                   onClick={() => setSelectedSubCategory(category.id)}
-                  className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
-                    selectedSubCategory === category.id
-                      ? "bg-teal-500 text-white border-teal-500 shadow-lg hover:bg-teal-600"
-                      : "bg-white text-teal-600 border-teal-300 hover:border-teal-400 hover:bg-teal-50"
-                  }`}
+                  className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${selectedSubCategory === category.id
+                    ? "bg-teal-500 text-white border-teal-500 shadow-lg hover:bg-teal-600"
+                    : "bg-white text-teal-600 border-teal-300 hover:border-teal-400 hover:bg-teal-50"
+                    }`}
                 >
                   <span>{category.name}</span>
                   <span
-                    className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
-                      selectedSubCategory === category.id
-                        ? "bg-white bg-opacity-20 text-white"
-                        : "bg-teal-100 text-teal-700"
-                    }`}
+                    className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${selectedSubCategory === category.id
+                      ? "bg-white bg-opacity-20 text-white"
+                      : "bg-teal-100 text-teal-700"
+                      }`}
                   >
                     {category.count}
                   </span>
@@ -473,21 +469,19 @@ export function PricingPage({ onNavigate, onProductDetail }: PricingPageProps) {
                 <button
                   key={category.id}
                   onClick={() => setSelectedSubCategory(category.id)}
-                  className={`px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 border text-center ${
-                    selectedSubCategory === category.id
-                      ? "bg-teal-500 text-white border-teal-500 shadow-lg"
-                      : "bg-white text-teal-600 border-teal-300 hover:border-teal-400 hover:bg-teal-50"
-                  }`}
+                  className={`px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 border text-center ${selectedSubCategory === category.id
+                    ? "bg-teal-500 text-white border-teal-500 shadow-lg"
+                    : "bg-white text-teal-600 border-teal-300 hover:border-teal-400 hover:bg-teal-50"
+                    }`}
                 >
                   <div className="text-center leading-tight break-words font-bold">
                     {category.name}
                   </div>
                   <div
-                    className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold ${
-                      selectedSubCategory === category.id
-                        ? "bg-white bg-opacity-20 text-white"
-                        : "bg-teal-100 text-teal-700"
-                    }`}
+                    className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold ${selectedSubCategory === category.id
+                      ? "bg-white bg-opacity-20 text-white"
+                      : "bg-teal-100 text-teal-700"
+                      }`}
                   >
                     {category.count}
                   </div>

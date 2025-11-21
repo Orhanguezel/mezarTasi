@@ -11,11 +11,11 @@ import { Input } from "../ui/input";
 import {
   useListReviewsQuery,
   useCreateReviewMutation,
-} from "@/integrations/metahub/rtk/endpoints/reviews.endpoints";
+} from "@/integrations/rtk/endpoints/reviews.endpoints";
 import type {
   ReviewCreateInput,
   ReviewView,
-} from "@/integrations/metahub/db/types/reviews";
+} from "@/integrations/rtk/types/reviews";
 
 export function CustomerReviews() {
   // --- Remote data (public list) ---
@@ -129,9 +129,8 @@ export function CustomerReviews() {
                   {[1, 2, 3, 4, 5].map((i) => (
                     <Star
                       key={i}
-                      className={`w-5 h-5 ${
-                        i <= Math.round(avg) ? "text-yellow-400 fill-current" : "text-gray-300"
-                      }`}
+                      className={`w-5 h-5 ${i <= Math.round(avg) ? "text-yellow-400 fill-current" : "text-gray-300"
+                        }`}
                     />
                   ))}
                 </div>
@@ -162,9 +161,8 @@ export function CustomerReviews() {
                     {[1, 2, 3, 4, 5].map((s) => (
                       <Star
                         key={s}
-                        className={`w-4 h-4 ${
-                          s <= (r.rating ?? 0) ? "text-yellow-400 fill-current" : "text-gray-300"
-                        }`}
+                        className={`w-4 h-4 ${s <= (r.rating ?? 0) ? "text-yellow-400 fill-current" : "text-gray-300"
+                          }`}
                       />
                     ))}
                   </div>
@@ -245,11 +243,10 @@ export function CustomerReviews() {
                         key={star}
                         type="button"
                         onClick={() => handleRatingClick(star)}
-                        className={`text-3xl transition-colors ${
-                          star <= reviewData.rating
-                            ? "text-yellow-400"
-                            : "text-gray-300"
-                        }`}
+                        className={`text-3xl transition-colors ${star <= reviewData.rating
+                          ? "text-yellow-400"
+                          : "text-gray-300"
+                          }`}
                         aria-label={`${star} yıldız`}
                       >
                         <Star className="w-8 h-8 fill-current" />

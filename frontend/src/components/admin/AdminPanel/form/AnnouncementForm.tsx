@@ -19,10 +19,10 @@ import {
   useCreateAnnouncementAdminMutation,
   useUpdateAnnouncementAdminMutation,
   useSetAnnouncementImageAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/announcements_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/announcements_admin.endpoints";
 
 // 🔸 Yeni public storage pattern
-import { useUploadToBucketMutation } from "@/integrations/metahub/rtk/endpoints/storage_public.endpoints";
+import { useUploadToBucketMutation } from "@/integrations/rtk/endpoints/storage_public.endpoints";
 
 import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
 import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";
@@ -80,10 +80,10 @@ export default function AnnouncementForm() {
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const setField =
     (key: string, updater: (v: string) => void) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      if (errors[key]) setErrors((prev) => ({ ...prev, [key]: "" }));
-      updater(e.target.value);
-    };
+      (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        if (errors[key]) setErrors((prev) => ({ ...prev, [key]: "" }));
+        updater(e.target.value);
+      };
 
   // Quill boş mu?
   const isHtmlEmpty = (html: string) => {
@@ -136,7 +136,7 @@ export default function AnnouncementForm() {
     try {
       const maybe = JSON.parse(html);
       if (maybe && typeof (maybe as any).html === "string") return html;
-    } catch {}
+    } catch { }
     return JSON.stringify({ html });
   };
 

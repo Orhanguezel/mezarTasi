@@ -20,9 +20,9 @@ import {
   useListCemeteriesQuery,
   useListCemeteryDistrictsQuery,
   useListCemeteryTypesQuery,
-} from "@/integrations/metahub/rtk/endpoints/cemeteries.endpoints";
-import type { ListParams } from "@/integrations/metahub/rtk/endpoints/cemeteries.endpoints";
-import type { Cemeteries as CemeteryView } from "@/integrations/metahub/db/types/cemeteries";
+} from "@/integrations/rtk/endpoints/cemeteries.endpoints";
+import type { ListParams } from "@/integrations/rtk/endpoints/cemeteries.endpoints";
+import type { Cemeteries as CemeteryView } from "@/integrations/rtk/types/cemeteries";
 
 import {
   cemeteriesData,
@@ -262,16 +262,15 @@ export function CemeteriesPage({ onNavigate }: Props) {
             <Badge variant="outline" className="text-teal-700 border-teal-300">
               {activeTab === "mudurlukler"
                 ? (loadingList ? "Yükleniyor…" : `${cemList.length} Birim`)
-                : `${
-                    mezarliklar.anadolu.regions.reduce(
-                      (t, r) => t + r.districts.reduce((dt, d) => dt + d.cemeteries.length, 0),
-                      0
-                    ) +
-                    mezarliklar.avrupa.regions.reduce(
-                      (t, r) => t + r.districts.reduce((dt, d) => dt + d.cemeteries.length, 0),
-                      0
-                    )
-                  } Mezarlık`}
+                : `${mezarliklar.anadolu.regions.reduce(
+                  (t, r) => t + r.districts.reduce((dt, d) => dt + d.cemeteries.length, 0),
+                  0
+                ) +
+                mezarliklar.avrupa.regions.reduce(
+                  (t, r) => t + r.districts.reduce((dt, d) => dt + d.cemeteries.length, 0),
+                  0
+                )
+                } Mezarlık`}
             </Badge>
           </div>
         </div>
@@ -283,17 +282,15 @@ export function CemeteriesPage({ onNavigate }: Props) {
           <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
             <button
               onClick={() => setActiveTab("mudurlukler")}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                activeTab === "mudurlukler" ? "bg-teal-600 text-white" : "text-gray-600 hover:text-gray-800"
-              }`}
+              className={`px-4 py-2 rounded-md transition-colors ${activeTab === "mudurlukler" ? "bg-teal-600 text-white" : "text-gray-600 hover:text-gray-800"
+                }`}
             >
               Mezarlık Müdürlükleri
             </button>
             <button
               onClick={() => setActiveTab("mezarliklar")}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                activeTab === "mezarliklar" ? "bg-teal-600 text-white" : "text-gray-600 hover:text-gray-800"
-              }`}
+              className={`px-4 py-2 rounded-md transition-colors ${activeTab === "mezarliklar" ? "bg-teal-600 text-white" : "text-gray-600 hover:text-gray-800"
+                }`}
             >
               İstanbul Mezarlıkları
             </button>

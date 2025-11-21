@@ -18,13 +18,13 @@ import {
   useReorderSubCategoriesAdminMutation,
   useToggleSubActiveAdminMutation,
   useToggleSubFeaturedAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/sub_categories_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/sub_categories_admin.endpoints";
 
 // (Kategori adını göstermek için opsiyonel liste)
 import {
   useListCategoriesAdminQuery,
   type ListParams as CatListParams,
-} from "@/integrations/metahub/rtk/endpoints/admin/categories_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/categories_admin.endpoints";
 
 import { Plus, Pencil, Trash2, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
 
@@ -193,7 +193,7 @@ export default function SubCategoriesTab() {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Yenile
               </Button>
-              <Button onClick={onAdd} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button onClick={onAdd} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                 <Plus className="h-4 w-4 mr-2" />
                 Yeni Alt Kategori
               </Button>

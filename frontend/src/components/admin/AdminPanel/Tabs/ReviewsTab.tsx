@@ -23,8 +23,8 @@ import {
   useListReviewsAdminQuery,
   useUpdateReviewAdminMutation,
   useDeleteReviewAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/reviews_admin.endpoints";
-import type { ReviewListParams, ReviewView } from "@/integrations/metahub/db/types/reviews";
+} from "@/integrations/rtk/endpoints/admin/reviews_admin.endpoints";
+import type { ReviewListParams, ReviewView } from "@/integrations/rtk/types/reviews";
 
 type OrderByT = NonNullable<ReviewListParams["orderBy"]>;
 type OrderT = NonNullable<ReviewListParams["order"]>;

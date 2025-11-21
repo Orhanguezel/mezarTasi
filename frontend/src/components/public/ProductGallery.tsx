@@ -6,8 +6,8 @@ import { SkeletonLoader } from "./SkeletonLoader";
 import { Button } from "../ui/button";
 import { Search, X } from "lucide-react";
 
-import { useListProductsQuery } from "@/integrations/metahub/rtk/endpoints/products.endpoints";
-import type { Product as ApiProduct } from "@/integrations/metahub/db/types/products.rows";
+import { useListProductsQuery } from "@/integrations/rtk/endpoints/products.endpoints";
+import type { Product as ApiProduct } from "@/integrations/rtk/types/products.rows";
 
 /* ========================== constants & types ========================== */
 
@@ -191,11 +191,10 @@ export function ProductGallery({
                       key={c.id}
                       type="button"
                       onClick={() => setSelectedSubCat(c.id)}
-                      className={`w-full text-left px-6 py-4 border-b border-gray-100 last:border-b-0 transition-colors ${
-                        selectedSubCat === c.id
-                          ? "bg-teal-50 text-teal-700 font-medium"
-                          : "bg-white text-gray-700 hover:bg-gray-50"
-                      }`}
+                      className={`w-full text-left px-6 py-4 border-b border-gray-100 last:border-b-0 transition-colors ${selectedSubCat === c.id
+                        ? "bg-teal-50 text-teal-700 font-medium"
+                        : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
                     >
                       {c.label}
                     </button>
@@ -214,11 +213,10 @@ export function ProductGallery({
                       <button
                         key={c.id}
                         onClick={() => setSelectedSubCat(c.id)}
-                        className={`px-3 py-3 rounded-lg text-sm transition-colors ${
-                          selectedSubCat === c.id
-                            ? "bg-teal-100 text-teal-700"
-                            : "bg-white text-gray-700 hover:bg-gray-50"
-                        }`}
+                        className={`px-3 py-3 rounded-lg text-sm transition-colors ${selectedSubCat === c.id
+                          ? "bg-teal-100 text-teal-700"
+                          : "bg-white text-gray-700 hover:bg-gray-50"
+                          }`}
                       >
                         {c.label}
                       </button>

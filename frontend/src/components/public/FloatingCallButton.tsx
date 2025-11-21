@@ -2,7 +2,7 @@
 import { Phone } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { useListSiteSettingsQuery } from "@/integrations/metahub/rtk/endpoints/site_settings.endpoints";
+import { useListSiteSettingsQuery } from "@/integrations/rtk/endpoints/site_settings.endpoints";
 
 export function FloatingCallButton() {
   const [mounted, setMounted] = useState(false);

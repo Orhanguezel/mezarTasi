@@ -5,10 +5,10 @@
 
 import React from "react";
 import { ImageWithFallback } from "../figma/ImageWithFallback";
-import { useGetSimpleCampaignByIdQuery } from "@/integrations/metahub/rtk/endpoints/campaigns.endpoints";
-import { useGetAnnouncementByIdQuery } from "@/integrations/metahub/rtk/endpoints/announcements.endpoints";
-import type { SimpleCampaignView } from "@/integrations/metahub/db/types/campaigns";
-import type { AnnouncementView } from "@/integrations/metahub/db/types/announcements";
+import { useGetSimpleCampaignByIdQuery } from "@/integrations/rtk/endpoints/campaigns.endpoints";
+import { useGetAnnouncementByIdQuery } from "@/integrations/rtk/endpoints/announcements.endpoints";
+import type { SimpleCampaignView } from "@/integrations/rtk/types/campaigns";
+import type { AnnouncementView } from "@/integrations/rtk/types/announcements";
 
 const PLACEHOLDER =
   "https://images.unsplash.com/photo-1556740749-887f6717d7e4?w=800&h=500&fit=crop";

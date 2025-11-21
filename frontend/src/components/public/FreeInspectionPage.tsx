@@ -9,7 +9,7 @@ import {
   Clock,
 } from "lucide-react";
 import { ImageWithFallback } from "../figma/ImageWithFallback";
-import { useListSiteSettingsQuery } from "@/integrations/metahub/rtk/endpoints/site_settings.endpoints";
+import { useListSiteSettingsQuery } from "@/integrations/rtk/endpoints/site_settings.endpoints";
 
 interface FreeInspectionPageProps {
   onNavigate: (page: string) => void;
@@ -261,10 +261,10 @@ export function FreeInspectionPage({ onNavigate }: FreeInspectionPageProps) {
     phoneDigits.length === 11 && phoneDigits.startsWith("0")
       ? `+90${phoneDigits.slice(1)}`
       : phoneDigits.startsWith("90")
-      ? `+${phoneDigits}`
-      : phoneDigits.startsWith("+")
-      ? phoneDigits
-      : `+${phoneDigits}`;
+        ? `+${phoneDigits}`
+        : phoneDigits.startsWith("+")
+          ? phoneDigits
+          : `+${phoneDigits}`;
   const telHref = `tel:${phoneE164}`;
 
   const whatsappUrl = `${whatsappBase}?text=${encodeURIComponent(

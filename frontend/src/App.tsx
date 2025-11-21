@@ -7,7 +7,6 @@ import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from "re
 import { Header } from "./components/layout/Header";
 import { HeroSection } from "./components/home/HeroSection";
 import { ProductGallery } from "./components/public/ProductGallery";
-import CoverImageStandaloneTestPage from "@/components/admin/AdminPanel/form/debug/CoverImageStandaloneTestPage";
 import { ServicesSection } from "./components/public/ServicesSection";
 import { Footer } from "./components/layout/Footer";
 import { FloatingCallButton } from "./components/public/FloatingCallButton";
@@ -33,8 +32,8 @@ import { RecentWorkDetailPage } from "./components/public/RecentWorkDetailPage";
 import { ModalWrapper } from "./components/public/ModalWrapper";
 import { DataProvider } from "./contexts/DataContext";
 
-import { useListSimpleCampaignsQuery } from "@/integrations/metahub/rtk/endpoints/campaigns.endpoints";
-import type { SimpleCampaignView } from "@/integrations/metahub/db/types/campaigns";
+import { useListSimpleCampaignsQuery } from "@/integrations/rtk/endpoints/campaigns.endpoints";
+import type { SimpleCampaignView } from "@/integrations/rtk/types/campaigns";
 
 
 /** ------- Yardımcılar ------- */
@@ -85,7 +84,7 @@ const routeMap: Record<PageKey, string> = {
 
 function useCurrentPageKey(): PageKey {
   const { pathname } = useLocation();
-  if (pathname.startsWith("/adminkotrol")) return "adminAccess";
+  if (pathname.startsWith("/adminkontrol")) return "adminAccess";
   if (pathname.startsWith("/admin")) return "admin";
   if (pathname.startsWith("/about")) return "about";
   if (pathname.startsWith("/mission")) return "mission";
@@ -220,7 +219,7 @@ function ProductDetailWrapper(props: { onProductDetail: (slug: string) => void }
       key={`product-${slug}`}
       // ProductDetailPage içinde slug ile ürün çekilecek
       productId={slug as string}
-      onNavigate={() => {}}
+      onNavigate={() => { }}
       onProductDetail={props.onProductDetail}
     />
   );
@@ -345,7 +344,6 @@ export default function App() {
             <Route path="/faq" element={<FAQPage onNavigate={onNavigateString} />} />
             <Route path="/cemetery" element={<CemeteriesPage onNavigate={onNavigateString} />} />
             <Route path="/campaigns" element={<RamadanCampaignCMS />} />
-            <Route path="/file-upload-test" element={<CoverImageStandaloneTestPage />} />
 
             <Route
               path="/pricing"
@@ -463,8 +461,8 @@ export default function App() {
             selectedCampaignId
               ? "Kampanya Detayı"
               : selectedAnnouncementId
-              ? "Duyuru Detayı"
-              : "Duyuru / Kampanyalar"
+                ? "Duyuru Detayı"
+                : "Duyuru / Kampanyalar"
           }
           maxWidth="max-w-3xl"
         >

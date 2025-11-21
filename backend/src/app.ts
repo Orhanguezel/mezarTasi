@@ -37,6 +37,7 @@ import { registerContacts } from "@/modules/contact/router";
 import { registerAccessories } from "@/modules/accessories/router";
 import { registerSlider } from "@/modules/slider/router";
 import { registerMail } from "@/modules/mail/router";
+import { registerNotifications } from "@/modules/notifications/router";
 
 // Admin modüller
 import { registerProductsAdmin } from "@/modules/products/admin.routes";
@@ -230,6 +231,9 @@ export async function createApp() {
     await registerAccessories(api);
     await registerSlider(api);
     await registerMail(api);
+    await registerNotifications(api);
+
+
   }, { prefix: "/api" });
 
   registerErrorHandlers(app);

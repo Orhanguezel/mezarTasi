@@ -18,15 +18,15 @@ import {
   useGetSubCategoryAdminByIdQuery,
   useCreateSubCategoryAdminMutation,
   useUpdateSubCategoryAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/sub_categories_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/sub_categories_admin.endpoints";
 
 import {
   useListCategoriesAdminQuery,
   type ListParams as CatListParams,
-} from "@/integrations/metahub/rtk/endpoints/admin/categories_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/categories_admin.endpoints";
 
 // 🔸 Category/Campaign ile aynı: public storage pattern
-import { useUploadToBucketMutation } from "@/integrations/metahub/rtk/endpoints/storage_public.endpoints";
+import { useUploadToBucketMutation } from "@/integrations/rtk/endpoints/storage_public.endpoints";
 
 import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
 import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";

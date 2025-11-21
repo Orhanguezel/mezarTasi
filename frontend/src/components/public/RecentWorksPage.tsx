@@ -8,8 +8,8 @@ import { ImageWithFallback } from "../figma/ImageWithFallback";
 import { Button } from "../ui/button";
 import { ChevronLeft, ChevronRight, Calendar, MapPin, Phone } from "lucide-react";
 import heroImg from "figma:asset/ea63b76f8fbdbdcea873602cb1397bbff2654df4.png";
-import { useListRecentWorksQuery } from "@/integrations/metahub/rtk/endpoints/recent_works.endpoints";
-import type { RecentWorkView } from "@/integrations/metahub/db/types/recent_works";
+import { useListRecentWorksQuery } from "@/integrations/rtk/endpoints/recent_works.endpoints";
+import type { RecentWorkView } from "@/integrations/rtk/types/recent_works";
 
 interface RecentWorksPageProps {
   onNavigate: (page: string) => void;

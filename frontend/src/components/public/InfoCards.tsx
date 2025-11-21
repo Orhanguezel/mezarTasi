@@ -11,8 +11,8 @@ import {
   Shield,
   Star,
 } from "lucide-react";
-import { useListInfoCardsQuery } from "@/integrations/metahub/rtk/endpoints/info_cards.endpoints";
-import type { InfoCardView } from "@/integrations/metahub/db/types/infoCards";
+import { useListInfoCardsQuery } from "@/integrations/rtk/endpoints/info_cards.endpoints";
+import type { InfoCardView } from "@/integrations/rtk/types/infoCards";
 
 interface InfoCardsProps {
   onNavigate: (page: string) => void;

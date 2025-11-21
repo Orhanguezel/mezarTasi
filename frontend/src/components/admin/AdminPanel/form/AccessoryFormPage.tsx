@@ -18,10 +18,10 @@ import {
   useAdminGetAccessoryQuery,
   useAdminCreateAccessoryMutation,
   useAdminUpdateAccessoryMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/accessories_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/accessories_admin.endpoints";
 
 // 🔸 Campaign / Category / SubCategory ile aynı: public storage pattern
-import { useUploadToBucketMutation } from "@/integrations/metahub/rtk/endpoints/storage_public.endpoints";
+import { useUploadToBucketMutation } from "@/integrations/rtk/endpoints/storage_public.endpoints";
 
 import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
 import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";
@@ -29,7 +29,7 @@ import type {
   AccessoryCreateInput,
   AccessoryUpdateInput,
   AccessoryKey as AccKey,
-} from "@/integrations/metahub/db/types/accessories";
+} from "@/integrations/rtk/types/accessories";
 
 const RequiredMark = () => (
   <span className="ml-0.5 text-red-500" aria-hidden="true">

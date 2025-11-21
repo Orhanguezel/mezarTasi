@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useListSiteSettingsQuery } from "@/integrations/metahub/rtk/endpoints/site_settings.endpoints";
+import { useListSiteSettingsQuery } from "@/integrations/rtk/endpoints/site_settings.endpoints";
 
 interface MobileSEOOptimizerProps {
   currentPage: string;
@@ -75,11 +75,11 @@ export function MobileSEOOptimizer({
     const telRaw = String(getVal("contact_phone_tel", "05334838971"));
     const canonicalBase = canonicalUrl || defaults.canonicalBase;
 
-    const pageTitle = title|| "Mezarisim.com";
+    const pageTitle = title || "Mezarisim.com";
     const pageDescription =
       description || "İstanbul’da mezar taşı ve yapım hizmetleri.";
     const pageKeywords =
-      keywords  ||
+      keywords ||
       "mezar taşı, mezar yapımı, mermer mezar, granit mezar, İstanbul";
     const pageOgImage = ogImage || undefined;
 

@@ -5,7 +5,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
-import { useGetAssetAdminQuery } from "@/integrations/metahub/rtk/endpoints/admin/storage_admin.endpoints";
+import { useGetAssetAdminQuery } from "@/integrations/rtk/endpoints/admin/storage_admin.endpoints";
 
 type ThumbByIdProps = {
   id: string;

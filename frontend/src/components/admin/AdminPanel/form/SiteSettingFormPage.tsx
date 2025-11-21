@@ -20,7 +20,7 @@ import {
   useGetSiteSettingAdminByKeyQuery,
   useCreateSiteSettingAdminMutation,
   useUpdateSiteSettingAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/site_settings_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/site_settings_admin.endpoints";
 import { toast } from "sonner";
 
 function tryParseValue(s: string): any {

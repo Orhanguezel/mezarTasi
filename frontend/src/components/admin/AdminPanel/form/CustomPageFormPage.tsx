@@ -18,10 +18,10 @@ import {
   useGetCustomPageAdminByIdQuery,
   useCreateCustomPageAdminMutation,
   useUpdateCustomPageAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/custom_pages_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/custom_pages_admin.endpoints";
 
 // 🔸 Category / SubCategory / Accessory ile aynı: public storage pattern
-import { useUploadToBucketMutation } from "@/integrations/metahub/rtk/endpoints/storage_public.endpoints";
+import { useUploadToBucketMutation } from "@/integrations/rtk/endpoints/storage_public.endpoints";
 
 import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
 import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";
@@ -32,7 +32,7 @@ import "react-quill/dist/quill.snow.css";
 import type {
   UpsertCustomPageBody,
   PatchCustomPageBody,
-} from "@/integrations/metahub/db/types/customPages";
+} from "@/integrations/rtk/types/customPages";
 
 const slugifyTr = (s: string) =>
   s

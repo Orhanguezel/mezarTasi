@@ -19,8 +19,8 @@ import {
   useUpdateServiceAdminMutation,
   useReorderServicesAdminMutation,
   useSetServiceStatusAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/services_admin.endpoints";
-import type { ServiceListParams } from "@/integrations/metahub/db/types/services.types";
+} from "@/integrations/rtk/endpoints/admin/services_admin.endpoints";
+import type { ServiceListParams } from "@/integrations/rtk/types/services.types";
 
 type Row = {
   id: string;
@@ -189,7 +189,7 @@ export default function TabsServices() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Yenile
           </Button>
-          <Button onClick={onAdd} className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button onClick={onAdd} className="bg-emerald-600 hover:bg-emerald-700 text-white">
             <Plus className="h-4 w-4 mr-2" />
             Yeni Servis
           </Button>

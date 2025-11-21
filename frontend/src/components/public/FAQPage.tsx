@@ -1,8 +1,8 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../ui/accordion";
 import backgroundImage from "figma:asset/0a9012ca17bfb48233c0877277b7fb8427a12d4c.png";
-import { useListFaqsQuery } from "@/integrations/metahub/rtk/endpoints/faqs.endpoints";
+import { useListFaqsQuery } from "@/integrations/rtk/endpoints/faqs.endpoints";
 import { faqsFallback } from "@/data/faqsFallback";
-import type { Faq } from "@/integrations/metahub/db/types/faqs";
+import type { Faq } from "@/integrations/rtk/types/faqs";
 
 interface FAQPageProps {
   onNavigate: (page: string) => void;
@@ -34,8 +34,8 @@ function normalizeFaqs(list: FaqLike[]): Faq[] {
         typeof item.display_order === "number"
           ? item.display_order
           : Number.isFinite(item.display_order as any)
-          ? Number(item.display_order)
-          : i + 1,
+            ? Number(item.display_order)
+            : i + 1,
     };
 
     // Opsiyonelleri sadece string ise ekle
@@ -236,7 +236,7 @@ export function FAQPage({ onNavigate }: FAQPageProps) {
             </div>
           </div>
         </div>
-      </div> 
+      </div>
     </div>
   );
 }

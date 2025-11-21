@@ -18,8 +18,8 @@ import {
   useCreateReviewAdminMutation,
   useUpdateReviewAdminMutation,
   useDeleteReviewAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/reviews_admin.endpoints";
-import type { ReviewCreateInput } from "@/integrations/metahub/db/types/reviews";
+} from "@/integrations/rtk/endpoints/admin/reviews_admin.endpoints";
+import type { ReviewCreateInput } from "@/integrations/rtk/types/reviews";
 
 export default function ReviewFormPage() {
   const navigate = useNavigate();
@@ -61,12 +61,12 @@ export default function ReviewFormPage() {
 
   const set =
     (k: keyof ReviewCreateInput) =>
-    (e: any) => {
-      const t = e?.target;
-      let v = t?.value ?? e;
-      if (k === "rating" || k === "display_order") v = Number(v);
-      setForm((s) => ({ ...s, [k]: v }));
-    };
+      (e: any) => {
+        const t = e?.target;
+        let v = t?.value ?? e;
+        if (k === "rating" || k === "display_order") v = Number(v);
+        setForm((s) => ({ ...s, [k]: v }));
+      };
   const setToggle = (k: keyof ReviewCreateInput) => (v: boolean) =>
     setForm((s) => ({ ...s, [k]: v }));
 

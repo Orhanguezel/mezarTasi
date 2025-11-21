@@ -7,11 +7,11 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import {
   useGetSimpleCampaignByIdQuery,
-} from "@/integrations/metahub/rtk/endpoints/campaigns.endpoints";
+} from "@/integrations/rtk/endpoints/campaigns.endpoints";
 import {
   useGetAnnouncementByIdQuery,
-} from "@/integrations/metahub/rtk/endpoints/announcements.endpoints";
-import type { SimpleCampaignView } from "@/integrations/metahub/db/types/campaigns";
+} from "@/integrations/rtk/endpoints/announcements.endpoints";
+import type { SimpleCampaignView } from "@/integrations/rtk/types/campaigns";
 
 const placeholderImg =
   "https://images.unsplash.com/photo-1556740749-887f6717d7e4?w=800&h=500&fit=crop";
@@ -44,15 +44,15 @@ export const CombinedDetailPage: React.FC<{
   const id = selected.id?.trim();
 
   const {
-     data: campaign,
-     isFetching: fetchingC,
-     isError: errorC,
+    data: campaign,
+    isFetching: fetchingC,
+    isError: errorC,
   } = useGetSimpleCampaignByIdQuery(id!, { skip: !isCampaign || !id });
 
   const {
-     data: announcement,
-     isFetching: fetchingA,
-     isError: errorA,
+    data: announcement,
+    isFetching: fetchingA,
+    isError: errorA,
   } = useGetAnnouncementByIdQuery(id!, { skip: isCampaign || !id });
 
   const isFetching = fetchingC || fetchingA;

@@ -17,18 +17,18 @@ import {
   useAdminSetProductImagesMutation,
   useAdminListCategoriesQuery,
   useAdminListSubcategoriesQuery,
-} from "@/integrations/metahub/rtk/endpoints/admin/products_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/products_admin.endpoints";
 import {
   useCreateAssetAdminMutation,
   useBulkCreateAssetsAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/storage_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/storage_admin.endpoints";
 import {
   useListProductFaqsQuery,
   useListProductSpecsQuery,
   useListProductReviewsQuery,
-} from "@/integrations/metahub/rtk/endpoints/products.endpoints";
+} from "@/integrations/rtk/endpoints/products.endpoints";
 
-import type { ProductRow } from "@/integrations/metahub/db/types/products.rows";
+import type { ProductRow } from "@/integrations/rtk/types/products.rows";
 
 /* Sections */
 import { BasicsSection } from "./sections/BasicsSection";

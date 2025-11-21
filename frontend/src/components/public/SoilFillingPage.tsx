@@ -19,8 +19,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useActiveSlidesRtk, type SlideData } from "../../data/sliderData";
 import backgroundImage from "figma:asset/0a9012ca17bfb48233c0877277b7fb8427a12d4c.png";
 
-import { useListServicesPublicQuery } from "@/integrations/metahub/rtk/endpoints/services_public.endpoints";
-import type { ServiceView } from "@/integrations/metahub/db/types/services.types";
+import { useListServicesPublicQuery } from "@/integrations/rtk/endpoints/services_public.endpoints";
+import type { ServiceView } from "@/integrations/rtk/types/services.types";
 
 /* =========================== Types =========================== */
 interface SoilFillingPageProps {
@@ -155,10 +155,10 @@ function normalizeSoilCategory(input?: string): SoilCat {
 function toSoilModel(s: ServiceView): SoilService {
   const baseKeyStr = String(
     (s as any).uuid ??
-      (s as any).id ??
-      (s as any).slug ??
-      (s as any).name ??
-      JSON.stringify(s)
+    (s as any).id ??
+    (s as any).slug ??
+    (s as any).name ??
+    JSON.stringify(s)
   );
 
   // fiyat metinleştir
@@ -303,9 +303,8 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
             {slides.map((slide, i) => (
               <div
                 key={`slide-${keyOfSlide(slide, i)}`}
-                className={`absolute inset-0 transition-transform duration-700 ease-in-out ${
-                  i === currentSlide ? "translate-x-0" : i < currentSlide ? "-translate-x-full" : "translate-x-full"
-                }`}
+                className={`absolute inset-0 transition-transform duration-700 ease-in-out ${i === currentSlide ? "translate-x-0" : i < currentSlide ? "-translate-x-full" : "translate-x-full"
+                  }`}
               >
                 <div className="relative w-full h-full">
                   <ImageWithFallback
@@ -340,9 +339,8 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
                 <button
                   key={`dot-${keyOfSlide(slide, i)}`}
                   onClick={() => setCurrentSlide(i)}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                    i === currentSlide ? "bg-white scale-125" : "bg-white bg-opacity-40 hover:bg-opacity-70"
-                  }`}
+                  className={`w-3 h-3 rounded-full transition-all duration-300 ${i === currentSlide ? "bg-white scale-125" : "bg-white bg-opacity-40 hover:bg-opacity-70"
+                    }`}
                 />
               ))}
             </div>
@@ -361,18 +359,16 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
                   key={`cat-${c.id}`}
                   onClick={() => setSelectedCategory(c.id)}
                   variant={selectedCategory === c.id ? "default" : "outline"}
-                  className={`px-5 py-2.5 rounded-full transition-all duration-300 text-sm ${
-                    selectedCategory === c.id
-                      ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
-                      : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
-                  }`}
+                  className={`px-5 py-2.5 rounded-full transition-all duration-300 text-sm ${selectedCategory === c.id
+                    ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
+                    : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
+                    }`}
                 >
                   {c.name}
                   <Badge
                     variant="secondary"
-                    className={`ml-2 text-xs ${
-                      selectedCategory === c.id ? "bg-teal-400 text-teal-900" : "bg-teal-100 text-teal-700"
-                    }`}
+                    className={`ml-2 text-xs ${selectedCategory === c.id ? "bg-teal-400 text-teal-900" : "bg-teal-100 text-teal-700"
+                      }`}
                   >
                     {c.count}
                   </Badge>
@@ -387,11 +383,10 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
                   key={`catm-${c.id}`}
                   onClick={() => setSelectedCategory(c.id)}
                   variant={selectedCategory === c.id ? "default" : "outline"}
-                  className={`px-3 py-3 h-auto rounded-lg transition-all duration-300 text-center ${
-                    selectedCategory === c.id
-                      ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
-                      : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
-                  }`}
+                  className={`px-3 py-3 h-auto rounded-lg transition-all duration-300 text-center ${selectedCategory === c.id
+                    ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
+                    : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
+                    }`}
                 >
                   <span className="text-base font-bold leading-tight text-center break-words hyphens-auto">
                     {c.name}

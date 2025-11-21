@@ -13,13 +13,13 @@ import { Switch } from "@/components/ui/switch";
 import {
   useListContactsAdminQuery,
   useRemoveContactAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/contacts_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/contacts_admin.endpoints";
 import type {
   ContactListParams,
   ContactStatus,
   ContactOrderBy,
   SortOrder,
-} from "@/integrations/metahub/db/types/contacts";
+} from "@/integrations/rtk/types/contacts";
 
 const PAGE_SIZES = [10, 20, 50] as const;
 

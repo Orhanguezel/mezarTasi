@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Check, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Section } from "./shared/Section";
-import type { ProductFaqRow } from "@/integrations/metahub/db/types/products.rows";
+import type { ProductFaqRow } from "@/integrations/rtk/types/products.rows";
 
 /* admin hooks */
 import {
@@ -21,7 +21,7 @@ import {
   useAdminDeleteProductFaqMutation,
   useAdminToggleFaqActiveMutation,
   useAdminReplaceFaqsMutation, // toplu kaydet
-} from "@/integrations/metahub/rtk/endpoints/admin/products_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/products_admin.endpoints";
 
 /** FE-local tip */
 type FaqItem = {
@@ -166,12 +166,12 @@ export function FaqsSection({ productId, faqs }: Props) {
           arr.map((x, i) =>
             i === idx
               ? {
-                  id: updated.id,
-                  question: updated.question,
-                  answer: updated.answer,
-                  display_order: updated.display_order,
-                  is_active: !!updated.is_active,
-                }
+                id: updated.id,
+                question: updated.question,
+                answer: updated.answer,
+                display_order: updated.display_order,
+                is_active: !!updated.is_active,
+              }
               : x
           )
         );
@@ -193,12 +193,12 @@ export function FaqsSection({ productId, faqs }: Props) {
           arr.map((x, i) =>
             i === idx
               ? {
-                  id: created.id,
-                  question: created.question,
-                  answer: created.answer,
-                  display_order: created.display_order,
-                  is_active: !!created.is_active,
-                }
+                id: created.id,
+                question: created.question,
+                answer: created.answer,
+                display_order: created.display_order,
+                is_active: !!created.is_active,
+              }
               : x
           )
         );

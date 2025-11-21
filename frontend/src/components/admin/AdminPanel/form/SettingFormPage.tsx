@@ -4,34 +4,26 @@
 "use client";
 
 import * as React from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Shield, Database, Download, UploadCloud } from "lucide-react";
-import TabsSettings from "@/components/admin/AdminPanel/Tabs/TabsSettings";
-import { useGetUserAdminQuery } from "@/integrations/metahub/rtk/endpoints/admin/users_admin.endpoints";
+import { ArrowLeft, Database, Download, UploadCloud } from "lucide-react";
 import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
 import { toast } from "sonner";
 
 import {
   useExportSqlMutation,
   useImportSqlFileMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/db_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/db_admin.endpoints";
 
 export default function SettingFormPage() {
-  const { id } = useParams() as { id?: string };
   const navigate = useNavigate();
-
-  // id zorunlu; yoksa uyarı göster
-  const userId = id ?? "";
-  const hasId = Boolean(userId);
-
-  const { data: user } = useGetUserAdminQuery(userId, { skip: !hasId });
 
   const onBack = (): void => {
     if (window.history.length) {
       window.history.back();
     } else {
-      navigate("/admin/users");
+      // Artık user ile ilgisi yok; ayarlar sekmesine dönelim
+      navigate("/admin/settings");
     }
   };
 
@@ -63,7 +55,7 @@ export default function SettingFormPage() {
     try {
       toast.loading("SQL dışa aktarılıyor…", { id: "sql-export" });
       const blob = await exportSql().unwrap();
-      downloadBlob(blob, filename);
+      downloadBlob(blob as unknown as Blob, filename);
       toast.success(`Dışa aktarıldı: ${filename}`, { id: "sql-export" });
     } catch (err: any) {
       const msg =
@@ -129,36 +121,10 @@ export default function SettingFormPage() {
           Geri
         </Button>
         <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Shield className="h-4 w-4" />
-          <span>Hesap Güvenliği & Veritabanı</span>
+          <Database className="h-4 w-4" />
+          <span>Veritabanı Yedekleme & Geri Yükleme</span>
         </div>
       </div>
-
-      {/* Kullanıcı bilgisi */}
-      {!hasId ? (
-        <Section title="Kullanıcı bulunamadı">
-          <p className="text-sm text-red-600">
-            URL parametresinden kullanıcı kimliği (id) alınamadı. Lütfen
-            /admin/users üzerinden bir kullanıcı seçin.
-          </p>
-        </Section>
-      ) : (
-        <>
-          <Section title="Kullanıcı">
-            <div className="text-sm text-gray-700 space-y-1">
-              <div>
-                <b>ID:</b> {userId}
-              </div>
-              <div>
-                <b>Email:</b> {user?.email ?? "—"}
-              </div>
-            </div>
-          </Section>
-
-          {/* Kullanıcı ayarları (şifre vs.) */}
-          <TabsSettings userId={userId} defaultTab="password" />
-        </>
-      )}
 
       {/* VERİTABANI YEDEKLEME / GERİ YÜKLEME */}
       <Section title="Veritabanı Yedekleme & Geri Yükleme">

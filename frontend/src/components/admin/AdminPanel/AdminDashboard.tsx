@@ -19,34 +19,34 @@ import {
   useAdminListProductsQuery,
   useAdminListCategoriesQuery,
   useAdminListSubcategoriesQuery,
-} from "@/integrations/metahub/rtk/endpoints/admin/products_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/products_admin.endpoints";
 
 // Users
-import { useListUsersAdminQuery } from "@/integrations/metahub/rtk/endpoints/admin/users_admin.endpoints";
+import { useAdminListQuery } from "@/integrations/rtk/endpoints/admin/auth_admin.endpoints";
 
 // Pages
-import { useListCustomPagesAdminQuery } from "@/integrations/metahub/rtk/endpoints/admin/custom_pages_admin.endpoints";
+import { useListCustomPagesAdminQuery } from "@/integrations/rtk/endpoints/admin/custom_pages_admin.endpoints";
 
 // Services
-import { useListServicesAdminQuery } from "@/integrations/metahub/rtk/endpoints/admin/services_admin.endpoints";
+import { useListServicesAdminQuery } from "@/integrations/rtk/endpoints/admin/services_admin.endpoints";
 
 // Contacts
-import { useListContactsAdminQuery } from "@/integrations/metahub/rtk/endpoints/admin/contacts_admin.endpoints";
+import { useListContactsAdminQuery } from "@/integrations/rtk/endpoints/admin/contacts_admin.endpoints";
 
 // Sliders
-import { useAdminListSlidesQuery } from "@/integrations/metahub/rtk/endpoints/admin/sliders_admin.endpoints";
+import { useAdminListSlidesQuery } from "@/integrations/rtk/endpoints/admin/sliders_admin.endpoints";
 
 // Accessories
-import { useAdminListAccessoriesQuery } from "@/integrations/metahub/rtk/endpoints/admin/accessories_admin.endpoints";
+import { useAdminListAccessoriesQuery } from "@/integrations/rtk/endpoints/admin/accessories_admin.endpoints";
 
 // Campaigns
-import { useListCampaignsAdminQuery } from "@/integrations/metahub/rtk/endpoints/admin/campaigns_admin.endpoints";
+import { useListCampaignsAdminQuery } from "@/integrations/rtk/endpoints/admin/campaigns_admin.endpoints";
 
 // Announcements
-import { useListAnnouncementsAdminQuery } from "@/integrations/metahub/rtk/endpoints/admin/announcements_admin.endpoints";
+import { useListAnnouncementsAdminQuery } from "@/integrations/rtk/endpoints/admin/announcements_admin.endpoints";
 
 // Reviews (ürün yorumları)
-import { useListReviewsAdminQuery } from "@/integrations/metahub/rtk/endpoints/admin/reviews_admin.endpoints";
+import { useListReviewsAdminQuery } from "@/integrations/rtk/endpoints/admin/reviews_admin.endpoints";
 
 /* ====================================================== */
 
@@ -59,18 +59,18 @@ export default function AdminDashboard() {
     Array.isArray(v) ? v.length : Array.isArray(v?.items) ? v.items.length : Array.isArray(v?.data) ? v.data.length : 0;
 
   /* ----- SAYILAR ----- */
-  const { data: productsAll }       = useAdminListProductsQuery({ limit: 1000 }, qopts);
-  const { data: categories }        = useAdminListCategoriesQuery(undefined, qopts);
-  const { data: subcategories }     = useAdminListSubcategoriesQuery(undefined, qopts);
-  const { data: usersAll }          = useListUsersAdminQuery({ limit: 200 }, qopts);
-  const { data: pagesAll }          = useListCustomPagesAdminQuery({ limit: 200 }, qopts);
-  const { data: servicesAll }       = useListServicesAdminQuery({ limit: 200 }, qopts);
-  const { data: contactsAll }       = useListContactsAdminQuery({ limit: 200 }, qopts);
-  const { data: slidersAll }        = useAdminListSlidesQuery({ limit: 200 }, qopts);
-  const { data: accessoriesAll }    = useAdminListAccessoriesQuery({ limit: 200 }, qopts);
-  const { data: campaignsAll }      = useListCampaignsAdminQuery({ limit: 200 }, qopts);
-  const { data: announcementsAll }  = useListAnnouncementsAdminQuery({ limit: 200 }, qopts);
-  const { data: reviewsAll }        = useListReviewsAdminQuery({ limit: 200 }, qopts);
+  const { data: productsAll } = useAdminListProductsQuery({ limit: 1000 }, qopts);
+  const { data: categories } = useAdminListCategoriesQuery(undefined, qopts);
+  const { data: subcategories } = useAdminListSubcategoriesQuery(undefined, qopts);
+  const { data: usersAll } = useAdminListQuery({ limit: 200 }, qopts);
+  const { data: pagesAll } = useListCustomPagesAdminQuery({ limit: 200 }, qopts);
+  const { data: servicesAll } = useListServicesAdminQuery({ limit: 200 }, qopts);
+  const { data: contactsAll } = useListContactsAdminQuery({ limit: 200 }, qopts);
+  const { data: slidersAll } = useAdminListSlidesQuery({ limit: 200 }, qopts);
+  const { data: accessoriesAll } = useAdminListAccessoriesQuery({ limit: 200 }, qopts);
+  const { data: campaignsAll } = useListCampaignsAdminQuery({ limit: 200 }, qopts);
+  const { data: announcementsAll } = useListAnnouncementsAdminQuery({ limit: 200 }, qopts);
+  const { data: reviewsAll } = useListReviewsAdminQuery({ limit: 200 }, qopts);
 
   /* ----- SON KAYITLAR (tablolar) ----- */
   const { data: latestProducts } = useAdminListProductsQuery(
@@ -78,24 +78,24 @@ export default function AdminDashboard() {
     qopts
   );
 
-  const { data: latestUsers } = useListUsersAdminQuery(
+  const { data: latestUsers } = useAdminListQuery(
     { limit: 8, sort: "created_at", order: "desc" },
     qopts
   );
 
   const stats: Array<{ label: string; value: number | string; icon: LucideIcon; onClick: () => void }> = [
-    { label: "Ürünler",         value: len(productsAll),      icon: Box,         onClick: () => navigate("/admin/products") },
-    { label: "Kategoriler",     value: len(categories),       icon: Grid2X2,     onClick: () => navigate("/admin/categories") },
-    { label: "Alt Kategoriler", value: len(subcategories),    icon: Layers3,     onClick: () => navigate("/admin/subcategories") },
-    { label: "Kullanıcılar",    value: len(usersAll),         icon: Users,       onClick: () => navigate("/admin/users") },
-    { label: "Sayfalar",        value: len(pagesAll),         icon: FileText,    onClick: () => navigate("/admin/pages") },
-    { label: "Hizmetler",       value: len(servicesAll),      icon: Sparkles,    onClick: () => navigate("/admin/services") },
-    { label: "İletişim",        value: len(contactsAll),      icon: MessageSquare,onClick: () => navigate("/admin/contacts") },
-    { label: "Slider",          value: len(slidersAll),       icon: Images,      onClick: () => navigate("/admin/sliders") },
-    { label: "Aksesuarlar",     value: len(accessoriesAll),   icon: Tag,         onClick: () => navigate("/admin/accessories") },
-    { label: "Kampanyalar",     value: len(campaignsAll),     icon: Megaphone,   onClick: () => navigate("/admin/campaigns") },
-    { label: "Duyurular",       value: len(announcementsAll), icon: Bell,        onClick: () => navigate("/admin/announcements") },
-    { label: "Yorumlar",        value: len(reviewsAll),       icon: Star,        onClick: () => navigate("/admin/reviews") },
+    { label: "Ürünler", value: len(productsAll), icon: Box, onClick: () => navigate("/admin/products") },
+    { label: "Kategoriler", value: len(categories), icon: Grid2X2, onClick: () => navigate("/admin/categories") },
+    { label: "Alt Kategoriler", value: len(subcategories), icon: Layers3, onClick: () => navigate("/admin/subcategories") },
+    { label: "Kullanıcılar", value: len(usersAll), icon: Users, onClick: () => navigate("/admin/users") },
+    { label: "Sayfalar", value: len(pagesAll), icon: FileText, onClick: () => navigate("/admin/pages") },
+    { label: "Hizmetler", value: len(servicesAll), icon: Sparkles, onClick: () => navigate("/admin/services") },
+    { label: "İletişim", value: len(contactsAll), icon: MessageSquare, onClick: () => navigate("/admin/contacts") },
+    { label: "Slider", value: len(slidersAll), icon: Images, onClick: () => navigate("/admin/sliders") },
+    { label: "Aksesuarlar", value: len(accessoriesAll), icon: Tag, onClick: () => navigate("/admin/accessories") },
+    { label: "Kampanyalar", value: len(campaignsAll), icon: Megaphone, onClick: () => navigate("/admin/campaigns") },
+    { label: "Duyurular", value: len(announcementsAll), icon: Bell, onClick: () => navigate("/admin/announcements") },
+    { label: "Yorumlar", value: len(reviewsAll), icon: Star, onClick: () => navigate("/admin/reviews") },
   ];
 
   return (

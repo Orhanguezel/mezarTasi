@@ -1,6 +1,6 @@
 // FILE: src/components/public/ContactInfo.tsx
 import { Phone, Mail, MapPin } from "lucide-react";
-import { useListSiteSettingsQuery } from "@/integrations/metahub/rtk/endpoints/site_settings.endpoints";
+import { useListSiteSettingsQuery } from "@/integrations/rtk/endpoints/site_settings.endpoints";
 
 export function ContactInfo() {
   // İhtiyacımız olan key’leri tek istekte çekiyoruz

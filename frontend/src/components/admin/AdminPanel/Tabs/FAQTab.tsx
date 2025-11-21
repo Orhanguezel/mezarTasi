@@ -12,8 +12,8 @@ import {
   useListFaqsAdminQuery,
   useRemoveFaqAdminMutation,
   useUpdateFaqAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/faqs_admin.endpoints";
-import type { FaqListParams, Faq } from "@/integrations/metahub/db/types/faqs";
+} from "@/integrations/rtk/endpoints/admin/faqs_admin.endpoints";
+import type { FaqListParams, Faq } from "@/integrations/rtk/types/faqs";
 
 export default function TabsFAQ() {
   const navigate = useNavigate();

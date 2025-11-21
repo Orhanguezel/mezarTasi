@@ -17,7 +17,7 @@ import {
   useDeleteAnnouncementAdminMutation,
   useUpdateAnnouncementAdminMutation,
   useReorderAnnouncementsAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/announcements_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/announcements_admin.endpoints";
 
 type Row = {
   id: string;
@@ -94,23 +94,23 @@ export default function AnnouncementsTab() {
   };
 
   const move = (id: string, dir: "up" | "down") => {
-  setRows((arr) => {
-    const idx = arr.findIndex((x) => x.id === id);
-    if (idx < 0) return arr;
+    setRows((arr) => {
+      const idx = arr.findIndex((x) => x.id === id);
+      if (idx < 0) return arr;
 
-    const j = dir === "up" ? idx - 1 : idx + 1;
-    if (j < 0 || j >= arr.length) return arr;
+      const j = dir === "up" ? idx - 1 : idx + 1;
+      if (j < 0 || j >= arr.length) return arr;
 
-    const copy = [...arr];
-    const a = copy[idx]!; // <-- non-null assertion
-    const b = copy[j]!;   // <-- non-null assertion
-    copy[idx] = b;
-    copy[j] = a;
+      const copy = [...arr];
+      const a = copy[idx]!; // <-- non-null assertion
+      const b = copy[j]!;   // <-- non-null assertion
+      copy[idx] = b;
+      copy[j] = a;
 
-    copy.forEach((r, i) => { r.display_order = i + 1; });
-    return copy;
-  });
-};
+      copy.forEach((r, i) => { r.display_order = i + 1; });
+      return copy;
+    });
+  };
 
 
   const saveOrder = async () => {
@@ -154,7 +154,7 @@ export default function AnnouncementsTab() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Yenile
           </Button>
-          <Button onClick={onAdd} className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button onClick={onAdd} className="bg-emerald-600 hover:bg-emerald-700 text-white">
             <Plus className="h-4 w-4 mr-2" />
             Yeni Duyuru
           </Button>

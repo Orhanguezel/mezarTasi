@@ -9,7 +9,7 @@ import backgroundImage from "figma:asset/49bae4cd4b172781dc5d9ea5d642274ea5ea27b
 import { getAboutPageData } from "../../data/pageContent";
 
 // RTK – custom_pages
-import { useGetCustomPageBySlugQuery } from "@/integrations/metahub/rtk/endpoints/custom_pages.endpoints";
+import { useGetCustomPageBySlugQuery } from "@/integrations/rtk/endpoints/custom_pages.endpoints";
 
 interface AboutPageProps {
   onNavigate: (page: string) => void;
@@ -85,7 +85,7 @@ export function AboutPage({ onNavigate }: AboutPageProps) {
                     className="prose prose-teal max-w-none text-gray-700 leading-relaxed text-sm md:text-base"
                     dangerouslySetInnerHTML={{ __html: htmlContent }}
                   />
-                  
+
 
                   {/* Popüler linkler (statik fallback içeriği) */}
                   <div className="mt-6 md:mt-8 pt-6 border-t border-gray-200">
@@ -120,14 +120,14 @@ export function AboutPage({ onNavigate }: AboutPageProps) {
               <div className="lg:w-1/3">
                 <div className="lg:sticky lg:top-8">
                   {/* Sağ üstteki boş çerçeve içine logo */}
-<div className="w-full h-48 md:h-64 bg-white rounded-lg shadow-lg overflow-hidden flex items-center justify-center">
-  <img
-    src="/mezartasi.png"            // public/mezartasi.png
-    alt="Mezartaşı – marka görseli"
-    className="max-w-full max-h-full object-contain"
-    loading="lazy"
-  />
-</div>
+                  <div className="w-full h-48 md:h-64 bg-white rounded-lg shadow-lg overflow-hidden flex items-center justify-center">
+                    <img
+                      src="/mezartasi.png"            // public/mezartasi.png
+                      alt="Mezartaşı – marka görseli"
+                      className="max-w-full max-h-full object-contain"
+                      loading="lazy"
+                    />
+                  </div>
 
 
                   <div className="bg-teal-50 p-4 md:p-6 rounded-lg mt-6">

@@ -20,10 +20,10 @@ import {
   useUpdateCategoryAdminMutation,
   useToggleActiveCategoryAdminMutation,
   useToggleFeaturedCategoryAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/categories_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/categories_admin.endpoints";
 
 // 🔸 ADMIN STORAGE kullanıyoruz
-import { useCreateAssetAdminMutation } from "@/integrations/metahub/rtk/endpoints/admin/storage_admin.endpoints";
+import { useCreateAssetAdminMutation } from "@/integrations/rtk/endpoints/admin/storage_admin.endpoints";
 
 import { Section } from "@/components/admin/AdminPanel/form/sections/shared/Section";
 import { CoverImageSection } from "@/components/admin/AdminPanel/form/sections/CoverImageSection";

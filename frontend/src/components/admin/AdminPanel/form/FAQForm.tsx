@@ -14,8 +14,8 @@ import {
   useGetFaqAdminQuery,
   useCreateFaqAdminMutation,
   useUpdateFaqAdminMutation,
-} from "@/integrations/metahub/rtk/endpoints/admin/faqs_admin.endpoints";
-import type { UpsertFaqInput } from "@/integrations/metahub/rtk/endpoints/admin/faqs_admin.endpoints";
+} from "@/integrations/rtk/endpoints/admin/faqs_admin.endpoints";
+import type { UpsertFaqInput } from "@/integrations/rtk/endpoints/admin/faqs_admin.endpoints";
 
 // replaceAll kullanmadan TR uyumlu slugify
 function slugifyTR(src: string) {

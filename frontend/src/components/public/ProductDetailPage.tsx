@@ -17,18 +17,18 @@ import {
   useListProductFaqsQuery,
   useListProductSpecsQuery,
   useListProductReviewsQuery,
-} from "@/integrations/metahub/rtk/endpoints/products.endpoints";
+} from "@/integrations/rtk/endpoints/products.endpoints";
 
-import { useListSiteSettingsQuery } from "@/integrations/metahub/rtk/endpoints/site_settings.endpoints";
-import { useCreateContactMutation } from "@/integrations/metahub/rtk/endpoints/contacts.endpoints";
-import type { ContactCreateInput } from "@/integrations/metahub/db/types/contacts";
+import { useListSiteSettingsQuery } from "@/integrations/rtk/endpoints/site_settings.endpoints";
+import { useCreateContactMutation } from "@/integrations/rtk/endpoints/contacts.endpoints";
+import type { ContactCreateInput } from "@/integrations/rtk/types/contacts";
 
 import {
   type Product as ApiProduct,
   type ProductReviewRow,
   type ProductSpecRow,
   type ProductFaqRow,
-} from "@/integrations/metahub/db/types/products.rows";
+} from "@/integrations/rtk/types/products.rows";
 
 // ---- specs normalize
 function normalizeSpecs(specs: unknown): Record<string, string> {
@@ -436,9 +436,8 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
         {Array.from({ length: 5 }).map((_, i) => (
           <Star
             key={i}
-            className={`w-4 h-4 ${
-              i < r ? "text-yellow-400 fill-current" : "text-gray-300"
-            } mx-0.5`}
+            className={`w-4 h-4 ${i < r ? "text-yellow-400 fill-current" : "text-gray-300"
+              } mx-0.5`}
           />
         ))}
       </div>
@@ -489,11 +488,10 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                   <button
                     key={`${product.id}-${idx}`}
                     onClick={() => setCurrentImageIndex(idx)}
-                    className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                      idx === currentImageIndex
-                        ? "border-teal-500 ring-2 ring-teal-200"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
+                    className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${idx === currentImageIndex
+                      ? "border-teal-500 ring-2 ring-teal-200"
+                      : "border-gray-200 hover:border-gray-300"
+                      }`}
                   >
                     <ImageWithFallback
                       src={img}
@@ -596,10 +594,10 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
 
                     {(specsLoading ||
                       (!Object.keys(specsMerged).length && specsRows.length === 0)) && (
-                      <p className="text-sm text-gray-500">
-                        Teknik özellikler yükleniyor…
-                      </p>
-                    )}
+                        <p className="text-sm text-gray-500">
+                          Teknik özellikler yükleniyor…
+                        </p>
+                      )}
                   </div>
                 </div>
               </div>
@@ -632,22 +630,21 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                         className="flex transition-transform duration-500 ease-in-out"
                         style={{
                           width: `${reviewCount * 100}%`,
-                          transform: `translateX(-${
-                            (currentReviewIndex * 100) / reviewCount
-                          }%)`,
+                          transform: `translateX(-${(currentReviewIndex * 100) / reviewCount
+                            }%)`,
                         }}
                       >
                         {(reviews.length
                           ? reviews
                           : [
-                              {
-                                id: "placeholder",
-                                rating: 5,
-                                comment: "Yorumlar yükleniyor…",
-                                customer_name: "",
-                                is_active: 1,
-                              } as any,
-                            ]
+                            {
+                              id: "placeholder",
+                              rating: 5,
+                              comment: "Yorumlar yükleniyor…",
+                              customer_name: "",
+                              is_active: 1,
+                            } as any,
+                          ]
                         ).map((review: ProductReviewRow | any, i: number) => (
                           <div
                             key={(review as ProductReviewRow).id ?? `rev-${i}`}
@@ -709,11 +706,10 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                             <button
                               key={idx}
                               onClick={() => setCurrentReviewIndex(idx)}
-                              className={`transition-all duration-300 rounded-full ${
-                                idx === currentReviewIndex
-                                  ? "w-6 h-2 bg-teal-500"
-                                  : "w-2 h-2 bg-gray-300 hover:bg-gray-400"
-                              }`}
+                              className={`transition-all duration-300 rounded-full ${idx === currentReviewIndex
+                                ? "w-6 h-2 bg-teal-500"
+                                : "w-2 h-2 bg-gray-300 hover:bg-gray-400"
+                                }`}
                               aria-label={`${idx + 1}. yoruma git`}
                             />
                           ))}
@@ -960,14 +956,14 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                         </h4>
                         <p className="text-2xl font-bold text-gray-800 mb-4">
                           {typeof popularProducts[currentPopularIndex]?.price ===
-                          "number"
+                            "number"
                             ? (
-                                popularProducts[currentPopularIndex]
-                                  ?.price as number
-                              ).toLocaleString("tr-TR")
+                              popularProducts[currentPopularIndex]
+                                ?.price as number
+                            ).toLocaleString("tr-TR")
                             : String(
-                                popularProducts[currentPopularIndex]?.price ?? ""
-                              )}
+                              popularProducts[currentPopularIndex]?.price ?? ""
+                            )}
                         </p>
                         <Button
                           onClick={handlePopularClick}
@@ -991,11 +987,10 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                         {popularProducts.map((_, idx) => (
                           <div
                             key={idx}
-                            className={`w-2 h-2 rounded-full ${
-                              idx === currentPopularIndex
-                                ? "bg-teal-500"
-                                : "bg-gray-300"
-                            }`}
+                            className={`w-2 h-2 rounded-full ${idx === currentPopularIndex
+                              ? "bg-teal-500"
+                              : "bg-gray-300"
+                              }`}
                           />
                         ))}
                       </div>
@@ -1058,9 +1053,8 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
               <div
                 className="flex transition-transform duration-500 ease-in-out"
                 style={{
-                  transform: `translateX(-${
-                    currentSimilarIndex * (100 / itemsPerView.desktop)
-                  }%)`,
+                  transform: `translateX(-${currentSimilarIndex * (100 / itemsPerView.desktop)
+                    }%)`,
                 }}
               >
                 {similarProducts.map((sp) => (
@@ -1174,11 +1168,10 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                 <button
                   key={idx}
                   onClick={() => setCurrentSimilarIndex(idx)}
-                  className={`transition-all duration-300 rounded-full ${
-                    Math.floor(currentSimilarIndex / itemsPerView.desktop) === idx
-                      ? "w-8 h-3 bg-teal-500"
-                      : "w-3 h-3 bg-gray-300 hover:bg-gray-400"
-                  }`}
+                  className={`transition-all duration-300 rounded-full ${Math.floor(currentSimilarIndex / itemsPerView.desktop) === idx
+                    ? "w-8 h-3 bg-teal-500"
+                    : "w-3 h-3 bg-gray-300 hover:bg-gray-400"
+                    }`}
                   aria-label={`${idx + 1}. ürün grubuna git`}
                 />
               ))}

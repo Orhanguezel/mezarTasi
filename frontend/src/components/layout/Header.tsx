@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { Menu, X, ChevronDown, ChevronUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useListSiteSettingsQuery } from "@/integrations/metahub/rtk/endpoints/site_settings.endpoints";
+import { useListSiteSettingsQuery } from "@/integrations/rtk/endpoints/site_settings.endpoints";
 
 interface HeaderProps {
   currentPage: string;
@@ -179,16 +179,14 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
 
         {/* Mobile Menu */}
         <div
-          className={`bg-teal-500 border-t border-teal-400 transition-all duration-300 ease-in-out overflow-hidden ${
-            isMobileMenuOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0"
-          }`}
+          className={`bg-teal-500 border-t border-teal-400 transition-all duration-300 ease-in-out overflow-hidden ${isMobileMenuOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0"
+            }`}
         >
           <div className="px-4 py-2">
             <button
               onClick={() => handleMobileNavigation("home", "/")}
-              className={`w-full text-left py-3 px-2 border-b border-teal-400 font-medium text-white hover:bg-teal-600 transition-colors ${
-                currentPage === "home" ? "bg-teal-600" : ""
-              }`}
+              className={`w-full text-left py-3 px-2 border-b border-teal-400 font-medium text-white hover:bg-teal-600 transition-colors ${currentPage === "home" ? "bg-teal-600" : ""
+                }`}
             >
               ANASAYFA
             </button>
@@ -204,26 +202,24 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
               </button>
 
               <div
-                className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                  isKurumsalOpen ? "max-h-60 opacity-100" : "max-h-0 opacity-0"
-                }`}
+                className={`transition-all duration-300 ease-in-out overflow-hidden ${isKurumsalOpen ? "max-h-60 opacity-100" : "max-h-0 opacity-0"
+                  }`}
               >
                 <div className="pl-4 pb-2">
                   {(menuKurumsal.length
                     ? menuKurumsal
                     : [
-                        { title: "HAKKIMIZDA", path: "/about", pageKey: "about" },
-                        { title: "MİSYONUMUZ - VİZYONUMUZ", path: "/mission", pageKey: "mission" },
-                        { title: "KALİTE POLİTİKAMIZ", path: "/quality", pageKey: "quality" },
-                        { title: "S.S.S.", path: "/faq", pageKey: "faq" },
-                      ]
+                      { title: "HAKKIMIZDA", path: "/about", pageKey: "about" },
+                      { title: "MİSYONUMUZ - VİZYONUMUZ", path: "/mission", pageKey: "mission" },
+                      { title: "KALİTE POLİTİKAMIZ", path: "/quality", pageKey: "quality" },
+                      { title: "S.S.S.", path: "/faq", pageKey: "faq" },
+                    ]
                   ).map((m) => (
                     <button
                       key={m.title}
                       onClick={() => handleMobileNavigation(m.pageKey ?? "", m.path)}
-                      className={`block w-full text-left py-2 px-2 text-sm text-white hover:bg-teal-600 transition-colors ${
-                        currentPage === m.pageKey ? "bg-teal-600" : ""
-                      }`}
+                      className={`block w-full text-left py-2 px-2 text-sm text-white hover:bg-teal-600 transition-colors ${currentPage === m.pageKey ? "bg-teal-600" : ""
+                        }`}
                     >
                       {m.title}
                     </button>
@@ -234,27 +230,24 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
 
             <button
               onClick={() => handleMobileNavigation("pricing", "/pricing")}
-              className={`w-full text-left py-3 px-2 border-b border-teal-400 font-medium text-white hover:bg-teal-600 transition-colors ${
-                currentPage === "pricing" ? "bg-teal-600" : ""
-              }`}
+              className={`w-full text-left py-3 px-2 border-b border-teal-400 font-medium text-white hover:bg-teal-600 transition-colors ${currentPage === "pricing" ? "bg-teal-600" : ""
+                }`}
             >
               MEZAR MODELLERİ
             </button>
 
             <button
               onClick={() => handleMobileNavigation("models", "/models")}
-              className={`w-full text-left py-3 px-2 border-b border-teal-400 font-medium text-white hover:bg-teal-600 transition-colors ${
-                currentPage === "models" ? "bg-teal-600" : ""
-              }`}
+              className={`w-full text-left py-3 px-2 border-b border-teal-400 font-medium text-white hover:bg-teal-600 transition-colors ${currentPage === "models" ? "bg-teal-600" : ""
+                }`}
             >
               MEZAR BAŞ TAŞI MODELLERİ
             </button>
 
             <button
               onClick={() => handleMobileNavigation("accessories", "/accessories")}
-              className={`w-full text-left py-3 px-2 border-b border-teal-400 font-medium text-white hover:bg-teal-600 transition-colors ${
-                currentPage === "accessories" ? "bg-teal-600" : ""
-              }`}
+              className={`w-full text-left py-3 px-2 border-b border-teal-400 font-medium text-white hover:bg-teal-600 transition-colors ${currentPage === "accessories" ? "bg-teal-600" : ""
+                }`}
             >
               MEZAR AKSESUARLARI
             </button>
@@ -269,24 +262,22 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
               </button>
 
               <div
-                className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                  isDigerHizmetlerOpen ? "max-h-32 opacity-100" : "max-h-0 opacity-0"
-                }`}
+                className={`transition-all duration-300 ease-in-out overflow-hidden ${isDigerHizmetlerOpen ? "max-h-32 opacity-100" : "max-h-0 opacity-0"
+                  }`}
               >
                 <div className="pl-4 pb-2">
                   {(menuOther.length
                     ? menuOther
                     : [
-                        { title: "MEZAR ÇİÇEKLENDİRME", path: "/gardening", pageKey: "gardening" },
-                        { title: "MEZAR TOPRAK DOLDURUMU", path: "/soilfilling", pageKey: "soilfilling" },
-                      ]
+                      { title: "MEZAR ÇİÇEKLENDİRME", path: "/gardening", pageKey: "gardening" },
+                      { title: "MEZAR TOPRAK DOLDURUMU", path: "/soilfilling", pageKey: "soilfilling" },
+                    ]
                   ).map((m) => (
                     <button
                       key={m.title}
                       onClick={() => handleMobileNavigation(m.pageKey ?? "", m.path)}
-                      className={`block w-full text-left py-2 px-2 text-sm text-white hover:bg-teal-600 transition-colors ${
-                        currentPage === m.pageKey ? "bg-teal-600" : ""
-                      }`}
+                      className={`block w-full text-left py-2 px-2 text-sm text-white hover:bg-teal-600 transition-colors ${currentPage === m.pageKey ? "bg-teal-600" : ""
+                        }`}
                     >
                       {m.title}
                     </button>
@@ -297,9 +288,8 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
 
             <button
               onClick={() => handleMobileNavigation("contact", "/contact")}
-              className={`w-full text-left py-3 px-2 border-b border-teal-400 font-medium text-white hover:bg-teal-600 transition-colors ${
-                currentPage === "contact" ? "bg-teal-600" : ""
-              }`}
+              className={`w-full text-left py-3 px-2 border-b border-teal-400 font-medium text-white hover:bg-teal-600 transition-colors ${currentPage === "contact" ? "bg-teal-600" : ""
+                }`}
             >
               İLETİŞİM
             </button>
@@ -372,9 +362,8 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
               <div className="flex items-center space-x-1">
                 <button
                   onClick={() => go("home", "/")}
-                  className={`py-3 px-4 hover:bg-teal-600 transition-colors text-sm uppercase font-bold whitespace-nowrap ${
-                    currentPage === "home" ? "bg-teal-600" : ""
-                  }`}
+                  className={`py-3 px-4 hover:bg-teal-600 transition-colors text-sm uppercase font-bold whitespace-nowrap ${currentPage === "home" ? "bg-teal-600" : ""
+                    }`}
                 >
                   ANASAYFA
                 </button>
@@ -383,9 +372,8 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
                 <div className="relative" data-dropdown="kurumsal">
                   <button
                     onClick={handleDesktopKurumsalClick}
-                    className={`py-3 px-4 hover:bg-teal-600 transition-colors text-sm uppercase font-bold whitespace-nowrap flex items-center space-x-1 ${
-                      isDesktopKurumsalOpen ? "bg-teal-600" : ""
-                    }`}
+                    className={`py-3 px-4 hover:bg-teal-600 transition-colors text-sm uppercase font-bold whitespace-nowrap flex items-center space-x-1 ${isDesktopKurumsalOpen ? "bg-teal-600" : ""
+                      }`}
                   >
                     <span>KURUMSAL</span>
                     <ChevronDown
@@ -399,20 +387,19 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
                       {(menuKurumsal.length
                         ? menuKurumsal
                         : [
-                            { title: "HAKKIMIZDA", path: "/about", pageKey: "about" },
-                            { title: "MİSYONUMUZ - VİZYONUMUZ", path: "/mission", pageKey: "mission" },
-                            { title: "KALİTE POLİTİKAMIZ", path: "/quality", pageKey: "quality" },
-                            { title: "S.S.S.", path: "/faq", pageKey: "faq" },
-                          ]
+                          { title: "HAKKIMIZDA", path: "/about", pageKey: "about" },
+                          { title: "MİSYONUMUZ - VİZYONUMUZ", path: "/mission", pageKey: "mission" },
+                          { title: "KALİTE POLİTİKAMIZ", path: "/quality", pageKey: "quality" },
+                          { title: "S.S.S.", path: "/faq", pageKey: "faq" },
+                        ]
                       ).map((m, i, arr) => {
                         const isLast = i === arr.length - 1;
                         return (
                           <button
                             key={m.title}
                             onClick={() => handleDropdownNavigation(m.pageKey ?? "", m.path)}
-                            className={`block w-full text-left py-3 px-4 text-white hover:bg-teal-600 ${!isLast ? "border-b border-teal-600" : "rounded-b-lg"} text-sm font-bold uppercase transition-colors ${
-                              currentPage === m.pageKey ? "bg-teal-600" : ""
-                            }`}
+                            className={`block w-full text-left py-3 px-4 text-white hover:bg-teal-600 ${!isLast ? "border-b border-teal-600" : "rounded-b-lg"} text-sm font-bold uppercase transition-colors ${currentPage === m.pageKey ? "bg-teal-600" : ""
+                              }`}
                           >
                             {m.title}
                           </button>
@@ -424,27 +411,24 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
 
                 <button
                   onClick={() => go("pricing", "/pricing")}
-                  className={`py-3 px-4 hover:bg-teal-600 transition-colors text-sm uppercase font-bold whitespace-nowrap ${
-                    currentPage === "pricing" ? "bg-teal-600" : ""
-                  }`}
+                  className={`py-3 px-4 hover:bg-teal-600 transition-colors text-sm uppercase font-bold whitespace-nowrap ${currentPage === "pricing" ? "bg-teal-600" : ""
+                    }`}
                 >
                   MEZAR MODELLERİ
                 </button>
 
                 <button
                   onClick={() => go("models", "/models")}
-                  className={`py-3 px-4 hover:bg-teal-600 transition-colors text-sm uppercase font-bold whitespace-nowrap ${
-                    currentPage === "models" ? "bg-teal-600" : ""
-                  }`}
+                  className={`py-3 px-4 hover:bg-teal-600 transition-colors text-sm uppercase font-bold whitespace-nowrap ${currentPage === "models" ? "bg-teal-600" : ""
+                    }`}
                 >
                   MEZAR BAŞ TAŞI MODELLERİ
                 </button>
 
                 <button
                   onClick={() => go("accessories", "/accessories")}
-                  className={`py-3 px-4 hover:bg-teal-600 transition-colors text-sm uppercase font-bold whitespace-nowrap ${
-                    currentPage === "accessories" ? "bg-teal-600" : ""
-                  }`}
+                  className={`py-3 px-4 hover:bg-teal-600 transition-colors text-sm uppercase font-bold whitespace-nowrap ${currentPage === "accessories" ? "bg-teal-600" : ""
+                    }`}
                 >
                   MEZAR AKSESUARLARI
                 </button>
@@ -453,16 +437,14 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
                 <div className="relative" data-dropdown="diger-hizmetler">
                   <button
                     onClick={handleDesktopDigerHizmetlerClick}
-                    className={`py-3 px-4 hover:bg-teal-600 transition-colors text-sm uppercase font-bold whitespace-nowrap flex items-center space-x-1 ${
-                      isDesktopDigerHizmetlerOpen ? "bg-teal-600" : ""
-                    }`}
+                    className={`py-3 px-4 hover:bg-teal-600 transition-colors text-sm uppercase font-bold whitespace-nowrap flex items-center space-x-1 ${isDesktopDigerHizmetlerOpen ? "bg-teal-600" : ""
+                      }`}
                   >
                     <span>DİĞER HİZMETLER</span>
                     <ChevronDown
                       size={14}
-                      className={`transition-transform duration-200 ${
-                        isDesktopDigerHizmetlerOpen ? "rotate-180" : ""
-                      }`}
+                      className={`transition-transform duration-200 ${isDesktopDigerHizmetlerOpen ? "rotate-180" : ""
+                        }`}
                     />
                   </button>
 
@@ -471,18 +453,17 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
                       {(menuOther.length
                         ? menuOther
                         : [
-                            { title: "MEZAR ÇİÇEKLENDİRME", path: "/gardening", pageKey: "gardening" },
-                            { title: "MEZAR TOPRAK DOLDURUMU", path: "/soilfilling", pageKey: "soilfilling" },
-                          ]
+                          { title: "MEZAR ÇİÇEKLENDİRME", path: "/gardening", pageKey: "gardening" },
+                          { title: "MEZAR TOPRAK DOLDURUMU", path: "/soilfilling", pageKey: "soilfilling" },
+                        ]
                       ).map((m, i, arr) => {
                         const isLast = i === arr.length - 1;
                         return (
                           <button
                             key={m.title}
                             onClick={() => handleDropdownNavigation(m.pageKey ?? "", m.path)}
-                            className={`block w-full text-left py-3 px-4 text-white hover:bg-teal-600 ${!isLast ? "border-b border-teal-600" : "rounded-b-lg"} text-sm font-bold uppercase transition-colors ${
-                              currentPage === m.pageKey ? "bg-teal-600" : ""
-                            }`}
+                            className={`block w-full text-left py-3 px-4 text-white hover:bg-teal-600 ${!isLast ? "border-b border-teal-600" : "rounded-b-lg"} text-sm font-bold uppercase transition-colors ${currentPage === m.pageKey ? "bg-teal-600" : ""
+                              }`}
                           >
                             {m.title}
                           </button>
@@ -494,9 +475,8 @@ export function Header({ currentPage, onNavigate, onSearch, searchTerm }: Header
 
                 <button
                   onClick={() => go("contact", "/contact")}
-                  className={`py-3 px-4 hover:bg-teal-600 transition-colors text-sm uppercase font-bold whitespace-nowrap ${
-                    currentPage === "contact" ? "bg-teal-600" : ""
-                  }`}
+                  className={`py-3 px-4 hover:bg-teal-600 transition-colors text-sm uppercase font-bold whitespace-nowrap ${currentPage === "contact" ? "bg-teal-600" : ""
+                    }`}
                 >
                   İLETİŞİM
                 </button>

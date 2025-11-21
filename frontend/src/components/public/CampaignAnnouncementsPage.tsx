@@ -10,10 +10,10 @@ import { Input } from "../ui/input";
 import { Search, Tag, Calendar } from "lucide-react";
 import { ModalWrapper } from "./ModalWrapper";
 
-import { useListSimpleCampaignsQuery } from "@/integrations/metahub/rtk/endpoints/campaigns.endpoints";
-import { useListAnnouncementsQuery } from "@/integrations/metahub/rtk/endpoints/announcements.endpoints";
-import type { SimpleCampaignView } from "@/integrations/metahub/db/types/campaigns";
-import type { AnnouncementView } from "@/integrations/metahub/db/types/announcements";
+import { useListSimpleCampaignsQuery } from "@/integrations/rtk/endpoints/campaigns.endpoints";
+import { useListAnnouncementsQuery } from "@/integrations/rtk/endpoints/announcements.endpoints";
+import type { SimpleCampaignView } from "@/integrations/rtk/types/campaigns";
+import type { AnnouncementView } from "@/integrations/rtk/types/announcements";
 import { DetailPanel } from "./CampaignAnnouncementDetailPanel";
 
 type Kind = "campaign" | "announcement";
