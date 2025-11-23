@@ -745,7 +745,9 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
               </AccordionContent>
             </AccordionItem>
 
-            {/* FAQs */}
+             {/*
+
+FAQ 
             <AccordionItem value="faqs" className="border-b border-gray-200">
               <AccordionTrigger className="bg-teal-600 text-white px-6 py-4 hover:bg-teal-700 text-left">
                 <span className="text-lg font-bold">Sık Sorulan Sorular</span>
@@ -786,6 +788,7 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
                 )}
               </AccordionContent>
             </AccordionItem>
+            */}
 
             {/* İletişim */}
             <AccordionItem value="contact" className="border-b border-gray-200">

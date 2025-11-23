@@ -14,16 +14,17 @@ import { Switch } from "@/components/ui/switch";
 import {
   useAdminListProductsQuery,
   useAdminDeleteProductMutation,
-  useAdminToggleActiveMutation,
-  useAdminToggleHomepageMutation,
+  // useAdminToggleActiveMutation,   // ❌ artık kullanmıyoruz
+  // useAdminToggleHomepageMutation, // ❌ artık kullanmıyoruz
   useAdminBulkSetActiveMutation,
   useAdminListCategoriesQuery,
   useAdminListSubcategoriesQuery,
+  useAdminUpdateProductMutation, // ✅ formdakiyle aynı endpoint
   type AdminProductListParams,
 } from "@/integrations/rtk/endpoints/admin/products_admin.endpoints";
 import { cn } from "@/components/ui/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Plus, Search, Trash2, Pencil, Home } from "lucide-react";
+import { Loader2, Plus, Search, Trash2, Pencil } from "lucide-react";
 
 /** Durum filtresi */
 type StatusFilter = "all" | "active" | "inactive";
@@ -31,7 +32,7 @@ type StatusFilter = "all" | "active" | "inactive";
 /** Stabil state: seçimsiz alanlar null */
 type Filters = {
   q: string;
-  status: StatusFilter; // <-- tri-state
+  status: StatusFilter;
   category_id: string | null;
   sub_category_id: string | null;
   limit: number;
@@ -75,46 +76,50 @@ export function TabsProducts() {
 
   const { data: categories } = useAdminListCategoriesQuery();
   const { data: subcats } = useAdminListSubcategoriesQuery(
-    filters.category_id ? { category_id: filters.category_id } : undefined
+    filters.category_id ? { category_id: filters.category_id } : undefined,
   );
 
-  const { data: rows, isFetching, refetch } = useAdminListProductsQuery(apiParams);
+  const { data: rows, isFetching, refetch } =
+    useAdminListProductsQuery(apiParams);
+
   const [del] = useAdminDeleteProductMutation();
-  const [toggleActive] = useAdminToggleActiveMutation();
-  const [toggleHomepage] = useAdminToggleHomepageMutation();
   const [bulkActive] = useAdminBulkSetActiveMutation();
+  const [updateProduct] = useAdminUpdateProductMutation();
 
   const [selected, setSelected] = React.useState<Record<string, boolean>>({});
   const items = rows ?? [];
-  const selectedIds = Object.entries(selected).filter(([, v]) => !!v).map(([k]) => k);
+  const selectedIds = Object.entries(selected)
+    .filter(([, v]) => !!v)
+    .map(([k]) => k);
 
   // ---- Optimistic local patch (yalnızca is_active / is_featured) ----
   const [pending, setPending] = React.useState<
     Record<string, Partial<{ is_active: boolean; is_featured: boolean }>>
   >({});
 
-  const viewActive = (id: string, fallback: boolean | 0 | 1) =>
-    (pending[id]?.is_active ?? !!fallback) as boolean;
+  const viewActive = (id: string | number, fallback: boolean | 0 | 1) =>
+    (pending[String(id)]?.is_active ?? !!fallback) as boolean;
 
-  const viewFeatured = (id: string, fallback: boolean | 0 | 1) =>
-    (pending[id]?.is_featured ?? !!fallback) as boolean;
+  const viewFeatured = (id: string | number, fallback: boolean | 0 | 1) =>
+    (pending[String(id)]?.is_featured ?? !!fallback) as boolean;
 
-  const clearPending = (id: string) =>
+  const clearPending = (id: string | number) =>
     setPending((p) => {
-      const { [id]: _, ...rest } = p;
-      return rest;
+      const clone = { ...p };
+      delete clone[String(id)];
+      return clone;
     });
 
   const toggleSelectAll = (checked: boolean) => {
     const next: Record<string, boolean> = {};
-    if (checked) for (const r of items) next[r.id] = true;
+    if (checked) for (const r of items) next[String(r.id)] = true;
     setSelected(next);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string | number) => {
     if (!confirm("Bu ürünü silmek istediğinize emin misiniz?")) return;
     try {
-      await del(id).unwrap();
+      await del(String(id)).unwrap();
       toast.success("Ürün silindi");
       refetch();
     } catch (e: any) {
@@ -122,30 +127,75 @@ export function TabsProducts() {
     }
   };
 
-  // ✅ Switch: optimistic -> API -> refetch -> pending temizle (hata olursa geri al)
-  const handleToggleActive = async (id: string, next: boolean) => {
-    setPending((p) => ({ ...p, [id]: { ...p[id], is_active: next } }));
+  // ✅ Aktif switch: updateProduct ile sadece is_active güncelle
+  const handleToggleActive = async (id: string | number, next: boolean) => {
+    const key = String(id);
+    const current = items.find((x) => String(x.id) === key);
+    if (!current) {
+      toast.error("Ürün bulunamadı");
+      return;
+    }
+
+    // optimistic
+    setPending((p) => ({
+      ...p,
+      [key]: { ...(p[key] ?? {}), is_active: next },
+    }));
+
     try {
-      await toggleActive({ id, is_active: as01(next) }).unwrap();
+      await updateProduct({
+        id: key,
+        body: { is_active: as01(next) } as any,
+      }).unwrap();
+
       await refetch();
-      clearPending(id);
+      clearPending(key);
       toast.success(next ? "Aktifleştirildi" : "Pasifleştirildi");
     } catch (e: any) {
-      setPending((p) => ({ ...p, [id]: { ...p[id], is_active: !next } }));
+      // rollback
+      setPending((p) => ({
+        ...p,
+        [key]: { ...(p[key] ?? {}), is_active: !next },
+      }));
       toast.error(e?.data?.message || "Durum güncellenemedi");
     }
   };
 
-  const handleToggleHomepage = async (id: string, next: boolean) => {
-    setPending((p) => ({ ...p, [id]: { ...p[id], is_featured: next } }));
+  // ✅ Anasayfa switch: formdakiyle aynı endpoint (updateProduct)
+  const handleToggleHomepage = async (
+    id: string | number,
+    next: boolean,
+  ) => {
+    const key = String(id);
+    const current = items.find((x) => String(x.id) === key);
+    if (!current) {
+      toast.error("Ürün bulunamadı");
+      return;
+    }
+
+    // Optimistic UI
+    setPending((p) => ({
+      ...p,
+      [key]: { ...(p[key] ?? {}), is_featured: next },
+    }));
+
     try {
-      // ❗ BE tarafı is_featured bekliyor → 0/1 gönder
-      await toggleHomepage({ id, is_featured: as01(next) } as any).unwrap();
+      await updateProduct({
+        id: key,
+        body: { is_featured: as01(next) } as any,
+      }).unwrap();
+
       await refetch();
-      clearPending(id);
-      toast.success(next ? "Anasayfada gösterilecek" : "Anasayfadan kaldırıldı");
+      clearPending(key);
+      toast.success(
+        next ? "Anasayfada gösterilecek" : "Anasayfadan kaldırıldı",
+      );
     } catch (e: any) {
-      setPending((p) => ({ ...p, [id]: { ...p[id], is_featured: !next } }));
+      // Geri al
+      setPending((p) => ({
+        ...p,
+        [key]: { ...(p[key] ?? {}), is_featured: !next },
+      }));
       toast.error(e?.data?.message || "Anasayfa durumu güncellenemedi");
     }
   };
@@ -153,8 +203,13 @@ export function TabsProducts() {
   const doBulkActive = async (val: boolean) => {
     if (!selectedIds.length) return;
     try {
-      await bulkActive({ ids: selectedIds, is_active: as01(val) } as any).unwrap();
-      toast.success(`Seçilen ürünler ${val ? "aktif" : "pasif"} yapıldı`);
+      await bulkActive({
+        ids: selectedIds,
+        is_active: as01(val),
+      } as any).unwrap();
+      toast.success(
+        `Seçilen ürünler ${val ? "aktif" : "pasif"} yapıldı`,
+      );
       setSelected({});
       refetch();
     } catch (e: any) {
@@ -174,16 +229,24 @@ export function TabsProducts() {
                 <Input
                   placeholder="Başlık/slug ara…"
                   value={filters.q}
-                  onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
+                  onChange={(e) =>
+                    setFilters((p) => ({ ...p, q: e.target.value }))
+                  }
                 />
-                <Button variant="secondary" onClick={() => refetch()} disabled={isFetching}>
+                <Button
+                  variant="secondary"
+                  onClick={() => refetch()}
+                  disabled={isFetching}
+                >
                   <Search className="h-4 w-4" />
                 </Button>
               </div>
             </div>
 
             <div>
-              <Label className="mb-1 block text-xs text-gray-500">Kategori</Label>
+              <Label className="mb-1 block text-xs text-gray-500">
+                Kategori
+              </Label>
               <select
                 className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
                 value={filters.category_id ?? ""}
@@ -206,7 +269,9 @@ export function TabsProducts() {
             </div>
 
             <div>
-              <Label className="mb-1 block text-xs text-gray-500">Alt Kategori</Label>
+              <Label className="mb-1 block text-xs text-gray-500">
+                Alt Kategori
+              </Label>
               <select
                 className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
                 value={filters.sub_category_id ?? ""}
@@ -229,12 +294,19 @@ export function TabsProducts() {
             </div>
 
             <div>
-              <Label className="mb-1 block text-xs text-gray-500">Sıralama</Label>
+              <Label className="mb-1 block text-xs text-gray-500">
+                Sıralama
+              </Label>
               <div className="flex gap-2">
                 <select
                   className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
                   value={filters.sort}
-                  onChange={(e) => setFilters((p) => ({ ...p, sort: e.target.value as Filters["sort"] }))}
+                  onChange={(e) =>
+                    setFilters((p) => ({
+                      ...p,
+                      sort: e.target.value as Filters["sort"],
+                    }))
+                  }
                 >
                   <option value="created_at">Oluşturulma</option>
                   <option value="title">Başlık</option>
@@ -245,7 +317,12 @@ export function TabsProducts() {
                 <select
                   className="w-28 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
                   value={filters.order}
-                  onChange={(e) => setFilters((p) => ({ ...p, order: e.target.value as Filters["order"] }))}
+                  onChange={(e) =>
+                    setFilters((p) => ({
+                      ...p,
+                      order: e.target.value as Filters["order"],
+                    }))
+                  }
                 >
                   <option value="desc">Desc</option>
                   <option value="asc">Asc</option>
@@ -256,28 +333,49 @@ export function TabsProducts() {
             {/* Durum filtresi: Hepsi / Aktif / Pasif */}
             <div className="flex items-end">
               <div className="ml-auto flex items-center gap-1 rounded-md bg-gray-100 p-1">
-                {(["all", "active", "inactive"] as StatusFilter[]).map((opt) => (
-                  <Button
-                    key={opt}
-                    type="button"
-                    size="sm"
-                    variant={filters.status === opt ? "default" : "secondary"}
-                    className={cn(
-                      "h-8",
-                      opt === "active" && filters.status === opt && "bg-emerald-600 text-white",
-                      opt === "inactive" && filters.status === opt && "bg-rose-600 text-white"
-                    )}
-                    onClick={() => setFilters((p) => ({ ...p, status: opt, offset: 0 }))}
-                  >
-                    {opt === "all" ? "Hepsi" : opt === "active" ? "Aktif" : "Pasif"}
-                  </Button>
-                ))}
+                {(["all", "active", "inactive"] as StatusFilter[]).map(
+                  (opt) => (
+                    <Button
+                      key={opt}
+                      type="button"
+                      size="sm"
+                      variant={
+                        filters.status === opt ? "default" : "secondary"
+                      }
+                      className={cn(
+                        "h-8",
+                        opt === "active" &&
+                          filters.status === opt &&
+                          "bg-emerald-600 text-white",
+                        opt === "inactive" &&
+                          filters.status === opt &&
+                          "bg-rose-600 text-white",
+                      )}
+                      onClick={() =>
+                        setFilters((p) => ({
+                          ...p,
+                          status: opt,
+                          offset: 0,
+                        }))
+                      }
+                    >
+                      {opt === "all"
+                        ? "Hepsi"
+                        : opt === "active"
+                          ? "Aktif"
+                          : "Pasif"}
+                    </Button>
+                  ),
+                )}
               </div>
             </div>
 
-            <div className="flex items-center justify-end bg-emerald-600 p-2 rounded-md text-white">
-              <Button onClick={() => navigate("/admin/products/new")} className="gap-2">
-                <Plus className="h-4 w-4 " />
+            <div className="flex items-center justify-end rounded-md bg-emerald-600 p-2 text-white">
+              <Button
+                onClick={() => navigate("/admin/products/new")}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
                 Yeni Ürün
               </Button>
             </div>
@@ -287,10 +385,18 @@ export function TabsProducts() {
 
       {/* Bulk actions */}
       <div className="flex items-center gap-2">
-        <Button variant="secondary" onClick={() => doBulkActive(true)} disabled={!selectedIds.length}>
+        <Button
+          variant="secondary"
+          onClick={() => doBulkActive(true)}
+          disabled={!selectedIds.length}
+        >
           Hepsini Aktif Yap
         </Button>
-        <Button variant="secondary" onClick={() => doBulkActive(false)} disabled={!selectedIds.length}>
+        <Button
+          variant="secondary"
+          onClick={() => doBulkActive(false)}
+          disabled={!selectedIds.length}
+        >
           Hepsini Pasif Yap
         </Button>
         <div className="ml-auto text-sm text-gray-500">
@@ -305,7 +411,10 @@ export function TabsProducts() {
             <tr className="text-xs">
               <th className="w-10 p-3">
                 <Checkbox
-                  checked={items.length > 0 && selectedIds.length === items.length}
+                  checked={
+                    items.length > 0 &&
+                    selectedIds.length === items.length
+                  }
                   onCheckedChange={(v) => toggleSelectAll(!!v)}
                 />
               </th>
@@ -320,31 +429,51 @@ export function TabsProducts() {
           </thead>
           <tbody>
             {items.map((r) => {
-              const dim = !viewActive(r.id, r.is_active) ? "opacity-60" : "";
-              const checkedActive = viewActive(r.id, r.is_active);
-              const checkedFeatured = viewFeatured(r.id, r.is_featured);
+              const key = String(r.id);
+              const dim = !viewActive(key, r.is_active)
+                ? "opacity-60"
+                : "";
+              const checkedActive = viewActive(key, r.is_active);
+              const checkedFeatured = viewFeatured(key, r.is_featured);
 
               return (
-                <tr key={r.id} className={cn("border-t transition-opacity", dim)}>
+                <tr
+                  key={key}
+                  className={cn("border-t transition-opacity", dim)}
+                >
                   <td className="p-3">
                     <Checkbox
-                      checked={!!selected[r.id]}
-                      onCheckedChange={(v) => setSelected((s) => ({ ...s, [r.id]: !!v }))}
+                      checked={!!selected[key]}
+                      onCheckedChange={(v) =>
+                        setSelected((s) => ({
+                          ...s,
+                          [key]: !!v,
+                        }))
+                      }
                     />
                   </td>
                   <td className="p-3">
                     {r.image_url ? (
-                      <img src={r.image_url} alt={r.alt ?? ""} className="h-10 w-12 rounded object-cover" />
+                      <img
+                        src={r.image_url}
+                        alt={r.alt ?? ""}
+                        className="h-10 w-12 rounded object-cover"
+                      />
                     ) : (
                       <div className="h-10 w-12 rounded bg-gray-100" />
                     )}
                   </td>
                   <td className="p-3">
-                    <div className="max-w-[26rem] truncate">{r.title}</div>
+                    <div className="max-w-[26rem] truncate">
+                      {r.title}
+                    </div>
                   </td>
                   <td className="p-3 text-gray-500">{r.slug}</td>
                   <td className="p-3 text-right tabular-nums">
-                    {Number(r.price).toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}
+                    {Number(r.price).toLocaleString("tr-TR", {
+                      style: "currency",
+                      currency: "TRY",
+                    })}
                   </td>
 
                   {/* Durum (renkli switch) */}
@@ -352,10 +481,16 @@ export function TabsProducts() {
                     <div className="flex items-center justify-center">
                       <Switch
                         checked={checkedActive}
-                        onCheckedChange={(v) => handleToggleActive(r.id, v)}
+                        onCheckedChange={(v) =>
+                          handleToggleActive(key, v)
+                        }
                         onClick={(e) => e.stopPropagation()}
-                        className={cn("bg-gray-300 data-[state=checked]:bg-emerald-600", "h-5 w-10")}
                         aria-label="Aktif / Pasif"
+                        className={cn(
+                          "h-5 w-10",
+                          "data-[state=checked]:bg-emerald-600",
+                          "data-[state=unchecked]:bg-gray-300",
+                        )}
                       />
                     </div>
                   </td>
@@ -365,21 +500,37 @@ export function TabsProducts() {
                     <div className="flex items-center justify-center">
                       <Switch
                         checked={checkedFeatured}
-                        onCheckedChange={(v) => handleToggleHomepage(r.id, v)}
+                        onCheckedChange={(v) =>
+                          handleToggleHomepage(key, v)
+                        }
                         onClick={(e) => e.stopPropagation()}
-                        className={cn("bg-gray-300 data-[state=checked]:bg-sky-600", "h-5 w-10")}
                         aria-label="Anasayfada göster"
+                        className={cn(
+                          "h-5 w-10",
+                          "data-[state=checked]:bg-sky-600",
+                          "data-[state=unchecked]:bg-gray-300",
+                        )}
                       />
                     </div>
                   </td>
 
                   <td className="p-3">
                     <div className="flex items-center justify-end gap-2">
-                      <Button size="sm" variant="secondary" onClick={() => navigate(`/admin/products/${r.id}`)}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() =>
+                          navigate(`/admin/products/${r.id}`)
+                        }
+                      >
                         <Pencil className="h-3.5 w-3.5" />
                         Düzenle
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={() => handleDelete(r.id)}>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDelete(key)}
+                      >
                         <Trash2 className="h-3.5 w-3.5" />
                         Sil
                       </Button>
@@ -391,12 +542,20 @@ export function TabsProducts() {
 
             {!items.length && !isFetching && (
               <tr>
-                <td colSpan={8} className="p-6 text-center text-gray-500">Kayıt bulunamadı</td>
+                <td
+                  colSpan={8}
+                  className="p-6 text-center text-gray-500"
+                >
+                  Kayıt bulunamadı
+                </td>
               </tr>
             )}
             {isFetching && (
               <tr>
-                <td colSpan={8} className="p-6 text-center text-gray-500">
+                <td
+                  colSpan={8}
+                  className="p-6 text-center text-gray-500"
+                >
                   <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
                   Yükleniyor…
                 </td>
@@ -409,23 +568,40 @@ export function TabsProducts() {
       {/* Pagination */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-gray-500">
-          Sayfa: {Math.floor((filters.offset ?? 0) / (filters.limit ?? DEFAULT_LIMIT)) + 1}
+          Sayfa:{" "}
+          {Math.floor(
+            (filters.offset ?? 0) /
+              (filters.limit ?? DEFAULT_LIMIT),
+          ) + 1}
         </div>
         <div className="flex gap-2">
           <Button
             variant="secondary"
             disabled={(filters.offset ?? 0) <= 0 || isFetching}
             onClick={() =>
-              setFilters((p) => ({ ...p, offset: Math.max((p.offset ?? 0) - (p.limit ?? DEFAULT_LIMIT), 0) }))
+              setFilters((p) => ({
+                ...p,
+                offset: Math.max(
+                  (p.offset ?? 0) - (p.limit ?? DEFAULT_LIMIT),
+                  0,
+                ),
+              }))
             }
           >
             Önceki
           </Button>
           <Button
             variant="secondary"
-            disabled={isFetching || items.length < (filters.limit ?? DEFAULT_LIMIT)}
+            disabled={
+              isFetching ||
+              items.length < (filters.limit ?? DEFAULT_LIMIT)
+            }
             onClick={() =>
-              setFilters((p) => ({ ...p, offset: (p.offset ?? 0) + (p.limit ?? DEFAULT_LIMIT) }))
+              setFilters((p) => ({
+                ...p,
+                offset:
+                  (p.offset ?? 0) + (p.limit ?? DEFAULT_LIMIT),
+              }))
             }
           >
             Sonraki

@@ -177,6 +177,8 @@ export function Footer({ onNavigate }: FooterProps) {
             <p className="text-sm font-medium text-white/90">
               &copy; {new Date().getFullYear()} {brandName} Mezar Yapım. Tüm hakları saklıdır.
             </p>
+
+             {/*
             <div className="mt-2 flex items-center justify-center gap-4">
               <p className="text-xs text-white/60">Version {version}</p>
               <span className="text-white/30">•</span>
@@ -187,6 +189,7 @@ export function Footer({ onNavigate }: FooterProps) {
                 Yönetim
               </Link>
             </div>
+             */}
           </div>
         </div>
       </footer>

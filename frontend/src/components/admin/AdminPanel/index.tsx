@@ -45,7 +45,7 @@ import TabsAccessories from "./Tabs/TabsAccessories";
 import SlidersTab from "./Tabs/SlidersTab";
 import ReviewsTab from "./Tabs/ReviewsTab";
 import TabsAnnouncements from "./Tabs/AnnouncementsTab";
-import TabsSiteSettings from "./Tabs/SiteSettingsTab";
+import TabsSiteSettings from "./Tabs/sitesettings/SiteSettingsTab";
 import TabsSettings from "./Tabs/TabsSettings";
 
 // ✅ Dashboard doğru konum

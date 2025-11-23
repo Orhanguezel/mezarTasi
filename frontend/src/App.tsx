@@ -7,7 +7,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from "re
 import { Header } from "./components/layout/Header";
 import { HeroSection } from "./components/home/HeroSection";
 import { ProductGallery } from "./components/public/ProductGallery";
-import { ServicesSection } from "./components/public/ServicesSection";
+import { HomePage } from "./components/public/homepage/HomePage";
 import { Footer } from "./components/layout/Footer";
 import { FloatingCallButton } from "./components/public/FloatingCallButton";
 import AdminPanel from "./components/admin/AdminPanel";
@@ -34,6 +34,9 @@ import { DataProvider } from "./contexts/DataContext";
 
 import { useListSimpleCampaignsQuery } from "@/integrations/rtk/endpoints/campaigns.endpoints";
 import type { SimpleCampaignView } from "@/integrations/rtk/types/campaigns";
+
+import { Toaster } from "sonner";
+
 
 
 /** ------- Yardımcılar ------- */
@@ -198,7 +201,7 @@ function HomeComposition(props: {
         onProductDetail={props.onProductDetail}
         refreshKey={props.refreshKey}
       />
-      <ServicesSection
+      <HomePage
         onNavigate={() => { }}
         onOpenRecentWorkModal={(w) => props.openRecentWork(w)}
         onOpenCampaignsModal={(c) => props.openCampaigns(c)}
@@ -499,6 +502,12 @@ export default function App() {
             />
           )}
         </ModalWrapper>
+        {/* 🔔 Global toast container */}
+        <Toaster
+          position="top-right"
+          richColors
+          closeButton
+        />
       </div>
     </DataProvider>
   );
