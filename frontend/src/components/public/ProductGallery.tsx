@@ -63,6 +63,26 @@ function toUiProduct(p: ApiProduct): UiProduct {
   };
 }
 
+/* ========================== helpers ========================== */
+
+function formatPrice(price: number | string): string {
+  const num =
+    typeof price === "number"
+      ? price
+      : Number(price);
+
+  // 0, negatif veya geçersizse → “Fiyat İçin Arayınız”
+  if (!Number.isFinite(num) || num <= 0) {
+    return "Fiyat İçin Arayınız";
+  }
+
+  // Normal ürünlerde TL formatı
+  return num.toLocaleString("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+  });
+}
+
 /* =============================== component =============================== */
 
 interface ProductGalleryProps {
@@ -191,10 +211,11 @@ export function ProductGallery({
                       key={c.id}
                       type="button"
                       onClick={() => setSelectedSubCat(c.id)}
-                      className={`w-full text-left px-6 py-4 border-b border-gray-100 last:border-b-0 transition-colors ${selectedSubCat === c.id
-                        ? "bg-teal-50 text-teal-700 font-medium"
-                        : "bg-white text-gray-700 hover:bg-gray-50"
-                        }`}
+                      className={`w-full text-left px-6 py-4 border-b border-gray-100 last:border-b-0 transition-colors ${
+                        selectedSubCat === c.id
+                          ? "bg-teal-50 text-teal-700 font-medium"
+                          : "bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
                     >
                       {c.label}
                     </button>
@@ -213,10 +234,11 @@ export function ProductGallery({
                       <button
                         key={c.id}
                         onClick={() => setSelectedSubCat(c.id)}
-                        className={`px-3 py-3 rounded-lg text-sm transition-colors ${selectedSubCat === c.id
-                          ? "bg-teal-100 text-teal-700"
-                          : "bg-white text-gray-700 hover:bg-gray-50"
-                          }`}
+                        className={`px-3 py-3 rounded-lg text-sm transition-colors ${
+                          selectedSubCat === c.id
+                            ? "bg-teal-100 text-teal-700"
+                            : "bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
                       >
                         {c.label}
                       </button>
@@ -261,7 +283,7 @@ export function ProductGallery({
                             {card.productCode ?? "KOD-YOK"}
                           </span>
                           <span className="text-lg font-bold text-gray-800">
-                            {typeof card.price === "number" ? card.price : String(card.price)}
+                            {formatPrice(card.price)}
                           </span>
                         </div>
                       </div>
@@ -297,7 +319,10 @@ export function ProductGallery({
                     </div>
 
                     {showSearchResults && (
-                      <Button onClick={onClearSearch} className="bg-teal-500 hover:bg-teal-600 text-white">
+                      <Button
+                        onClick={onClearSearch}
+                        className="bg-teal-500 hover:bg-teal-600 text-white"
+                      >
                         Tüm Ürünleri Görüntüle
                       </Button>
                     )}

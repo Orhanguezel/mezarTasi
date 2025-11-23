@@ -93,6 +93,23 @@ function toUiProduct(p: ApiProduct): UiProduct {
   };
 }
 
+/* ---------- helpers: price format ---------- */
+function formatPrice(price: number | string | null | undefined): string {
+  const num =
+    typeof price === "number"
+      ? price
+      : Number(price);
+
+  if (!Number.isFinite(num) || num <= 0) {
+    return "Fiyat İçin Arayınız";
+  }
+
+  return num.toLocaleString("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+  });
+}
+
 interface ProductDetailPageProps {
   /** Route: /product/:slug  → burada gelen değer aslında SLUG */
   productId: string;
@@ -199,7 +216,7 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
   const { data: popularRes } = useListProductsQuery({
     is_active: 1,
     sort: "rating",
-    order: "desc",
+    order: "asc",
     limit: 8,
   });
   const popularProducts: UiProduct[] = useMemo(
@@ -535,10 +552,8 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
 
               <div className="mb-6">
                 <div className="inline-flex items-center justify-center bg-white border-4 border-black rounded-full px-8 py-4 shadow-lg">
-                  <span className="text-4xl font-bold text-teal-600">
-                    {typeof product.price === "number"
-                      ? product.price.toLocaleString("tr-TR")
-                      : String(product.price)}
+                  <span className="text-4xl font-bold text-teal-600 text-center">
+                    {formatPrice(product.price)}
                   </span>
                 </div>
               </div>
@@ -745,8 +760,7 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
               </AccordionContent>
             </AccordionItem>
 
-             {/*
-
+            {/*
 FAQ 
             <AccordionItem value="faqs" className="border-b border-gray-200">
               <AccordionTrigger className="bg-teal-600 text-white px-6 py-4 hover:bg-teal-700 text-left">
@@ -958,15 +972,7 @@ FAQ
                           {popularProducts[currentPopularIndex]?.title ?? ""}
                         </h4>
                         <p className="text-2xl font-bold text-gray-800 mb-4">
-                          {typeof popularProducts[currentPopularIndex]?.price ===
-                            "number"
-                            ? (
-                              popularProducts[currentPopularIndex]
-                                ?.price as number
-                            ).toLocaleString("tr-TR")
-                            : String(
-                              popularProducts[currentPopularIndex]?.price ?? ""
-                            )}
+                          {formatPrice(popularProducts[currentPopularIndex]?.price)}
                         </p>
                         <Button
                           onClick={handlePopularClick}
@@ -1108,9 +1114,7 @@ FAQ
                         </h3>
                         <div className="flex items-center justify-between mb-4">
                           <span className="text-teal-600 font-bold text-lg">
-                            {typeof sp.price === "number"
-                              ? sp.price.toLocaleString("tr-TR")
-                              : String(sp.price)}
+                            {formatPrice(sp.price)}
                           </span>
                         </div>
                         <Button
