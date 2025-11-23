@@ -78,7 +78,7 @@ const routeMap: Record<PageKey, string> = {
   gardening: "/gardening",
   soilfilling: "/soilfilling",
   contact: "/contact",
-  adminAccess: "/adminkotrol",
+  adminAccess: "/adminkontrol",
   admin: "/admin",
   productDetail: "/product/:slug", // 🔹 slug route
   cemetery: "/cemetery",
@@ -247,7 +247,7 @@ export default function App() {
   const [selectedAnnouncementId, setSelectedAnnouncementId] = useState<string | null>(null);
 
   const hidePublicChrome = useMemo(
-    () => location.pathname.startsWith("/admin") || location.pathname.startsWith("/adminkotrol"),
+    () => location.pathname.startsWith("/admin") || location.pathname.startsWith("/adminkontrol"),
     [location.pathname]
   );
 
@@ -374,7 +374,7 @@ export default function App() {
             />
 
             {/* Admin akışı */}
-            <Route path="/adminkotrol" element={<AdminSecretAccess onNavigate={onNavigateString} />} />
+            <Route path="/adminkontrol" element={<AdminSecretAccess onNavigate={onNavigateString} />} />
 
             {/* ✅ Admin panel VE tüm form rotaları */}
             <Route path="/admin" element={<AdminPanel onNavigate={onNavigateString} />} />

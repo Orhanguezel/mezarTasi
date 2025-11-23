@@ -45,7 +45,7 @@ export function Footer({ onNavigate }: FooterProps) {
     get("contact_address", "Hekimbaşı Mah. Yıldıztepe Cad. No:41 Ümraniye/İstanbul")
   );
   const version = String(get("site_version", "1.0.0"));
-  const adminPath = String(get("admin_path", "/adminkotrol"));
+  const adminPath = String(get("admin_path", "/adminkontrol"));
 
   const go = (path: string, pageKey?: string) => {
     if (pageKey && onNavigate) onNavigate(pageKey);

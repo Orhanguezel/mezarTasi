@@ -71,7 +71,7 @@ export function SiteSettingsGeneralTab({ form }: Props) {
       {renderTextInput(
         "admin_path",
         "Admin Paneli URL Path",
-        "/adminkotrol",
+        "/adminkontrol",
       )}
 
       {renderTextInput(
