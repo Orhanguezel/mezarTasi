@@ -51,15 +51,23 @@ const normalizeStr = (s: unknown): string =>
     .replace(/\s+/g, "-")
     .replace(/_/g, "-");
 
+/** DB’deki MEZAR BAŞ TAŞI kategori ID’si */
+const HEADSTONE_CATEGORY_ID = "aaaa0002-1111-4111-8111-aaaaaaaa0002";
+
 /**
  * Mezar BAŞ TAŞI kategorilerini yakala:
- * - "mezar baş taşı modelleri"
- * - "mezar-bas-tasi-modelleri"
- * - "baş taşı", "bas-tasi", "bastas" vs.
+ * - ID eşleşmesi
+ * - veya name/slug içinde "mezar-bas-tasi", "bas-tasi", "bastas" geçmesi
  */
 const isHeadstoneCategory = (cat: any): boolean => {
+  if (!cat) return false;
+
+  const idStr = String(cat.id ?? "");
+  if (idStr === HEADSTONE_CATEGORY_ID) return true;
+
   const nName = normalizeStr(cat?.name);
   const nSlug = normalizeStr(cat?.slug);
+
   return (
     nName.includes("mezar-bas-tasi") ||
     nSlug.includes("mezar-bas-tasi") ||
@@ -73,10 +81,11 @@ const isHeadstoneCategory = (cat: any): boolean => {
 export function TabsHeadstones() {
   const navigate = useNavigate();
 
+  // 🔒 Bu tab daima MEZAR BAŞ TAŞI kategorisi ile çalışıyor
   const [filters, setFilters] = React.useState<Filters>({
     q: "",
     status: "all",
-    category_id: null,
+    category_id: HEADSTONE_CATEGORY_ID,
     sub_category_id: null,
     limit: DEFAULT_LIMIT,
     offset: 0,
@@ -92,7 +101,10 @@ export function TabsHeadstones() {
       order: filters.order,
     };
     if (filters.q) p.q = filters.q;
-    if (filters.category_id) p.category_id = filters.category_id;
+
+    // 🔒 BE'ye de daima baş taşı kategorisini gönder
+    p.category_id = filters.category_id ?? HEADSTONE_CATEGORY_ID;
+
     if (filters.sub_category_id) p.sub_category_id = filters.sub_category_id;
     if (filters.status === "active") p.is_active = 1;
     if (filters.status === "inactive") p.is_active = 0;
@@ -101,7 +113,9 @@ export function TabsHeadstones() {
 
   const { data: categories } = useAdminListCategoriesQuery();
   const { data: subcats } = useAdminListSubcategoriesQuery(
-    filters.category_id ? { category_id: filters.category_id } : undefined,
+    (filters.category_id ?? HEADSTONE_CATEGORY_ID)
+      ? { category_id: filters.category_id ?? HEADSTONE_CATEGORY_ID }
+      : undefined,
   );
 
   const { data: rows, isFetching, refetch } =
@@ -121,15 +135,29 @@ export function TabsHeadstones() {
     return map;
   }, [categories]);
 
-  // 🔥 Bu tab: SADECE baş taşı kategorisine bağlı ürünler
+  const headstoneCategory = React.useMemo(
+    () =>
+      (categories ?? []).find(
+        (c: any) =>
+          String(c.id) === HEADSTONE_CATEGORY_ID || isHeadstoneCategory(c),
+      ),
+    [categories],
+  );
+
+  // 🔥 Bu tab: SADECE Baş Taşı kategorisine bağlı ürünler
   const allRows = rows ?? [];
   const items = React.useMemo(() => {
     if (!categories || !categories.length) return [];
     return allRows.filter((r: any) => {
       const catId = r.category_id ?? r.categoryId ?? null;
       if (!catId) return false;
+
+      // ID ile direkt eşleşme
+      if (String(catId) === HEADSTONE_CATEGORY_ID) return true;
+
       const cat = categoryMap.get(String(catId));
       if (!cat) return false;
+
       return isHeadstoneCategory(cat);
     });
   }, [allRows, categories, categoryMap]);
@@ -157,12 +185,14 @@ export function TabsHeadstones() {
 
   const toggleSelectAll = (checked: boolean) => {
     const next: Record<string, boolean> = {};
-    if (checked) for (const r of items) next[String((r as any).id)] = true;
+    if (checked)
+      for (const r of items) next[String((r as any).id)] = true;
     setSelected(next);
   };
 
   const handleDelete = async (id: string | number) => {
-    if (!confirm("Bu baş taşı modelini silmek istediğinize emin misiniz?")) return;
+    if (!confirm("Bu baş taşı modelini silmek istediğinize emin misiniz?"))
+      return;
     try {
       await del(String(id)).unwrap();
       toast.success("Model silindi");
@@ -235,7 +265,9 @@ export function TabsHeadstones() {
         ...p,
         [key]: { ...(p[key] ?? {}), is_featured: !next },
       }));
-      toast.error(e?.data?.message || "Anasayfa durumu güncellenemedi");
+      toast.error(
+        e?.data?.message || "Anasayfa durumu güncellenemedi",
+      );
     }
   };
 
@@ -282,31 +314,14 @@ export function TabsHeadstones() {
               </div>
             </div>
 
+            {/* Kategori: sabit, değiştirilemez */}
             <div>
               <Label className="mb-1 block text-xs text-gray-500">
                 Kategori
               </Label>
-              <select
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                value={filters.category_id ?? ""}
-                onChange={(e) =>
-                  setFilters((p) => ({
-                    ...p,
-                    category_id: e.target.value || null,
-                    sub_category_id: null,
-                    offset: 0,
-                  }))
-                }
-              >
-                <option value="">Tümü</option>
-                {categories
-                  ?.filter((c) => isHeadstoneCategory(c)) // ⬅️ Sadece baş taşı kategorileri
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-              </select>
+              <div className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm">
+                {headstoneCategory?.name ?? "Mezar Baş Taşı Modelleri"}
+              </div>
             </div>
 
             <div>
@@ -323,10 +338,9 @@ export function TabsHeadstones() {
                     offset: 0,
                   }))
                 }
-                disabled={!filters.category_id}
               >
                 <option value="">Tümü</option>
-                {subcats?.map((s) => (
+                {subcats?.map((s: any) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
@@ -403,8 +417,8 @@ export function TabsHeadstones() {
                       {opt === "all"
                         ? "Hepsi"
                         : opt === "active"
-                          ? "Aktif"
-                          : "Pasif"}
+                        ? "Aktif"
+                        : "Pasif"}
                     </Button>
                   ),
                 )}
@@ -475,7 +489,10 @@ export function TabsHeadstones() {
                 ? "opacity-60"
                 : "";
               const checkedActive = viewActive(key, r.is_active);
-              const checkedFeatured = viewFeatured(key, r.is_featured);
+              const checkedFeatured = viewFeatured(
+                key,
+                r.is_featured,
+              );
 
               return (
                 <tr
@@ -607,10 +624,9 @@ export function TabsHeadstones() {
       {/* Pagination */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-gray-500">
-          Sayfa:{" "}
+          Sayфа:{" "}
           {Math.floor(
-            (filters.offset ?? 0) /
-              (filters.limit ?? DEFAULT_LIMIT),
+            (filters.offset ?? 0) / (filters.limit ?? DEFAULT_LIMIT),
           ) + 1}
         </div>
         <div className="flex gap-2">

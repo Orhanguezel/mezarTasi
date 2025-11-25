@@ -113,49 +113,38 @@ const normalizePrice = (r: any): string => {
   const p = r?.price;
   const pm = r?.price_minor;
 
-  if (typeof p === "string" && p.trim()) {
-    const n = Number(p.replace(",", "."));
-    if (Number.isFinite(n) && n > 0) {
-      try {
-        return n.toLocaleString("tr-TR", {
-          style: "currency",
-          currency: "TRY",
-          maximumFractionDigits: 0,
-        });
-      } catch {
-        return `${Math.round(n)} TL`;
-      }
+  // Eğer string olarak geliyorsa, içindeki TL / ₺ vs. temizle, kendi formatımızı bas
+  if (typeof p === "string") {
+    const cleaned = p
+      .replace("₺", "")
+      .replace(/TL/gi, "")
+      .trim();
+
+    if (cleaned) {
+      return `${cleaned} TL`;
     }
-    return p;
   }
 
+  // price: number
   if (typeof p === "number" && Number.isFinite(p) && p > 0) {
-    try {
-      return p.toLocaleString("tr-TR", {
-        style: "currency",
-        currency: "TRY",
-        maximumFractionDigits: 0,
-      });
-    } catch {
-      return `${Math.round(p)} TL`;
-    }
+    const v = Math.round(p);
+    // Örn: 26400 TL
+    return `${v.toString()} TL`;
+    // Eğer 26.400 TL istersen:
+    // return `${v.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} TL`;
   }
 
+  // price_minor: kuruş cinsinden (opsiyonel)
   if (typeof pm === "number" && Number.isFinite(pm) && pm > 0) {
     const tl = Math.round(pm / 100);
-    try {
-      return tl.toLocaleString("tr-TR", {
-        style: "currency",
-        currency: "TRY",
-        maximumFractionDigits: 0,
-      });
-    } catch {
-      return `${tl} TL`;
-    }
+    return `${tl.toString()} TL`;
+    // veya:
+    // return `${tl.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} TL`;
   }
 
   return "Fiyat İçin Arayınız";
 };
+
 
 // Kök kategori: "Mezar Modelleri" / "Mezar Baş Taşı Modelleri"
 const isTombstoneModelsCategory = (cat: any): boolean => {

@@ -21,6 +21,38 @@ INSERT INTO products
    product_code, stock_quantity, rating, review_count,
    meta_title, meta_description)
 VALUES
+-- 0) Tek kişilik sütunlu mermer baş taşı
+('00000013-0000-4000-8000-000000000013',
+ 'TEK KİŞİLİK BAŞ TAŞI SÜTUNLU MERMER MEZAR',
+ 'tek-kisilik-bas-tasi-sutunlu-mermer-mezar',
+ 25000.00,
+ 'Klasik sütun detayları ile estetik görünüm.',
+ @CID_BAS_TASI, @SC_BAS_SUTUNLU,
+ 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=600&fit=crop',
+ NULL, NULL,
+ JSON_ARRAY(
+   'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=600&fit=crop'
+ ),
+ JSON_ARRAY(),
+ 1, 0, JSON_ARRAY(), NULL,
+ 'NO:13', 0, 5.00, 0, NULL, NULL),
+
+-- 0.5) Tek kişilik baş taşı gövde granit mezar
+('00000018-0000-4000-8000-000000000018',
+ 'TEK KİŞİLİK BAŞ TAŞI GÖVDE GRANİT MEZAR',
+ 'tek-kisilik-bas-tasi-govde-granit-mezar',
+ 31500.00,
+ 'Granit gövde ve baş taşı kombinasyonu.',
+ @CID_BAS_TASI, @SC_BAS_GRANIT,
+ 'https://images.unsplash.com/photo-1750832444604-f793c5ad39bb?w=800&h=600&fit=crop',
+ NULL, NULL,
+ JSON_ARRAY(
+   'https://images.unsplash.com/photo-1750832444604-f793c5ad39bb?w=800&h=600&fit=crop'
+ ),
+ JSON_ARRAY(),
+ 1, 0, JSON_ARRAY(), NULL,
+ 'NO:18', 0, 5.00, 0, NULL, NULL),
+
 -- 1) Granit (Öne çıkan)
 ('00000023-0000-4000-8000-000000000023',
  'GÜNAY YAMAN – Siyah Granit Çerçeveli Mezar Baş Taşı',
