@@ -36,6 +36,7 @@ import { tokenStore } from "@/integrations/core/token";
 
 type MenuValue =
   | "products"
+  | "headstones"   // ⬅️ YENİ
   | "sliders"
   | "campaigns"
   | "recent_works"
@@ -73,7 +74,8 @@ const menuGroups: {
   {
     label: "İçerik Yönetimi",
     items: [
-      { title: "Ürünler", icon: Package, value: "products" },
+      { title: "Mezar Modelleri", icon: Package, value: "products" },
+      { title: "Mezar Baş Taşı Modelleri", icon: Package, value: "headstones" }, // ⬅️ YENİ
       { title: "Kategoriler", icon: FolderTree, value: "categories" },
       { title: "Alt Kategoriler", icon: FolderTree, value: "subcategories" },
       { title: "Aksesuarlar", icon: FolderTree, value: "accessories" },
@@ -92,6 +94,7 @@ const menuGroups: {
 
 const MENU_TO_TAB: Partial<Record<MenuValue, ActiveTab>> = {
   products: "products",
+  headstones: "headstones",   // ⬅️ YENİ
   sliders: "sliders",
   campaigns: "campaigns",
   recent_works: "recent_works",
@@ -156,7 +159,7 @@ export default function AdminSidebar({
   activeTab,
   onTabChange,
   onNavigateHome,
-  onNavigateLogin, // şu an kullanmıyoruz ama interface kalsın
+  onNavigateLogin,
 }: AdminSidebarProps) {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
@@ -174,24 +177,15 @@ export default function AdminSidebar({
 
   const handleLogout = async () => {
     try {
-      // 1) BE'ye logout isteği at
       await logout().unwrap();
     } catch {
-      // BE hata verirse bile FE tarafını yine de temizle
       toast.error("Çıkış yapılırken bir hata oluştu (sunucu).");
     } finally {
-      // 2) FE'deki tokenları mutlaka temizle
       try {
-        tokenStore.set(null); // mh_access_token sil
+        tokenStore.set(null);
         localStorage.removeItem("mh_refresh_token");
-      } catch {
-        // localStorage erişilemezse sessiz geç
-      }
-
-      // 3) Ana sayfaya yönlendir
+      } catch {}
       onNavigateHome?.();
-      // Eğer burada history tabanlı router yoksa alternatif:
-      // window.location.href = "/";
     }
   };
 

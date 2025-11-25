@@ -2,10 +2,16 @@
 // FILE: src/components/public/ProductDetailPage.tsx
 // =============================================================
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ImageWithFallback } from "../figma/ImageWithFallback";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../ui/accordion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../ui/accordion";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { ArrowLeft, Star, ChevronLeft, ChevronRight } from "lucide-react";
@@ -46,7 +52,11 @@ function normalizeSpecs(specs: unknown): Record<string, string> {
     for (const it of specs as any[]) {
       if (it && typeof it === "object" && (it as any).name) {
         const v = (it as any).value;
-        out[String((it as any).name)] = Array.isArray(v) ? v.join(", ") : v != null ? String(v) : "";
+        out[String((it as any).name)] = Array.isArray(v)
+          ? v.join(", ")
+          : v != null
+            ? String(v)
+            : "";
       }
     }
     return out;
@@ -77,7 +87,8 @@ type UiProduct = {
 };
 
 function toUiProduct(p: ApiProduct): UiProduct {
-  const imgs = (Array.isArray((p as any).images) ? (p as any).images.filter(Boolean) : null) ?? [];
+  const imgs =
+    (Array.isArray((p as any).images) ? (p as any).images.filter(Boolean) : null) ?? [];
   const primary = imgs[0] || (p as any).image_url || "";
   return {
     id: String(p.id),
@@ -95,20 +106,18 @@ function toUiProduct(p: ApiProduct): UiProduct {
 
 /* ---------- helpers: price format ---------- */
 function formatPrice(price: number | string | null | undefined): string {
-  const num =
-    typeof price === "number"
-      ? price
-      : Number(price);
+  const num = typeof price === "number" ? price : Number(price);
 
+  // 0 veya geçersizse
   if (!Number.isFinite(num) || num <= 0) {
     return "Fiyat İçin Arayınız";
   }
 
-  return num.toLocaleString("tr-TR", {
-    style: "currency",
-    currency: "TRY",
-  });
+  // Görseldeki gibi: 26400 TL (tam sayı, ayırıcı yok)
+  const rounded = Math.round(num);
+  return `${rounded} TL`;
 }
+
 
 interface ProductDetailPageProps {
   /** Route: /product/:slug  → burada gelen değer aslında SLUG */
@@ -160,7 +169,13 @@ function buildWhatsappHref(raw: string): string {
 const canNavigateToProduct = (p: UiProduct | null | undefined) =>
   !!p?.slug && String(p.slug).trim().length > 0;
 
-export function ProductDetailPage({ productId, onNavigate, onProductDetail }: ProductDetailPageProps) {
+export function ProductDetailPage({
+  productId,
+  onNavigate,
+  onProductDetail,
+}: ProductDetailPageProps) {
+  const routerNavigate = useNavigate();
+
   // ----- UI state
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
@@ -200,7 +215,10 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
     skip: !productId,
   });
 
-  const product = useMemo(() => (detailData ? toUiProduct(detailData) : null), [detailData]);
+  const product = useMemo(
+    () => (detailData ? toUiProduct(detailData) : null),
+    [detailData],
+  );
 
   // --- Ürün geldikten sonra ContactPage ile uyumlu default subject yaz
   useEffect(() => {
@@ -220,38 +238,54 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
     limit: 8,
   });
   const popularProducts: UiProduct[] = useMemo(
-    () => (Array.isArray(popularRes) ? (popularRes as ApiProduct[]).map(toUiProduct) : []),
-    [popularRes]
+    () =>
+      Array.isArray(popularRes)
+        ? (popularRes as ApiProduct[]).map(toUiProduct)
+        : [],
+    [popularRes],
   );
 
   // ----- Benzer
   const { data: similarRes } = useListProductsQuery(
-    product ? { is_active: 1, category_id: product.category_id, limit: 24 } : undefined,
-    { skip: !product }
+    product
+      ? { is_active: 1, category_id: product.category_id, limit: 24 }
+      : undefined,
+    { skip: !product },
   );
   const similarProducts: UiProduct[] = useMemo(() => {
-    const arr = Array.isArray(similarRes) ? (similarRes as ApiProduct[]).map(toUiProduct) : [];
+    const arr = Array.isArray(similarRes)
+      ? (similarRes as ApiProduct[]).map(toUiProduct)
+      : [];
     return product ? arr.filter((p) => p.id !== product.id).slice(0, 8) : [];
   }, [similarRes, product]);
 
   // ----- Reviews / FAQs / Specs
-  const { data: reviewsData = [], isFetching: reviewsLoading } = useListProductReviewsQuery(
-    product ? { product_id: product.id, only_active: 1 } : { product_id: "" as any, only_active: 1 },
-    { skip: !product }
-  );
-  const { data: faqsData = [], isFetching: faqsLoading } = useListProductFaqsQuery(
-    product ? { product_id: product.id, only_active: 1 } : { product_id: "" as any, only_active: 1 },
-    { skip: !product }
-  );
-  const { data: specsRows = [], isFetching: specsLoading } = useListProductSpecsQuery(
-    product ? { product_id: product.id } : { product_id: "" as any },
-    { skip: !product }
-  );
+  const { data: reviewsData = [], isFetching: reviewsLoading } =
+    useListProductReviewsQuery(
+      product
+        ? { product_id: product.id, only_active: 1 }
+        : ({ product_id: "" as any, only_active: 1 } as any),
+      { skip: !product },
+    );
+  const { data: faqsData = [], isFetching: faqsLoading } =
+    useListProductFaqsQuery(
+      product
+        ? { product_id: product.id, only_active: 1 }
+        : ({ product_id: "" as any, only_active: 1 } as any),
+      { skip: !product },
+    );
+  const { data: specsRows = [], isFetching: specsLoading } =
+    useListProductSpecsQuery(
+      product ? { product_id: product.id } : ({ product_id: "" as any } as any),
+      { skip: !product },
+    );
 
   const reviews: ProductReviewRow[] = Array.isArray(reviewsData)
     ? (reviewsData as ProductReviewRow[])
     : [];
-  const faqs: ProductFaqRow[] = Array.isArray(faqsData) ? (faqsData as ProductFaqRow[]) : [];
+  const faqs: ProductFaqRow[] = Array.isArray(faqsData)
+    ? (faqsData as ProductFaqRow[])
+    : [];
 
   const specsFromRows: Record<string, string> = useMemo(() => {
     const out: Record<string, string> = {};
@@ -271,7 +305,7 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
     if (!isAutoPlaying || reviews.length <= 1) return;
     const t = setInterval(
       () => setCurrentReviewIndex((i) => (i + 1) % reviews.length),
-      5000
+      5000,
     );
     return () => clearInterval(t);
   }, [isAutoPlaying, reviews.length]);
@@ -282,7 +316,7 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
     const t = setInterval(() => {
       const max = Math.max(
         0,
-        Math.ceil(similarProducts.length / itemsPerView.desktop) - 1
+        Math.ceil(similarProducts.length / itemsPerView.desktop) - 1,
       );
       setCurrentSimilarIndex((i) => (i >= max ? 0 : i + 1));
     }, 4000);
@@ -298,7 +332,10 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
     if (!touchStart || !touchEnd || reviews.length === 0) return;
     const dist = touchStart - touchEnd;
     if (dist > 50) setCurrentReviewIndex((i) => (i + 1) % reviews.length);
-    if (dist < -50) setCurrentReviewIndex((i) => (i - 1 + reviews.length) % reviews.length);
+    if (dist < -50)
+      setCurrentReviewIndex(
+        (i) => (i - 1 + reviews.length) % reviews.length,
+      );
   };
 
   const onSimilarStart = (e: React.TouchEvent) =>
@@ -318,13 +355,15 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
   };
   const prevPopular = () => {
     if (!popularProducts.length) return;
-    setCurrentPopularIndex((i) => (i - 1 + popularProducts.length) % popularProducts.length);
+    setCurrentPopularIndex(
+      (i) => (i - 1 + popularProducts.length) % popularProducts.length,
+    );
   };
 
   const nextSimilar = () => {
     const max = Math.max(
       0,
-      Math.ceil(similarProducts.length / itemsPerView.desktop) - 1
+      Math.ceil(similarProducts.length / itemsPerView.desktop) - 1,
     );
     setCurrentSimilarIndex((i) => Math.min(i + 1, max));
   };
@@ -349,7 +388,7 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
 
   // ----- Contact form
   const onContactInput = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
     setFormData((p) => ({ ...p, [name]: value }));
@@ -371,7 +410,9 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
 
     const messageFinal = [
       formData.message.trim(),
-      formData.cemetery.trim() ? `\n\nMezarlık: ${formData.cemetery.trim()}` : "",
+      formData.cemetery.trim()
+        ? `\n\nMezarlık: ${formData.cemetery.trim()}`
+        : "",
       product?.title ? `\nİlgili Ürün: ${product.title}` : "",
     ]
       .join("")
@@ -406,7 +447,7 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
       toast.error(
         typeof err?.data?.error === "string"
           ? `Hata: ${err.data.error}`
-          : "Mesaj gönderilemedi. Lütfen tekrar deneyin."
+          : "Mesaj gönderilemedi. Lütfen tekrar deneyin.",
       );
     }
   };
@@ -416,13 +457,19 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Ürün bulunamadı</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            Ürün bulunamadı
+          </h2>
         </div>
       </div>
     );
   }
 
-  const images = product.images.length ? product.images : product.image ? [product.image] : [];
+  const images = product.images.length
+    ? product.images
+    : product.image
+      ? [product.image]
+      : [];
 
   const SPEC_MAIN_KEYS = [
     "dimensions",
@@ -443,8 +490,9 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
   };
 
   const hasSpecs =
-    Object.values(specsMerged).some((v) => (v ?? "").toString().trim().length > 0) ||
-    specsRows.length > 0;
+    Object.values(specsMerged).some(
+      (v) => (v ?? "").toString().trim().length > 0,
+    ) || specsRows.length > 0;
 
   const Stars = ({ rating }: { rating: number }) => {
     const r = Math.max(0, Math.min(5, Math.round(rating)));
@@ -453,8 +501,9 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
         {Array.from({ length: 5 }).map((_, i) => (
           <Star
             key={i}
-            className={`w-4 h-4 ${i < r ? "text-yellow-400 fill-current" : "text-gray-300"
-              } mx-0.5`}
+            className={`w-4 h-4 ${
+              i < r ? "text-yellow-400 fill-current" : "text-gray-300"
+            } mx-0.5`}
           />
         ))}
       </div>
@@ -470,7 +519,12 @@ export function ProductDetailPage({ productId, onNavigate, onProductDetail }: Pr
         <div className="container mx-auto px-4 py-4 max-w-7xl">
           <div className="flex items-center gap-2 text-sm">
             <button
-              onClick={() => onNavigate("home")}
+              onClick={() => {
+                // Hem router'ı hem de üst layout state'ini güncelle
+                routerNavigate("/");
+                onNavigate("home");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
               className="text-teal-600 hover:text-teal-700 flex items-center gap-1 font-semibold"
             >
               <ArrowLeft className="w-4 h-4" />

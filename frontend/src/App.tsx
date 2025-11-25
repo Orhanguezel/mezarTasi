@@ -32,9 +32,6 @@ import { RecentWorkDetailPage } from "./components/public/RecentWorkDetailPage";
 import { ModalWrapper } from "./components/public/ModalWrapper";
 import { DataProvider } from "./contexts/DataContext";
 
-import { useListSimpleCampaignsQuery } from "@/integrations/rtk/endpoints/campaigns.endpoints";
-import type { SimpleCampaignView } from "@/integrations/rtk/types/campaigns";
-
 import { Toaster } from "sonner";
 
 
@@ -137,48 +134,6 @@ function resolveAnnouncementId(a: any): string | undefined {
   return undefined;
 }
 
-
-/** İlgili aktif kampanyalar şeridi (detay modalı içinde kullanılıyor) */
-function RelatedActiveCampaigns(props: { currentId: string; onOpen: (id: string) => void }) {
-  const { data: campaigns = [] } = useListSimpleCampaignsQuery(undefined, {
-    refetchOnMountOrArgChange: 30,
-  });
-  const items = (campaigns as SimpleCampaignView[]).filter(
-    (c) => !!c.is_active && String(c.id) !== props.currentId
-  );
-  if (!items.length) return null;
-
-  return (
-    <div className="mt-6">
-      <h3 className="text-sm font-medium text-slate-700 mb-3">Diğer aktif kampanyalar</h3>
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        {items.map((x: SimpleCampaignView) => (
-          <button
-            key={`rel-${x.id}`}
-            className="shrink-0 w-48 text-left bg-white rounded-lg border border-emerald-100 hover:shadow transition"
-            onClick={() => props.onOpen(String(x.id))}
-          >
-            <img
-              src={
-                (x as any).images?.[0]?.image_effective_url ||
-                (x as any).images?.[0]?.image_url ||
-                x.image_effective_url ||
-                x.image_url ||
-                "https://images.unsplash.com/photo-1556740749-887f6717d7e4?w=800&h=500&fit=crop"
-              }
-              alt={x.title}
-              className="w-full h-24 object-cover rounded-t-lg"
-            />
-            <div className="p-2">
-              <div className="text-[10px] text-emerald-700 font-semibold mb-1">Kampanya</div>
-              <div className="text-xs text-slate-800 line-clamp-2">{x.title}</div>
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /** ------- Sayfa Parçaları ------- */
 function HomeComposition(props: {
@@ -382,6 +337,10 @@ export default function App() {
             <Route path="/admin/products/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/products/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
 
+            <Route path="/admin/headstones" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/headstones/new" element={<AdminPanel onNavigate={onNavigateString} />} />
+            <Route path="/admin/headstones/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
+
             <Route path="/admin/categories" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/categories/new" element={<AdminPanel onNavigate={onNavigateString} />} />
             <Route path="/admin/categories/:id" element={<AdminPanel onNavigate={onNavigateString} />} />
@@ -472,7 +431,6 @@ export default function App() {
           {selectedCampaignId ? (
             <>
               <DetailPanel kind="campaign" id={selectedCampaignId} />
-              <RelatedActiveCampaigns currentId={selectedCampaignId} onOpen={(id) => setSelectedCampaignId(id)} />
             </>
           ) : selectedAnnouncementId ? (
             <DetailPanel kind="announcement" id={selectedAnnouncementId} />

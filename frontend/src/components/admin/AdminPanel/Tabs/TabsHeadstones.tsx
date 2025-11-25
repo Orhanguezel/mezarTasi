@@ -1,5 +1,5 @@
 // =============================================================
-// FILE: src/components/admin/AdminPanel/Tabs/TabsProducts.tsx
+// FILE: src/components/admin/AdminPanel/Tabs/TabsHeadstones.tsx
 // =============================================================
 "use client";
 
@@ -24,10 +24,8 @@ import { cn } from "@/components/ui/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Plus, Search, Trash2, Pencil } from "lucide-react";
 
-/** Durum filtresi */
 type StatusFilter = "all" | "active" | "inactive";
 
-/** Stabil state: seçimsiz alanlar null */
 type Filters = {
   q: string;
   status: StatusFilter;
@@ -53,7 +51,7 @@ const normalizeStr = (s: unknown): string =>
     .replace(/\s+/g, "-")
     .replace(/_/g, "-");
 
-/** 
+/**
  * Mezar BAŞ TAŞI kategorilerini yakala:
  * - "mezar baş taşı modelleri"
  * - "mezar-bas-tasi-modelleri"
@@ -72,7 +70,7 @@ const isHeadstoneCategory = (cat: any): boolean => {
   );
 };
 
-export function TabsProducts() {
+export function TabsHeadstones() {
   const navigate = useNavigate();
 
   const [filters, setFilters] = React.useState<Filters>({
@@ -86,7 +84,6 @@ export function TabsProducts() {
     order: "desc",
   });
 
-  // API param haritalama: "all" ise is_active göndermiyoruz
   const apiParams = React.useMemo<AdminProductListParams>(() => {
     const p: AdminProductListParams = {
       limit: filters.limit,
@@ -116,7 +113,6 @@ export function TabsProducts() {
 
   const [selected, setSelected] = React.useState<Record<string, boolean>>({});
 
-  // --- Kategori id -> kategori map'i ---
   const categoryMap = React.useMemo(() => {
     const map = new Map<string, any>();
     (categories ?? []).forEach((c: any) => {
@@ -125,19 +121,16 @@ export function TabsProducts() {
     return map;
   }, [categories]);
 
-  // 🔥 Ana liste: sadece "Mezar Modelleri" kategorilerine bağlı ürünler
+  // 🔥 Bu tab: SADECE baş taşı kategorisine bağlı ürünler
   const allRows = rows ?? [];
   const items = React.useMemo(() => {
-    // Kategoriler henüz gelmediyse filtreleme yapma
-    if (!categories || !categories.length) return allRows;
-
+    if (!categories || !categories.length) return [];
     return allRows.filter((r: any) => {
       const catId = r.category_id ?? r.categoryId ?? null;
-      if (!catId) return true; // kategorisiz ürünleri şimdilik göster
+      if (!catId) return false;
       const cat = categoryMap.get(String(catId));
-      if (!cat) return true;
-      // Bu tab: SADECE mezar modelleri => baş taşı kategorilerini hariç tut
-      return !isHeadstoneCategory(cat);
+      if (!cat) return false;
+      return isHeadstoneCategory(cat);
     });
   }, [allRows, categories, categoryMap]);
 
@@ -145,7 +138,6 @@ export function TabsProducts() {
     .filter(([, v]) => !!v)
     .map(([k]) => k);
 
-  // ---- Optimistic local patch (yalnızca is_active / is_featured) ----
   const [pending, setPending] = React.useState<
     Record<string, Partial<{ is_active: boolean; is_featured: boolean }>>
   >({});
@@ -170,7 +162,7 @@ export function TabsProducts() {
   };
 
   const handleDelete = async (id: string | number) => {
-    if (!confirm("Bu modeli silmek istediğinize emin misiniz?")) return;
+    if (!confirm("Bu baş taşı modelini silmek istediğinize emin misiniz?")) return;
     try {
       await del(String(id)).unwrap();
       toast.success("Model silindi");
@@ -180,7 +172,6 @@ export function TabsProducts() {
     }
   };
 
-  // ✅ Aktif switch: updateProduct ile sadece is_active güncelle
   const handleToggleActive = async (id: string | number, next: boolean) => {
     const key = String(id);
     const current = items.find((x: any) => String(x.id) === key);
@@ -189,7 +180,6 @@ export function TabsProducts() {
       return;
     }
 
-    // optimistic
     setPending((p) => ({
       ...p,
       [key]: { ...(p[key] ?? {}), is_active: next },
@@ -205,7 +195,6 @@ export function TabsProducts() {
       clearPending(key);
       toast.success(next ? "Aktifleştirildi" : "Pasifleştirildi");
     } catch (e: any) {
-      // rollback
       setPending((p) => ({
         ...p,
         [key]: { ...(p[key] ?? {}), is_active: !next },
@@ -214,7 +203,6 @@ export function TabsProducts() {
     }
   };
 
-  // ✅ Anasayfa switch
   const handleToggleHomepage = async (
     id: string | number,
     next: boolean,
@@ -226,7 +214,6 @@ export function TabsProducts() {
       return;
     }
 
-    // Optimistic UI
     setPending((p) => ({
       ...p,
       [key]: { ...(p[key] ?? {}), is_featured: next },
@@ -244,7 +231,6 @@ export function TabsProducts() {
         next ? "Anasayfada gösterilecek" : "Anasayfadan kaldırıldı",
       );
     } catch (e: any) {
-      // Geri al
       setPending((p) => ({
         ...p,
         [key]: { ...(p[key] ?? {}), is_featured: !next },
@@ -314,7 +300,7 @@ export function TabsProducts() {
               >
                 <option value="">Tümü</option>
                 {categories
-                  ?.filter((c) => !isHeadstoneCategory(c)) // 🔥 Baş taşı kategorilerini dropdown’dan çıkar
+                  ?.filter((c) => isHeadstoneCategory(c)) // ⬅️ Sadece baş taşı kategorileri
                   .map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -385,7 +371,7 @@ export function TabsProducts() {
               </div>
             </div>
 
-            {/* Durum filtresi: Hepsi / Aktif / Pasif */}
+            {/* Durum filtresi */}
             <div className="flex items-end">
               <div className="ml-auto flex items-center gap-1 rounded-md bg-gray-100 p-1">
                 {(["all", "active", "inactive"] as StatusFilter[]).map(
@@ -427,12 +413,11 @@ export function TabsProducts() {
 
             <div className="flex items-center justify-end rounded-md bg-emerald-600 p-2 text-white">
               <Button
-                onClick={() => navigate("/admin/products/new")}
+                onClick={() => navigate("/admin/headstones/new")}
                 className="gap-2"
               >
                 <Plus className="h-4 w-4" />
-                {/* ⬇️ Metin güncellendi */}
-                Yeni Mezar Modeli
+                Yeni Mezar Baş Taşı Modeli
               </Button>
             </div>
           </div>
@@ -532,7 +517,6 @@ export function TabsProducts() {
                     })}
                   </td>
 
-                  {/* Durum (renkli switch) */}
                   <td className="p-3">
                     <div className="flex items-center justify-center">
                       <Switch
@@ -551,7 +535,6 @@ export function TabsProducts() {
                     </div>
                   </td>
 
-                  {/* Anasayfa (renkli switch) */}
                   <td className="p-3">
                     <div className="flex items-center justify-center">
                       <Switch
@@ -576,7 +559,7 @@ export function TabsProducts() {
                         size="sm"
                         variant="secondary"
                         onClick={() =>
-                          navigate(`/admin/products/${r.id}`)
+                          navigate(`/admin/headstones/${r.id}`)
                         }
                       >
                         <Pencil className="h-3.5 w-3.5" />

@@ -22,6 +22,8 @@ import backgroundImage from "figma:asset/0a9012ca17bfb48233c0877277b7fb8427a12d4
 import { useListServicesPublicQuery } from "@/integrations/rtk/endpoints/services_public.endpoints";
 import type { ServiceView } from "@/integrations/rtk/types/services.types";
 
+import ProcessSection from "./ProcessSection";
+
 /* =========================== Types =========================== */
 interface SoilFillingPageProps {
   onNavigate: (page: string) => void;
@@ -303,8 +305,9 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
             {slides.map((slide, i) => (
               <div
                 key={`slide-${keyOfSlide(slide, i)}`}
-                className={`absolute inset-0 transition-transform duration-700 ease-in-out ${i === currentSlide ? "translate-x-0" : i < currentSlide ? "-translate-x-full" : "translate-x-full"
-                  }`}
+                className={`absolute inset-0 transition-transform duration-700 ease-in-out ${
+                  i === currentSlide ? "translate-x-0" : i < currentSlide ? "-translate-x-full" : "translate-x-full"
+                }`}
               >
                 <div className="relative w-full h-full">
                   <ImageWithFallback
@@ -318,7 +321,9 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
                 <div className="absolute bottom-16 right-6 text-right text-white max-w-sm">
                   <h2 className="text-lg md:text-xl mb-3 font-normal">{slide.title}</h2>
                   <button
-                    onClick={() => document.getElementById("services-grid")?.scrollIntoView({ behavior: "smooth" })}
+                    onClick={() =>
+                      document.getElementById("services-grid")?.scrollIntoView({ behavior: "smooth" })
+                    }
                     className="bg-white bg-opacity-90 hover:bg-opacity-100 border border-white border-opacity-50 text-black px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 hover:scale-105 backdrop-blur-sm"
                   >
                     İNCELE
@@ -327,10 +332,16 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
               </div>
             ))}
 
-            <button onClick={prevSlide} className="absolute left-6 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 transition-all duration-300 hover:scale-110">
+            <button
+              onClick={prevSlide}
+              className="absolute left-6 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 transition-all duration-300 hover:scale-110"
+            >
               <ChevronLeft className="w-8 h-8" />
             </button>
-            <button onClick={nextSlide} className="absolute right-6 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 transition-all duration-300 hover:scale-110">
+            <button
+              onClick={nextSlide}
+              className="absolute right-6 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 transition-all duration-300 hover:scale-110"
+            >
               <ChevronRight className="w-8 h-8" />
             </button>
 
@@ -339,8 +350,11 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
                 <button
                   key={`dot-${keyOfSlide(slide, i)}`}
                   onClick={() => setCurrentSlide(i)}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${i === currentSlide ? "bg-white scale-125" : "bg-white bg-opacity-40 hover:bg-opacity-70"
-                    }`}
+                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                    i === currentSlide
+                      ? "bg-white scale-125"
+                      : "bg-white bg-opacity-40 hover:bg-opacity-70"
+                  }`}
                 />
               ))}
             </div>
@@ -359,16 +373,20 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
                   key={`cat-${c.id}`}
                   onClick={() => setSelectedCategory(c.id)}
                   variant={selectedCategory === c.id ? "default" : "outline"}
-                  className={`px-5 py-2.5 rounded-full transition-all duration-300 text-sm ${selectedCategory === c.id
-                    ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
-                    : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
-                    }`}
+                  className={`px-5 py-2.5 rounded-full transition-all duration-300 text-sm ${
+                    selectedCategory === c.id
+                      ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
+                      : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
+                  }`}
                 >
                   {c.name}
                   <Badge
                     variant="secondary"
-                    className={`ml-2 text-xs ${selectedCategory === c.id ? "bg-teal-400 text-teal-900" : "bg-teal-100 text-teal-700"
-                      }`}
+                    className={`ml-2 text-xs ${
+                      selectedCategory === c.id
+                        ? "bg-teal-400 text-teal-900"
+                        : "bg-teal-100 text-teal-700"
+                    }`}
                   >
                     {c.count}
                   </Badge>
@@ -383,10 +401,11 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
                   key={`catm-${c.id}`}
                   onClick={() => setSelectedCategory(c.id)}
                   variant={selectedCategory === c.id ? "default" : "outline"}
-                  className={`px-3 py-3 h-auto rounded-lg transition-all duration-300 text-center ${selectedCategory === c.id
-                    ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
-                    : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
-                    }`}
+                  className={`px-3 py-3 h-auto rounded-lg transition-all duration-300 text-center ${
+                    selectedCategory === c.id
+                      ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
+                      : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
+                  }`}
                 >
                   <span className="text-base font-bold leading-tight text-center break-words hyphens-auto">
                     {c.name}
@@ -443,7 +462,9 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
                           className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         {svc.featured && (
-                          <Badge className="absolute top-3 right-3 bg-teal-500 text-white">Öne Çıkan</Badge>
+                          <Badge className="absolute top-3 right-3 bg-teal-500 text-white">
+                            Öne Çıkan
+                          </Badge>
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
@@ -467,15 +488,22 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
                         </h3>
 
                         {!!svc.description && (
-                          <p className="text-sm text-gray-600 mb-4 line-clamp-2">{svc.description}</p>
+                          <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                            {svc.description}
+                          </p>
                         )}
 
                         <div className="flex items-center justify-between mb-4">
-                          <span className="text-sm text-teal-600">{svc.price || "Fiyat İçin Arayınız"}</span>
+                          <span className="text-sm text-teal-600">
+                            {svc.price || "Fiyat İçin Arayınız"}
+                          </span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
-                          <Button className="w-full bg-teal-500 hover:bg-teal-600 text-white" onClick={() => onNavigate("contact")}>
+                          <Button
+                            className="w-full bg-teal-500 hover:bg-teal-600 text-white"
+                            onClick={() => onNavigate("contact")}
+                          >
                             Teklif Al
                           </Button>
                           <Button
@@ -483,7 +511,10 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
                             className="w-full text-teal-500 border-teal-500 hover:bg-teal-50"
                             onClick={() => {
                               const txt = `Merhaba, ${svc.name} hakkında bilgi almak istiyorum.`;
-                              window.open(`https://wa.me/905334838971?text=${encodeURIComponent(txt)}`, "_blank");
+                              window.open(
+                                `https://wa.me/905334838971?text=${encodeURIComponent(txt)}`,
+                                "_blank"
+                              );
                             }}
                           >
                             WhatsApp
@@ -497,11 +528,16 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
                 {filtered.length === 0 && !isError && (
                   <div className="text-center py-12">
                     <div className="text-gray-400 text-6xl mb-4">🌱</div>
-                    <h3 className="text-xl text-gray-600 mb-2">Bu kategoride henüz hizmet bulunmuyor</h3>
+                    <h3 className="text-xl text-gray-600 mb-2">
+                      Bu kategoride henüz hizmet bulunmuyor
+                    </h3>
                     <p className="text-gray-500 mb-6">
                       Diğer kategorileri inceleyebilir veya bizimle iletişime geçebilirsiniz.
                     </p>
-                    <Button onClick={() => setSelectedCategory("tümü")} className="bg-teal-500 hover:bg-teal-600 text-white">
+                    <Button
+                      onClick={() => setSelectedCategory("tümü")}
+                      className="bg-teal-500 hover:bg-teal-600 text-white"
+                    >
                       Tüm Hizmetleri Görüntüle
                     </Button>
                   </div>
@@ -512,20 +548,23 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
         </div>
       </div>
 
+      {/* ✅ Process Section - İstanbul Mezar Yapımı Çalışma Süreci */}
+      <ProcessSection />
+
       {/* CTA */}
       <div className="bg-teal-500 py-16">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center text-white">
-            <h2 className="text-3xl mb-4">Toprak Dolgu & Bakım İçin Bilgi Alın</h2>
+            <h2 className="text-3xl mb-4">Özel Toprak Doldurumu İhtiyacınız Var mı?</h2>
             <p className="text-lg opacity-90 mb-8">
-              Uzman ekibimizle hızlı keşif ve uygun fiyat.
+              Özel durumlar için uzman ekibimizle iletişime geçin. Size özel çözümler sunuyoruz.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 onClick={() => onNavigate("contact")}
                 className="bg-white text-teal-500 hover:bg-gray-100 px-8 py-3"
               >
-                Hemen İletişim
+                Özel Hizmet Talebi
               </Button>
               <Button
                 variant="outline"
@@ -548,9 +587,14 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
           {selectedService && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-2xl text-teal-600">{selectedService.name}</DialogTitle>
+                <DialogTitle className="text-2xl text-teal-600">
+                  {selectedService.name}
+                </DialogTitle>
                 {!!selectedService.description && (
-                  <DialogDescription id={`soil-desc-${selectedService.id}`} className="text-gray-600">
+                  <DialogDescription
+                    id={`soil-desc-${selectedService.id}`}
+                    className="text-gray-600"
+                  >
                     {selectedService.description}
                   </DialogDescription>
                 )}
@@ -558,9 +602,15 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
 
               <div className="space-y-6">
                 <div className="relative bg-gray-50 rounded-lg overflow-hidden">
-                  <ImageWithFallback src={selectedService.image} alt={selectedService.name} className="w-full h-80 object-cover" />
+                  <ImageWithFallback
+                    src={selectedService.image}
+                    alt={selectedService.name}
+                    className="w-full h-80 object-cover"
+                  />
                   {selectedService.featured && (
-                    <Badge className="absolute top-4 left-4 bg-teal-500 text-white">Öne Çıkan Hizmet</Badge>
+                    <Badge className="absolute top-4 left-4 bg-teal-500 text-white">
+                      Öne Çıkan Hizmet
+                    </Badge>
                   )}
                 </div>
 
@@ -575,11 +625,16 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
                       {CATEGORY_LABELS[selectedService.category]}
                     </Badge>
                   </div>
-                  <div className="text-2xl text-teal-600">{selectedService.price || "Fiyat İçin Arayınız"}</div>
+                  <div className="text-2xl text-teal-600">
+                    {selectedService.price || "Fiyat İçin Arayınız"}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <Button className="bg-teal-500 hover:bg-teal-600 text-white" onClick={() => onNavigate("contact")}>
+                  <Button
+                    className="bg-teal-500 hover:bg-teal-600 text-white"
+                    onClick={() => onNavigate("contact")}
+                  >
                     📞 Fiyat Teklifi Al
                   </Button>
                   <Button
@@ -587,7 +642,10 @@ export function SoilFillingPage({ onNavigate }: SoilFillingPageProps) {
                     className="text-green-600 border-green-600 hover:bg-green-50"
                     onClick={() => {
                       const txt = `Merhaba, ${selectedService.name} hakkında bilgi almak istiyorum.`;
-                      window.open(`https://wa.me/905334838971?text=${encodeURIComponent(txt)}`, "_blank");
+                      window.open(
+                        `https://wa.me/905334838971?text=${encodeURIComponent(txt)}`,
+                        "_blank"
+                      );
                     }}
                   >
                     💬 WhatsApp'tan Sor

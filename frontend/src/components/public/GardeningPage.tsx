@@ -1,6 +1,8 @@
 // =============================================================
 // FILE: src/components/public/GardeningPage.tsx
 // =============================================================
+"use client";
+
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
@@ -19,6 +21,7 @@ import backgroundImage from "figma:asset/0a9012ca17bfb48233c0877277b7fb8427a12d4
 
 import { useListServicesPublicQuery } from "@/integrations/rtk/endpoints/services_public.endpoints";
 import type { ServiceView } from "@/integrations/rtk/types/services.types";
+import ProcessSection from "./ProcessSection";
 
 /* =========================== types =========================== */
 interface GardeningPageProps {
@@ -117,10 +120,10 @@ function isGardening(s: any): boolean {
 function toGardeningModel(s: ServiceView): GardeningService {
   const baseKeyStr = String(
     (s as any).uuid ??
-    (s as any).id ??
-    (s as any).slug ??
-    (s as any).name ??
-    JSON.stringify(s)
+      (s as any).id ??
+      (s as any).slug ??
+      (s as any).name ??
+      JSON.stringify(s),
   );
 
   // fiyatı metne çevir
@@ -129,13 +132,19 @@ function toGardeningModel(s: ServiceView): GardeningService {
     priceText = (s as any).price.toLocaleString("tr-TR");
   } else if (typeof (s as any).price === "string") {
     const n = Number((s as any).price);
-    priceText = Number.isFinite(n) ? n.toLocaleString("tr-TR") : (s as any).price;
+    priceText = Number.isFinite(n)
+      ? n.toLocaleString("tr-TR")
+      : (s as any).price;
   }
-  if (!priceText || !String(priceText).trim()) priceText = "Fiyat İçin Arayınız";
+  if (!priceText || !String(priceText).trim())
+    priceText = "Fiyat İçin Arayınız";
 
   const rawCat = String((s as any).category).trim().toLowerCase();
   const normalizedCat: GardenCat =
-    rawCat === "mevsimlik" || rawCat === "surekli" || rawCat === "özel" || rawCat === "ozel"
+    rawCat === "mevsimlik" ||
+    rawCat === "surekli" ||
+    rawCat === "özel" ||
+    rawCat === "ozel"
       ? (rawCat === "özel" ? "ozel" : (rawCat as GardenCat))
       : "ozel";
 
@@ -171,20 +180,31 @@ const CATEGORY_LABELS: Record<GardenCat, string> = {
 export function GardeningPage({ onNavigate }: GardeningPageProps) {
   // === UI state
   const [selectedCategory, setSelectedCategory] = useState<UiCat>("tümü");
-  const [selectedService, setSelectedService] = useState<GardeningService | null>(null);
+  const [selectedService, setSelectedService] =
+    useState<GardeningService | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // === Slider (AccessoriesPage ile aynı pattern)
+  // === Slider
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slides, setSlides] = useState<SlideData[]>([]);
-  const { slides: activeSlides = [], isError: isSlidesError } = useActiveSlidesRtk();
+  const {
+    slides: activeSlides = [],
+    isError: isSlidesError,
+  } = useActiveSlidesRtk();
 
   useEffect(() => setSlides(activeSlides ?? []), [activeSlides]);
+
+  // auto-rotate
   useEffect(() => {
     if (!slides.length) return;
-    const t = window.setInterval(() => setCurrentSlide((p) => (p + 1) % slides.length), 5000);
+    const t = window.setInterval(
+      () => setCurrentSlide((p) => (p + 1) % slides.length),
+      5000,
+    );
     return () => window.clearInterval(t);
   }, [slides.length]);
+
+  // prefetch next image
   useEffect(() => {
     if (!slides.length) return;
     const next = (currentSlide + 1) % slides.length;
@@ -195,12 +215,12 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
     }
   }, [currentSlide, slides]);
 
-  const nextSlide = () => setCurrentSlide((p) => (p + 1) % slides.length);
-  const prevSlide = () => setCurrentSlide((p) => (p - 1 + slides.length) % slides.length);
+  const nextSlide = () =>
+    setCurrentSlide((p) => (p + 1) % (slides.length || 1));
+  const prevSlide = () =>
+    setCurrentSlide((p) => (p - 1 + (slides.length || 1)) % (slides.length || 1));
 
-  // === Services (PUBLIC) — SADECE whitelist paramları gönder!
-  // BE public endpoint: /services?q=&limit=&offset=&sort=&order=
-  // is_active/type gibi paramlar GÖNDERİLMEZ; client-side filtre ile gardening seçilir.
+  // === Services (PUBLIC)
   const {
     data: servicesRes,
     isLoading: isServicesLoading,
@@ -220,20 +240,41 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
 
   // Kategori sayıları
   const countsByCategory = useMemo(() => {
-    const m: Record<GardenCat, number> = { mevsimlik: 0, surekli: 0, ozel: 0, genel: 0 };
+    const m: Record<GardenCat, number> = {
+      mevsimlik: 0,
+      surekli: 0,
+      ozel: 0,
+      genel: 0,
+    };
     for (const s of allServices) m[s.category] = (m[s.category] || 0) + 1;
     return m;
   }, [allServices]);
 
-  // UI kategori listesi (AccessoriesPage tarzı chips)
+  // UI kategori listesi
   const uiCategories = useMemo(
     () => [
-      { id: "tümü" as const, name: "Tüm Hizmetler", count: allServices.length },
-      { id: "mevsimlik" as const, name: CATEGORY_LABELS.mevsimlik, count: countsByCategory.mevsimlik },
-      { id: "surekli" as const, name: CATEGORY_LABELS.surekli, count: countsByCategory.surekli },
-      { id: "ozel" as const, name: CATEGORY_LABELS.ozel, count: countsByCategory.ozel },
+      {
+        id: "tümü" as const,
+        name: "Tüm Hizmetler",
+        count: allServices.length,
+      },
+      {
+        id: "mevsimlik" as const,
+        name: CATEGORY_LABELS.mevsimlik,
+        count: countsByCategory.mevsimlik,
+      },
+      {
+        id: "surekli" as const,
+        name: CATEGORY_LABELS.surekli,
+        count: countsByCategory.surekli,
+      },
+      {
+        id: "ozel" as const,
+        name: CATEGORY_LABELS.ozel,
+        count: countsByCategory.ozel,
+      },
     ],
-    [allServices.length, countsByCategory]
+    [allServices.length, countsByCategory],
   );
 
   // Filtre
@@ -249,16 +290,19 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
 
   return (
     <div className="min-h-screen">
-      {/* Hero */}
+      {/* Hero Section with Breadcrumb */}
       <div
-        className="relative py-6 bg-cover bg-center"
+        className="relative bg-teal-500 py-6 bg-cover bg-center"
         style={{ backgroundImage: `url(${backgroundImage})` }}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-teal-600/95 to-teal-500/90" />
         <div className="relative container mx-auto px-4">
           <div className="text-center text-white">
             <nav className="flex items-center justify-center space-x-2 text-sm">
-              <button onClick={() => onNavigate("home")} className="hover:text-teal-200 transition-colors">
+              <button
+                onClick={() => onNavigate("home")}
+                className="hover:text-teal-200 transition-colors"
+              >
                 Anasayfa
               </button>
               <span>&gt;</span>
@@ -268,16 +312,22 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
         </div>
       </div>
 
-      {/* Slider */}
+      {/* Slider Section - Modern Design */}
       {slides.length > 0 && !isSlidesError && (
         <div className="relative bg-black">
           <div className="relative w-full h-96 overflow-hidden">
             {slides.map((slide, index) => (
               <div
-                key={`slide-${keyOfSlide(slide, index)}`}
-                className={`absolute inset-0 transition-transform duration-700 ease-in-out ${index === currentSlide ? "translate-x-0" : index < currentSlide ? "-translate-x-full" : "translate-x-full"
-                  }`}
+                key={keyOfSlide(slide, index)}
+                className={`absolute inset-0 transition-transform duration-700 ease-in-out ${
+                  index === currentSlide
+                    ? "translate-x-0"
+                    : index < currentSlide
+                    ? "-translate-x-full"
+                    : "translate-x-full"
+                }`}
               >
+                {/* Background Image with Overlay */}
                 <div className="relative w-full h-full">
                   <ImageWithFallback
                     src={slide.image}
@@ -287,10 +337,19 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
                   <div className="absolute inset-0 bg-black bg-opacity-60" />
                 </div>
 
+                {/* Content Overlay - Bottom Right Minimal */}
                 <div className="absolute bottom-16 right-6 text-right text-white max-w-sm">
-                  <h2 className="text-lg md:text-xl mb-3 font-normal">{slide.title}</h2>
+                  <h2 className="text-lg md:text-xl mb-3 text-white font-normal">
+                    {slide.title}
+                  </h2>
                   <button
-                    onClick={() => document.getElementById("services-grid")?.scrollIntoView({ behavior: "smooth" })}
+                    onClick={() => {
+                      const gridElement =
+                        document.getElementById("services-grid");
+                      if (gridElement) {
+                        gridElement.scrollIntoView({ behavior: "smooth" });
+                      }
+                    }}
                     className="bg-white bg-opacity-90 hover:bg-opacity-100 border border-white border-opacity-50 text-black px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 hover:scale-105 backdrop-blur-sm"
                   >
                     İNCELE
@@ -299,20 +358,32 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
               </div>
             ))}
 
-            <button onClick={prevSlide} className="absolute left-6 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 transition-all duration-300 hover:scale-110">
+            {/* Navigation Arrows - Sleek Design */}
+            <button
+              onClick={prevSlide}
+              className="absolute left-6 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 transition-all duration-300 hover:scale-110"
+            >
               <ChevronLeft className="w-8 h-8" />
             </button>
-            <button onClick={nextSlide} className="absolute right-6 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 transition-all duration-300 hover:scale-110">
+
+            <button
+              onClick={nextSlide}
+              className="absolute right-6 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 transition-all duration-300 hover:scale-110"
+            >
               <ChevronRight className="w-8 h-8" />
             </button>
 
+            {/* Dots Indicator - Modern Style */}
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex space-x-3">
               {slides.map((slide, index) => (
                 <button
                   key={`dot-${keyOfSlide(slide, index)}`}
                   onClick={() => setCurrentSlide(index)}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${index === currentSlide ? "bg-white scale-125" : "bg-white bg-opacity-40 hover:bg-opacity-70"
-                    }`}
+                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                    index === currentSlide
+                      ? "bg-white scale-125"
+                      : "bg-white bg-opacity-40 hover:bg-opacity-70"
+                  }`}
                 />
               ))}
             </div>
@@ -320,48 +391,57 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
         </div>
       )}
 
-      {/* Category Filters (AccessoriesPage ile aynı chip yapısı) */}
+      {/* Category Filters - Under Slider */}
       <div className="bg-gray-50 py-8">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
-            {/* Desktop */}
+            {/* Desktop Version - Flex Layout */}
             <div className="hidden md:flex flex-wrap justify-center gap-3">
-              {uiCategories.map((c) => (
+              {uiCategories.map((category) => (
                 <Button
-                  key={`cat-${c.id}`}
-                  onClick={() => setSelectedCategory(c.id)}
-                  variant={selectedCategory === c.id ? "default" : "outline"}
-                  className={`px-5 py-2.5 rounded-full transition-all duration-300 text-sm ${selectedCategory === c.id
-                    ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
-                    : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
-                    }`}
+                  key={category.id}
+                  onClick={() => setSelectedCategory(category.id)}
+                  variant={
+                    selectedCategory === category.id ? "default" : "outline"
+                  }
+                  className={`px-5 py-2.5 rounded-full transition-all duration-300 text-sm ${
+                    selectedCategory === category.id
+                      ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
+                      : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
+                  }`}
                 >
-                  {c.name}
+                  {category.name}
                   <Badge
                     variant="secondary"
-                    className={`ml-2 text-xs ${selectedCategory === c.id ? "bg-teal-400 text-teal-900" : "bg-teal-100 text-teal-700"
-                      }`}
+                    className={`ml-2 text-xs ${
+                      selectedCategory === category.id
+                        ? "bg-teal-400 text-teal-900"
+                        : "bg-teal-100 text-teal-700"
+                    }`}
                   >
-                    {c.count}
+                    {category.count}
                   </Badge>
                 </Button>
               ))}
             </div>
 
-            {/* Mobile */}
+            {/* Mobile Version - Grid Layout */}
             <div className="md:hidden grid grid-cols-2 gap-3">
-              {uiCategories.map((c) => (
+              {uiCategories.map((category) => (
                 <Button
-                  key={`catm-${c.id}`}
-                  onClick={() => setSelectedCategory(c.id)}
-                  variant={selectedCategory === c.id ? "default" : "outline"}
-                  className={`px-3 py-3 h-auto rounded-lg transition-all duration-300 text-center ${selectedCategory === c.id
-                    ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
-                    : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
-                    }`}
+                  key={`m-${category.id}`}
+                  onClick={() => setSelectedCategory(category.id)}
+                  variant={
+                    selectedCategory === category.id ? "default" : "outline"
+                  }
+                  className={`px-3 py-3 h-auto rounded-lg transition-all duration-300 text-center ${
+                    selectedCategory === category.id
+                      ? "bg-teal-500 hover:bg-teal-600 text-white shadow-lg"
+                      : "border-teal-500 text-teal-600 hover:bg-teal-50 bg-white"
+                  }`}
                 >
                   <span className="text-base font-bold leading-tight text-center break-words hyphens-auto">
-                    {c.name}
+                    {category.name}
                   </span>
                 </Button>
               ))}
@@ -378,17 +458,22 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
               <h2 className="text-3xl text-gray-800 mb-4">
                 {selectedCategory === "tümü"
                   ? "Tüm Çiçeklendirme Hizmetleri"
-                  : uiCategories.find((x) => x.id === selectedCategory)?.name}
+                  : uiCategories.find((cat) => cat.id === selectedCategory)
+                      ?.name}
               </h2>
               <p className="text-gray-600">
-                Profesyonel peyzaj ekibimizle mezar alanlarınızı güzelleştiriyoruz
+                Profesyonel peyzaj ekibimizle mezar alanlarınızı
+                güzelleştiriyoruz.
               </p>
             </div>
 
             {isServicesLoading && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {Array.from({ length: 8 }).map((_, i) => (
-                  <Card key={`skel-${i}`} className="h-80 animate-pulse bg-white/60" />
+                  <Card
+                    key={`skel-${i}`}
+                    className="h-80 animate-pulse bg-white/60"
+                  />
                 ))}
               </div>
             )}
@@ -396,7 +481,10 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
             {isServicesError && (
               <div className="text-center text-red-600 mb-8">
                 Hizmetler yüklenemedi.
-                <button className="ml-2 underline" onClick={() => refetchServices()}>
+                <button
+                  className="ml-2 underline"
+                  onClick={() => refetchServices()}
+                >
                   Tekrar dene
                 </button>
               </div>
@@ -410,19 +498,27 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
                       key={`svc-${service.id}`}
                       className="group hover:shadow-xl transition-all duration-300 bg-white border-0 overflow-hidden"
                     >
-                      <div className="relative cursor-pointer" onClick={() => openModal(service)}>
+                      <div
+                        className="relative cursor-pointer"
+                        onClick={() => openModal(service)}
+                      >
                         <ImageWithFallback
                           src={service.image}
                           alt={service.name}
                           className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         {service.featured && (
-                          <Badge className="absolute top-3 right-3 bg-teal-500 text-white">Öne Çıkan</Badge>
+                          <Badge className="absolute top-3 right-3 bg-teal-500 text-white">
+                            Öne Çıkan
+                          </Badge>
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                        {/* Click to view indicator */}
                         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                           <div className="bg-white/90 rounded-full p-3">
-                            <span className="text-gray-800 text-sm">🔍 Detayları Gör</span>
+                            <span className="text-gray-800 text-sm">
+                              🔍 Detayları Gör
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -430,7 +526,10 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
                       <CardContent className="p-6">
                         {!!service.material && (
                           <div className="mb-3">
-                            <Badge variant="outline" className="text-teal-600 border-teal-600 mb-2">
+                            <Badge
+                              variant="outline"
+                              className="text-teal-600 border-teal-600 mb-2"
+                            >
                               {service.material}
                             </Badge>
                           </div>
@@ -441,26 +540,38 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
                         </h3>
 
                         {!!service.description && (
-                          <p className="text-sm text-gray-600 mb-4 line-clamp-2">{service.description}</p>
+                          <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                            {service.description}
+                          </p>
                         )}
 
                         <div className="flex items-center justify-between mb-4">
-                          <span className="text-sm text-teal-600">{service.price || "Fiyat İçin Arayınız"}</span>
+                          <span className="text-sm text-teal-600">
+                            {service.price || "Fiyat İçin Arayınız"}
+                          </span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
-                          <Button className="w-full bg-teal-500 hover:bg-teal-600 text-white" onClick={() => onNavigate("contact")}>
-                            Teklif Al
+                          <Button
+                            className="w-full bg-teal-500 hover:bg-teal-600 text-white"
+                            onClick={() => onNavigate("contact")}
+                          >
+                            Fiyat Teklifi Al
                           </Button>
                           <Button
                             variant="outline"
                             className="w-full text-teal-500 border-teal-500 hover:bg-teal-50"
                             onClick={() => {
-                              const txt = `Merhaba, ${service.name} hakkında bilgi almak istiyorum.`;
-                              window.open(`https://wa.me/905334838971?text=${encodeURIComponent(txt)}`, "_blank");
+                              const whatsappMessage = `Merhaba, ${service.name} hakkında bilgi almak istiyorum.`;
+                              window.open(
+                                `https://wa.me/905334838971?text=${encodeURIComponent(
+                                  whatsappMessage,
+                                )}`,
+                                "_blank",
+                              );
                             }}
                           >
-                            WhatsApp
+                            WhatsApp&apos;tan Sor
                           </Button>
                         </div>
                       </CardContent>
@@ -471,11 +582,17 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
                 {filteredServices.length === 0 && (
                   <div className="text-center py-12">
                     <div className="text-gray-400 text-6xl mb-4">🌸</div>
-                    <h3 className="text-xl text-gray-600 mb-2">Bu kategoride henüz hizmet bulunmuyor</h3>
+                    <h3 className="text-xl text-gray-600 mb-2">
+                      Bu kategoride henüz hizmet bulunmuyor
+                    </h3>
                     <p className="text-gray-500 mb-6">
-                      Diğer kategorileri inceleyebilir veya bizimle iletişime geçebilirsiniz.
+                      Diğer kategorileri inceleyebilir veya bizimle iletişime
+                      geçebilirsiniz.
                     </p>
-                    <Button onClick={() => setSelectedCategory("tümü")} className="bg-teal-500 hover:bg-teal-600 text-white">
+                    <Button
+                      onClick={() => setSelectedCategory("tümü")}
+                      className="bg-teal-500 hover:bg-teal-600 text-white"
+                    >
                       Tüm Hizmetleri Görüntüle
                     </Button>
                   </div>
@@ -486,17 +603,24 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
         </div>
       </div>
 
-      {/* CTA (AccessoriesPage ile tutarlı) */}
+      {/* Process Section ( dışarıdan component ) */}
+      <ProcessSection />
+
+      {/* Call to Action Section */}
       <div className="bg-teal-500 py-16">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center text-white">
-            <h2 className="text-3xl mb-4">Mezar Çiçeklendirme İçin Ücretsiz Bilgilendirme</h2>
+            <h2 className="text-3xl mb-4">Özel Peyzaj Tasarımı İstiyorsanız</h2>
             <p className="text-lg opacity-90 mb-8">
-              Sezonuna uygun bitkiler ve profesyonel uygulama için bizimle iletişime geçin.
+              Size özel peyzaj tasarımı için uzman ekibimizle iletişime geçin.
+              Alanınıza uygun özel çözümler sunuyoruz.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button onClick={() => onNavigate("contact")} className="bg-white text-teal-500 hover:bg-gray-100 px-8 py-3">
-                Hemen İletişim
+              <Button
+                onClick={() => onNavigate("contact")}
+                className="bg-white text-teal-500 hover:bg-gray-100 px-8 py-3"
+              >
+                Özel Tasarım Talebi
               </Button>
               <Button
                 variant="outline"
@@ -510,100 +634,151 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
         </div>
       </div>
 
-      {/* Detail Modal */}
+      {/* Service Detail Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent
-          className="max-w-2xl  bg-gray-50 max-h-[90vh] overflow-y-auto"
-          aria-describedby={selectedService ? `service-description-${selectedService.id}` : "modal-content"}
+          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          aria-describedby={
+            selectedService
+              ? `service-description-${selectedService.id}`
+              : "modal-content"
+          }
         >
           {selectedService && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-2xl text-teal-600">{selectedService.name}</DialogTitle>
+                <DialogTitle className="text-2xl text-teal-600">
+                  {selectedService.name}
+                </DialogTitle>
                 {!!selectedService.description && (
-                  <DialogDescription id={`service-description-${selectedService.id}`} className="text-gray-600">
+                  <DialogDescription
+                    id={`service-description-${selectedService.id}`}
+                    className="text-gray-600"
+                  >
                     {selectedService.description}
                   </DialogDescription>
                 )}
               </DialogHeader>
 
               <div className="space-y-6">
+                {/* Main Image - Centered */}
                 <div className="relative bg-gray-50 rounded-lg overflow-hidden">
-                  <ImageWithFallback src={selectedService.image} alt={selectedService.name} className="w-full h-80 object-cover" />
+                  <ImageWithFallback
+                    src={selectedService.image}
+                    alt={selectedService.name}
+                    className="w-full h-80 object-cover"
+                  />
                   {selectedService.featured && (
-                    <Badge className="absolute top-4 left-4 bg-teal-500 text-white">Öne Çıkan</Badge>
+                    <Badge className="absolute top-4 left-4 bg-teal-500 text-white">
+                      Öne Çıkan Hizmet
+                    </Badge>
                   )}
                 </div>
 
+                {/* Price and Category Info - Centered */}
                 <div className="text-center space-y-3">
                   <div className="flex items-center justify-center gap-2">
                     {!!selectedService.material && (
-                      <Badge variant="outline" className="text-teal-600 border-teal-600">
+                      <Badge
+                        variant="outline"
+                        className="text-teal-600 border-teal-600"
+                      >
                         {selectedService.material}
                       </Badge>
                     )}
-                    <Badge variant="secondary" className="bg-teal-100 text-teal-700">
-                      {CATEGORY_LABELS[selectedService.category] ?? selectedService.category}
+                    <Badge
+                      variant="secondary"
+                      className="bg-teal-100 text-teal-700"
+                    >
+                      {CATEGORY_LABELS[selectedService.category] ??
+                        selectedService.category}
                     </Badge>
                   </div>
-                  <div className="text-2xl text-teal-600">{selectedService.price || "Fiyat İçin Arayınız"}</div>
+
+                  <div className="text-2xl text-teal-600">
+                    {selectedService.price || "Fiyat İçin Arayınız"}
+                  </div>
                 </div>
 
+                {/* Service Specifications */}
                 <div>
-                  <h3 className="text-lg text-gray-800 mb-4 text-center">Hizmet Detayları</h3>
+                  <h3 className="text-lg text-gray-800 mb-4 text-center">
+                    Hizmet Detayları
+                  </h3>
                   <div className="space-y-3">
                     {!!selectedService.area && (
                       <div className="flex justify-between items-center py-2 border-b border-gray-100">
                         <span className="text-gray-600">Alan:</span>
-                        <span className="text-gray-800">{selectedService.area}</span>
+                        <span className="text-gray-800">
+                          {selectedService.area}
+                        </span>
                       </div>
                     )}
                     {!!selectedService.duration && (
                       <div className="flex justify-between items-center py-2 border-b border-gray-100">
                         <span className="text-gray-600">Süre:</span>
-                        <span className="text-gray-800">{selectedService.duration}</span>
+                        <span className="text-gray-800">
+                          {selectedService.duration}
+                        </span>
                       </div>
                     )}
                     {!!selectedService.maintenance && (
                       <div className="flex justify-between items-center py-2 border-b border-gray-100">
                         <span className="text-gray-600">Bakım:</span>
-                        <span className="text-gray-800">{selectedService.maintenance}</span>
+                        <span className="text-gray-800">
+                          {selectedService.maintenance}
+                        </span>
                       </div>
                     )}
                     {!!selectedService.season && (
                       <div className="flex justify-between items-center py-2 border-b border-gray-100">
                         <span className="text-gray-600">Mevsim:</span>
-                        <span className="text-gray-800">{selectedService.season}</span>
+                        <span className="text-gray-800">
+                          {selectedService.season}
+                        </span>
                       </div>
                     )}
                     {!!selectedService.warranty && (
                       <div className="flex justify-between items-center py-2 border-b border-gray-100">
                         <span className="text-gray-600">Garanti:</span>
-                        <span className="text-gray-800">{selectedService.warranty}</span>
+                        <span className="text-gray-800">
+                          {selectedService.warranty}
+                        </span>
                       </div>
                     )}
                     {!!selectedService.includes && (
                       <div className="flex justify-between items-center py-2">
                         <span className="text-gray-600">Dahil Olanlar:</span>
-                        <span className="text-gray-800">{selectedService.includes}</span>
+                        <span className="text-gray-800">
+                          {selectedService.includes}
+                        </span>
                       </div>
                     )}
                   </div>
                 </div>
 
+                {/* Contact Buttons */}
                 <div className="grid grid-cols-2 gap-4">
-                  <Button className="bg-teal-500 hover:bg-teal-600 text-white" onClick={() => onNavigate("contact")}>
+                  <Button
+                    className="bg-teal-500 hover:bg-teal-600 text-white"
+                    onClick={() => onNavigate("contact")}
+                  >
                     📞 Fiyat Teklifi Al
                   </Button>
                   <Button
                     variant="outline"
                     className="text-green-600 border-green-600 hover:bg-green-50"
                     onClick={() => {
-                      const txt = `Merhaba, ${selectedService.name} hakkında bilgi almak istiyorum.`;
-                      window.open(`https://wa.me/905334838971?text=${encodeURIComponent(txt)}`, "_blank");
+                      const whatsappMessage = `Merhaba, ${selectedService.name} hakkında bilgi almak istiyorum.`;
+                      window.open(
+                        `https://wa.me/905334838971?text=${encodeURIComponent(
+                          whatsappMessage,
+                        )}`,
+                        "_blank",
+                      );
                     }}
                   >
-                    💬 WhatsApp'tan Sor
+                    💬 WhatsApp&apos;tan Sor
                   </Button>
                 </div>
               </div>

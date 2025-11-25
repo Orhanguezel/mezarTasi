@@ -18,10 +18,24 @@ import {
 } from "./homepageUtils";
 
 type Props = {
-  // exactOptionalPropertyTypes için: | undefined ekliyoruz
   onOpenCampaignsModal?: ((payload?: any) => void) | undefined;
   onOpenAnnouncementModal?: ((payload?: any) => void) | undefined;
 };
+
+// 🔹 Ortak tarih formatter: "Haziran 2024" formatı
+function formatMonthYear(value: unknown): string {
+  if (!value) return "";
+  const d = new Date(value as any);
+  if (Number.isNaN(d.getTime())) return "";
+
+  const txt = d.toLocaleDateString("tr-TR", {
+    month: "long",
+    year: "numeric",
+  });
+
+  // İlk harfi büyük olsun (genelde zaten büyük geliyor ama garanti edelim)
+  return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
 
 export function HomeRightColumn({
   onOpenCampaignsModal,
@@ -39,9 +53,11 @@ export function HomeRightColumn({
         id: c.id,
         title: c.title,
         description: c.description ?? "",
-        date: c.created_at
-          ? new Date(c.created_at).toLocaleDateString()
-          : c.date ?? "",
+        // 🔸 Sadece ay + yıl
+        date:
+          c.created_at || c.date
+            ? formatMonthYear(c.created_at ?? c.date)
+            : "",
         type: c.tag ?? "Kampanya",
         image: pickImageUrl(c.images?.[0]) || PLACEHOLDER,
       }))
@@ -53,11 +69,11 @@ export function HomeRightColumn({
         slug: a.slug,
         uuid: a.uuid,
         title: a.title,
-        date: a.published_at
-          ? new Date(a.published_at).toLocaleDateString()
-          : a.created_at
-          ? new Date(a.created_at).toLocaleDateString()
-          : "",
+        // 🔸 Yayınlanma tarihi öncelikli, yoksa oluşturulma
+        date:
+          a.published_at || a.created_at
+            ? formatMonthYear(a.published_at ?? a.created_at)
+            : "",
         html: a.html as string | undefined,
         image:
           pickImageUrl(a.images?.[0]) || a.image || a.cover_image || PLACEHOLDER,

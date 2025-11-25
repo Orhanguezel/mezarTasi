@@ -3,156 +3,317 @@
 // =============================================================
 "use client";
 
-import React from "react";
+import * as React from "react";
 import { ImageWithFallback } from "../figma/ImageWithFallback";
-import { useGetSimpleCampaignByIdQuery } from "@/integrations/rtk/endpoints/campaigns.endpoints";
-import { useGetAnnouncementByIdQuery } from "@/integrations/rtk/endpoints/announcements.endpoints";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+
+import { useListSiteSettingsQuery } from "@/integrations/rtk/endpoints/site_settings.endpoints";
+import {
+  useGetSimpleCampaignByIdQuery,
+} from "@/integrations/rtk/endpoints/campaigns.endpoints";
+import {
+  useGetAnnouncementByIdQuery,
+} from "@/integrations/rtk/endpoints/announcements.endpoints";
+
 import type { SimpleCampaignView } from "@/integrations/rtk/types/campaigns";
-import type { AnnouncementView } from "@/integrations/rtk/types/announcements";
 
-const PLACEHOLDER =
-  "https://images.unsplash.com/photo-1556740749-887f6717d7e4?w=800&h=500&fit=crop";
+type Kind = "campaign" | "announcement";
 
-function campaignImageUrl(c: SimpleCampaignView): string {
-  return (
-    c.images?.[0]?.image_effective_url ??
-    c.images?.[0]?.image_url ??
-    c.image_effective_url ??
-    c.image_url ??
-    PLACEHOLDER
-  );
-}
-
-function firstImgFromHtml(html?: string | null): string | null {
-  if (!html) return null;
-  const tmp = typeof window !== "undefined" ? document.createElement("div") : null;
-  if (!tmp) return null;
-  tmp.innerHTML = html;
-  const img = tmp.querySelector("img");
-  return img?.getAttribute("src") || null;
-}
-
-function announcementImageUrl(a: AnnouncementView): string {
-  return a.image_url || firstImgFromHtml(a.html) || PLACEHOLDER;
-}
-
-export function DetailPanel({
-  kind,
-  id,
-}: {
-  kind: "campaign" | "announcement";
+interface DetailPanelProps {
+  kind: Kind;
   id: string;
-}) {
-  const validId = typeof id === "string" && id.trim().length > 0;
-  if (!validId) return <div className="p-6 text-slate-600">Kayıt anahtarı eksik.</div>;
+}
 
-  const isCampaign = kind === "campaign";
-  const isAnnouncement = kind === "announcement";
+/* ---------- helpers: site settings ---------- */
+type SiteSettingLike = { key?: string; name?: string; value?: string | null };
 
-  // Kampanya
+function toSettingsMap(data: unknown): Record<string, string> {
+  if (!data) return {};
+  if (Array.isArray(data)) {
+    const m: Record<string, string> = {};
+    for (const it of data as SiteSettingLike[]) {
+      const k = (it?.key ?? it?.name ?? "").toString();
+      const v = (it?.value ?? "").toString();
+      if (k) m[k] = v;
+    }
+    return m;
+  }
+  if (typeof data === "object") return data as Record<string, string>;
+  return {};
+}
+
+const sanitizePhoneDigits = (s: string) => (s || "").replace(/[^\d]/g, "");
+
+function buildTelHref(raw: string): string {
+  const trimmed = (raw || "").replace(/\s+/g, "");
+  if (trimmed.startsWith("+")) return `tel:${trimmed}`;
+  const digits = sanitizePhoneDigits(trimmed);
+  let intl = digits;
+  if (digits.startsWith("90")) intl = digits;
+  else if (digits.startsWith("0")) intl = `9${digits}`;
+  else if (digits.length === 10) intl = `90${digits}`;
+  return `tel:+${intl}`;
+}
+
+function buildWhatsappHref(raw: string): string {
+  const digits = sanitizePhoneDigits(raw);
+  let intl = digits;
+  if (digits.startsWith("90")) intl = digits;
+  else if (digits.startsWith("0")) intl = `9${digits}`;
+  else if (digits.length === 10) intl = `90${digits}`;
+  return `https://wa.me/${intl}`;
+}
+
+/** Haziran 2024 formatı */
+function formatMonthYear(raw?: string | Date | null): string {
+  if (!raw) return "";
+  const d = raw instanceof Date ? raw : new Date(raw);
+  if (Number.isNaN(d.getTime())) {
+    // Bazı kampanyalarda "Haziran 2024" string olarak gelebilir, onu hiç bozma
+    return String(raw);
+  }
+  return d.toLocaleDateString("tr-TR", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/** SimpleCampaignView için geçerlilik tarihi (created_at / updated_at) */
+function getCampaignValidity(c: SimpleCampaignView): string {
+  const cand = c.created_at ?? c.updated_at ?? null;
+  return formatMonthYear(cand);
+}
+
+export const DetailPanel: React.FC<DetailPanelProps> = ({ kind, id }) => {
+  // ---- Site settings
+  const { data: siteSettingsData } = useListSiteSettingsQuery(undefined);
+  const settings = React.useMemo(
+    () => toSettingsMap(siteSettingsData),
+    [siteSettingsData],
+  );
+
+  const phoneDisplay = settings["contact_phone_display"] || "0532 395 45 58";
+  const phoneTel = settings["contact_phone_tel"] || phoneDisplay;
+  const email = settings["contact_email"] || "mezarisim.com@gmail.com";
+  const brandName = settings["brand_name"] || "mezarisim.com";
+
+  const telHref = buildTelHref(phoneTel);
+  const waHref = buildWhatsappHref(phoneTel);
+
+  // ---- RTK: kampanya / duyuru detay
   const {
     data: campaign,
-    isFetching: isCampaignLoading,
-    isError: isCampaignError,
-    error: campaignErrObj,
-  } = useGetSimpleCampaignByIdQuery(id, {
-    skip: !isCampaign || !validId,
-    refetchOnMountOrArgChange: true,
+    isLoading: loadingCampaign,
+    isError: errorCampaign,
+  } = useGetSimpleCampaignByIdQuery(kind === "campaign" ? id : (undefined as any), {
+    skip: kind !== "campaign",
   });
 
-  // Duyuru
   const {
     data: announcement,
-    isFetching: isAnnouncementLoading,
-    isError: isAnnouncementError,
-    error: announcementErrObj,
-  } = useGetAnnouncementByIdQuery(id, {
-    skip: !isAnnouncement || !validId,
-    refetchOnMountOrArgChange: true,
-  });
+    isLoading: loadingAnn,
+    isError: errorAnn,
+  } = useGetAnnouncementByIdQuery(
+    kind === "announcement" ? id : (undefined as any),
+    {
+      skip: kind !== "announcement",
+    },
+  );
 
-  const loading = isCampaignLoading || isAnnouncementLoading;
-  if (loading) {
+  const isLoading = loadingCampaign || loadingAnn;
+  const isError = errorCampaign || errorAnn;
+
+  if (isLoading) {
     return (
-      <div className="p-6 space-y-4">
-        <div className="h-6 bg-gray-100 rounded animate-pulse" />
-        <div className="h-48 bg-gray-100 rounded animate-pulse" />
-        <div className="h-24 bg-gray-100 rounded animate-pulse" />
+      <div className="bg-white max-w-2xl mx-auto p-6 text-center text-sm text-gray-500">
+        Yükleniyor…
       </div>
     );
   }
 
-  const hasError = isCampaignError || isAnnouncementError;
-  if (hasError) {
-    console.warn("DetailPanel error", { campaignErrObj, announcementErrObj });
-    return <div className="p-6 text-red-600">İçerik yüklenemedi.</div>;
+  if (isError || (!campaign && !announcement)) {
+    return (
+      <div className="bg-white max-w-2xl mx-auto p-6 text-center text-sm text-red-600">
+        Detay bilgisi yüklenemedi.
+      </div>
+    );
   }
 
-  // --- Kampanya ---
-  if (isCampaign) {
-    if (!campaign) return <div className="p-6 text-slate-600">Kampanya bulunamadı.</div>;
-    const imgSrc = campaignImageUrl(campaign);
-    const when = campaign.updated_at || campaign.created_at || "";
+  /* ---------------------- KAMPANYA DETAYI ---------------------- */
+  if (kind === "campaign" && campaign) {
+    const c = campaign as SimpleCampaignView;
+
+    const title = c.title ?? "Kampanya";
+    const desc = c.description ?? "";
+    const image =
+      c.images?.[0]?.image_effective_url ||
+      c.images?.[0]?.image_url ||
+      c.image_effective_url ||
+      c.image_url ||
+      "/mezartasi.png";
+
+    const validityText = getCampaignValidity(c);
+    const isActive = c.is_active;
+    const typeLabel = (c as any).tag || "Kampanya";
 
     return (
-      <div className="bg-white p-6 space-y-6">
-        <div className="text-center space-y-2">
-          <div className="inline-flex text-xs px-2 py-1 rounded bg-teal-50 text-teal-700 border border-teal-200">
-            Kampanya
+      <div className="bg-white max-w-2xl mx-auto p-6 space-y-6">
+        {/* Header with Type Badge */}
+        <div className="text-center space-y-4">
+          <Badge className="bg-teal-500 text-white px-3 py-1 text-sm">
+            {typeLabel}
+          </Badge>
+
+          <h1 className="text-xl text-teal-600 leading-tight">
+            {title}
+          </h1>
+
+          {desc && (
+            <p className="text-gray-600 text-sm leading-relaxed">
+              {desc}
+            </p>
+          )}
+
+          {validityText && (
+            <div className="text-sm text-gray-500">
+              {validityText}
+            </div>
+          )}
+        </div>
+
+        {/* Main Image */}
+        <div className="flex justify-center">
+          <div className="w-80 h-64 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+            <ImageWithFallback
+              src={image}
+              alt={title}
+              className="w-full h-full object-cover"
+            />
           </div>
-          <h1 className="text-2xl text-teal-700">{campaign.title}</h1>
-          {when && <div className="text-xs text-slate-500">{new Date(when).toLocaleString()}</div>}
         </div>
 
-        <div className="w-full h-60 rounded-lg overflow-hidden">
-          <ImageWithFallback src={imgSrc} alt={campaign.title} className="w-full h-full object-cover" />
+        {/* Call to Action */}
+        <div className="text-center space-y-4">
+          <p className="text-lg text-teal-600">Bu Kampanyadan Yararlanın</p>
+
+          <div className="flex gap-3 justify-center">
+            <Button
+              className="bg-teal-500 hover:bg-teal-600 text-white px-6"
+              onClick={() => window.open(telHref)}
+            >
+              Bilgi Al
+            </Button>
+            <Button
+              variant="outline"
+              className="border-gray-300 text-gray-700 px-6"
+              onClick={() => window.open(waHref, "_blank")}
+            >
+              📱 WhatsApp&apos;tan Sor
+            </Button>
+          </div>
         </div>
 
-        {!!campaign.description && (
-          <p className="text-slate-700 leading-relaxed">{campaign.description}</p>
-        )}
+        {/* Campaign Details */}
+        <div className="space-y-3">
+          <h3 className="text-center text-gray-800 mb-4">
+            Kampanya Detayları
+          </h3>
+
+          <div className="bg-gray-50 p-4 rounded-lg space-y-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Kampanya Türü:</span>
+              <span className="text-gray-800">{typeLabel}</span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-gray-600">Geçerlilik Tarihi:</span>
+              <span className="text-gray-800">
+                {validityText || "Belirtilmemiş"}
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-gray-600">Durumu:</span>
+              <span className={isActive ? "text-green-600" : "text-red-600"}>
+                {isActive ? "Aktif" : "Pasif"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Contact Info */}
+        <div className="text-center text-xs text-gray-500 space-y-1">
+          <p>Detaylı bilgi için bizimle iletişime geçin</p>
+          <p>
+            📞 {phoneDisplay} | 🌐 {brandName}
+          </p>
+        </div>
       </div>
     );
   }
 
-  // --- Duyuru ---
-  if (!announcement) return <div className="p-6 text-slate-600">Duyuru bulunamadı.</div>;
-
-  const whenRaw =
-    (announcement as any).published_at ||
-    (announcement as any).updated_at ||
-    (announcement as any).created_at ||
-    "";
-  const when =
-    whenRaw && !Number.isNaN(Date.parse(whenRaw)) ? new Date(whenRaw).toLocaleString() : "";
-
-  // Renkler hex olarak geliyor → inline style ile uygula
-  const bg = (announcement as any).bg_color || "#ffffff";
-  const text = (announcement as any).text_color || "#0f172a";
-  const border = (announcement as any).border_color || "#e2e8f0";
-
-  const imgSrc = announcementImageUrl(announcement);
-  const imgAlt = announcement.alt || announcement.title;
+  /* ---------------------- DUYURU DETAYI ---------------------- */
+  const a: any = announcement;
+  const title = a?.title ?? "Duyuru";
+  const html = a?.html as string | undefined;
+  const image =
+    a?.image_url ||
+    a?.cover_image ||
+    "/mezartasi.png";
+  const dateRaw =
+    a?.published_at || a?.updated_at || a?.created_at || null;
+  const dateText = formatMonthYear(dateRaw);
 
   return (
-    <div className="p-6 border-t rounded-b-lg" style={{ backgroundColor: bg, color: text, borderColor: border }}>
-      <div className="text-center space-y-2">
-        <div className="inline-flex text-xs px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-200">
+    <div className="bg-white max-w-2xl mx-auto p-6 space-y-6">
+      {/* Header with Type Badge */}
+      <div className="text-center space-y-4">
+        <Badge className="bg-teal-500 text-white px-3 py-1 text-sm">
           Duyuru
+        </Badge>
+
+        <h1 className="text-xl text-teal-600 leading-tight">
+          {title}
+        </h1>
+
+        {dateText && (
+          <div className="text-sm text-gray-500">
+            {dateText}
+          </div>
+        )}
+      </div>
+
+      {/* Main Image */}
+      <div className="flex justify-center">
+        <div className="w-80 h-64 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+          <ImageWithFallback
+            src={image}
+            alt={title}
+            className="w-full h-full object-cover"
+          />
         </div>
-        <h1 className="text-2xl">{announcement.title}</h1>
-        {when && <div className="text-xs opacity-80">{when}</div>}
       </div>
 
-      {/* Kapak görseli */}
-      <div className="w-full mt-6 rounded-lg overflow-hidden">
-        <ImageWithFallback src={imgSrc} alt={imgAlt} className="w-full h-60 md:h-72 object-cover" />
+      {/* Announcement Content */}
+      <div className="space-y-3 text-sm text-gray-700">
+        {html ? (
+          <div
+            className="prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        ) : (
+          <p>Bu duyuru için detaylı açıklama bulunmuyor.</p>
+        )}
       </div>
 
-      {/* HTML içerik */}
-      <div className="prose max-w-none mt-6 prose-p:my-3 prose-headings:mt-6 prose-headings:mb-3">
-        <div dangerouslySetInnerHTML={{ __html: (announcement as any).html || "" }} />
+      {/* Contact Info */}
+      <div className="text-center text-xs text-gray-500 space-y-1">
+        <p>Detaylı bilgi için bizimle iletişime geçin</p>
+        <p>
+          📞 {phoneDisplay} | 📧 {email} | 🌐 {brandName}
+        </p>
       </div>
     </div>
   );
-}
+};

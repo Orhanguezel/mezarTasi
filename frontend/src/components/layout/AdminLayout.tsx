@@ -8,6 +8,7 @@ import AdminSidebar from "./AdminSidebar";
 // ✅ Sekmeler genişletildi
 export type ActiveTab =
   | "products"
+  | "headstones"
   | "sliders"
   | "campaigns"
   | "recent_works" 

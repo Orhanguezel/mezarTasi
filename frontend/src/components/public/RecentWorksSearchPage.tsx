@@ -9,7 +9,12 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
 import { Card, CardContent } from "../ui/card";
-import { Search, MapPin, Calendar, Package, ChevronLeft } from "lucide-react";
+import {
+  Search,
+  MapPin,
+  Package,
+  ChevronLeft,
+} from "lucide-react";
 import { useListRecentWorksQuery } from "@/integrations/rtk/endpoints/recent_works.endpoints";
 import type { RecentWorkView } from "@/integrations/rtk/types/recent_works";
 
@@ -27,19 +32,39 @@ function pickWorkImage(w?: Partial<RecentWorkView> | null) {
 }
 
 function matchWork(w: RecentWorkView, q: string) {
-  const tokens = q.toLowerCase().split(/\s+/).map((t) => t.trim()).filter(Boolean);
+  const tokens = q
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
   if (!tokens.length) return true;
   const hay = [
-    w.title, w.description, w.category, w.material, w.location, w.date,
+    w.title,
+    w.description,
+    w.category,
+    w.material,
+    w.location,
+    w.date,
     ...(Array.isArray(w.seo_keywords) ? w.seo_keywords : []),
-  ].filter(Boolean).join(" ").toLowerCase();
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
   return tokens.every((t) => hay.includes(t));
 }
 
-const RecentWorksSearchPage: React.FC<RecentWorksSearchPageProps> = ({ onNavigate, onWorkSelect }) => {
+const RecentWorksSearchPage: React.FC<RecentWorksSearchPageProps> = ({
+  onNavigate,
+  onWorkSelect,
+}) => {
   const [searchKeyword, setSearchKeyword] = useState("");
 
-  const { data: works = [], isLoading, isError, refetch } = useListRecentWorksQuery({
+  const {
+    data: works = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useListRecentWorksQuery({
     sort: "display_order",
     orderDir: "asc",
     limit: 300,
@@ -48,19 +73,22 @@ const RecentWorksSearchPage: React.FC<RecentWorksSearchPageProps> = ({ onNavigat
   const filteredWorks = useMemo(() => {
     if (!works.length) return [];
     if (!searchKeyword.trim()) return works;
-    return (works as RecentWorkView[]).filter((w) => matchWork(w, searchKeyword));
+    return (works as RecentWorkView[]).filter((w) =>
+      matchWork(w, searchKeyword),
+    );
   }, [works, searchKeyword]);
 
   const handleWorkClick = (work: RecentWorkView) => onWorkSelect?.(work);
 
   return (
-    <div className="bg-linear-to-br from-teal-50 to-emerald-50">
+    <div className="bg-gradient-to-br from-teal-50 to-emerald-50 min-h-screen">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl text-teal-800 mb-4">Son Çalışmalarımız</h1>
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-            Yıllarca saygıyla hizmet eden, kaliteli ve özel tasarım çalışmalarımızı keşfedin.
+            Yıllarca aile ve sevdiklerinize saygıyla hizmet eden, kaliteli ve
+            özel tasarım mezar taşı çalışmalarımızı keşfedin.
           </p>
         </div>
 
@@ -76,14 +104,18 @@ const RecentWorksSearchPage: React.FC<RecentWorksSearchPageProps> = ({ onNavigat
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
               <div className="absolute bottom-6 left-6 text-white">
                 <h3 className="text-2xl mb-2">Başarılı Projelerimiz</h3>
-                <p className="text-lg opacity-90">15+ yıllık deneyim ile kaliteli hizmet</p>
+                <p className="text-lg opacity-90">
+                  15+ yıllık deneyim ile kaliteli hizmet
+                </p>
               </div>
             </div>
           </div>
 
           {/* Search */}
           <div className="text-center mb-12">
-            <h2 className="text-2xl text-teal-700 mb-6">Çalışmalarımızı Keşfedin</h2>
+            <h2 className="text-2xl text-teal-700 mb-6">
+              Çalışmalarımızı Keşfedin
+            </h2>
             <div className="max-w-md mx-auto">
               <div className="relative">
                 <Input
@@ -91,13 +123,19 @@ const RecentWorksSearchPage: React.FC<RecentWorksSearchPageProps> = ({ onNavigat
                   placeholder="Anahtar kelime girin (örn: granit şile 2024)..."
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") {/* no-op */ } }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      // ekstra bir şey yapmaya gerek yok; filtre zaten input’a bağlı
+                    }
+                  }}
                   className="w-full pl-4 pr-12 py-3 text-lg border-2 border-teal-200 focus:border-teal-500 rounded-lg"
                 />
                 <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-teal-400 w-5 h-5" />
               </div>
               <p className="mt-4 text-slate-600">
-                {isLoading ? "Yükleniyor..." : `${filteredWorks.length} çalışma bulundu`}
+                {isLoading
+                  ? "Yükleniyor..."
+                  : `${filteredWorks.length} çalışma bulundu`}
               </p>
             </div>
           </div>
@@ -105,8 +143,12 @@ const RecentWorksSearchPage: React.FC<RecentWorksSearchPageProps> = ({ onNavigat
           {/* States & Grid */}
           {isError ? (
             <div className="text-center py-12">
-              <p className="text-red-600 mb-4">Kayıtlar yüklenemedi. Lütfen tekrar deneyin.</p>
-              <Button variant="outline" onClick={() => refetch()}>Yenile</Button>
+              <p className="text-red-600 mb-4">
+                Kayıtlar yüklenemedi. Lütfen tekrar deneyin.
+              </p>
+              <Button variant="outline" onClick={() => refetch()}>
+                Yenile
+              </Button>
             </div>
           ) : (
             <div className="mb-12">
@@ -140,12 +182,17 @@ const RecentWorksSearchPage: React.FC<RecentWorksSearchPageProps> = ({ onNavigat
                           />
                           {!!work.date && (
                             <div className="absolute top-3 right-3">
-                              <Badge className="bg-teal-600 text-white">{work.date}</Badge>
+                              <Badge className="bg-teal-600 text-white">
+                                {work.date}
+                              </Badge>
                             </div>
                           )}
                           {!!work.category && (
                             <div className="absolute top-3 left-3">
-                              <Badge variant="secondary" className="bg-white/90 text-teal-800">
+                              <Badge
+                                variant="secondary"
+                                className="bg-white/90 text-teal-800"
+                              >
                                 {work.category}
                               </Badge>
                             </div>
@@ -165,10 +212,16 @@ const RecentWorksSearchPage: React.FC<RecentWorksSearchPageProps> = ({ onNavigat
 
                           <div className="space-y-2 text-xs text-slate-500">
                             {!!work.location && (
-                              <div className="flex items-center gap-2"><MapPin className="w-3 h-3" /><span>{work.location}</span></div>
+                              <div className="flex items-center gap-2">
+                                <MapPin className="w-3 h-3" />
+                                <span>{work.location}</span>
+                              </div>
                             )}
                             {!!work.material && (
-                              <div className="flex items-center gap-2"><Package className="w-3 h-3" /><span>{work.material}</span></div>
+                              <div className="flex items-center gap-2">
+                                <Package className="w-3 h-3" />
+                                <span>{work.material}</span>
+                              </div>
                             )}
                           </div>
 
@@ -184,8 +237,14 @@ const RecentWorksSearchPage: React.FC<RecentWorksSearchPageProps> = ({ onNavigat
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <p className="text-xl text-slate-500 mb-4">Aradığınız kriterlere uygun çalışma bulunamadı.</p>
-                  <Button onClick={() => setSearchKeyword("")} variant="outline" className="border-teal-200 text-teal-700 hover:bg-teal-50">
+                  <p className="text-xl text-slate-500 mb-4">
+                    Aradığınız kriterlere uygun çalışma bulunamadı.
+                  </p>
+                  <Button
+                    onClick={() => setSearchKeyword("")}
+                    variant="outline"
+                    className="border-teal-200 text-teal-700 hover:bg-teal-50"
+                  >
                     Tüm Çalışmaları Görüntüle
                   </Button>
                 </div>
@@ -193,8 +252,12 @@ const RecentWorksSearchPage: React.FC<RecentWorksSearchPageProps> = ({ onNavigat
             </div>
           )}
 
+          {/* Back button */}
           <div className="text-center mb-8">
-            <Button onClick={() => onNavigate("home")} className="bg-slate-600 hover:bg-slate-700 text-white px-8 py-3 rounded-lg">
+            <Button
+              onClick={() => onNavigate("home")}
+              className="bg-slate-600 hover:bg-slate-700 text-white px-8 py-3 rounded-lg"
+            >
               <ChevronLeft className="w-4 h-4 mr-1" /> Ana Sayfaya Dön
             </Button>
           </div>

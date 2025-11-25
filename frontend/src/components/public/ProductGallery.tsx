@@ -55,7 +55,8 @@ function toUiProduct(p: ApiProduct): UiProduct {
     slug: String((p as any).slug ?? ""), // 🔹 buradan slug’ı alıyoruz
     title: String((p as any).title ?? ""),
     productCode: (p as any).product_code ?? null,
-    price: typeof (p as any).price === "number" ? (p as any).price : Number((p as any).price) || 0,
+    price:
+      typeof (p as any).price === "number" ? (p as any).price : Number((p as any).price) || 0,
     image: primaryImage,
     description: (p as any).description ?? "",
     category_id: String((p as any).category_id ?? ""),
@@ -63,24 +64,18 @@ function toUiProduct(p: ApiProduct): UiProduct {
   };
 }
 
-/* ========================== helpers ========================== */
+/* ---------- helpers: price format ---------- */
+function formatPrice(price: number | string | null | undefined): string {
+  const num = typeof price === "number" ? price : Number(price);
 
-function formatPrice(price: number | string): string {
-  const num =
-    typeof price === "number"
-      ? price
-      : Number(price);
-
-  // 0, negatif veya geçersizse → “Fiyat İçin Arayınız”
+  // 0 veya geçersizse
   if (!Number.isFinite(num) || num <= 0) {
     return "Fiyat İçin Arayınız";
   }
 
-  // Normal ürünlerde TL formatı
-  return num.toLocaleString("tr-TR", {
-    style: "currency",
-    currency: "TRY",
-  });
+  // Görseldeki gibi: 26400 TL (tam sayı, ayırıcı yok)
+  const rounded = Math.round(num);
+  return `${rounded} TL`;
 }
 
 /* =============================== component =============================== */
@@ -130,7 +125,8 @@ export function ProductGallery({
     return params;
   }, [showSearchResults, searchTerm, selectedSubCat]);
 
-  const { data: listRes, isFetching: fetchingList } = useListProductsQuery(currentQueryParams);
+  const { data: listRes, isFetching: fetchingList } =
+    useListProductsQuery(currentQueryParams);
 
   /* ---------- Soft skeleton UX ---------- */
   useEffect(() => {
@@ -151,7 +147,7 @@ export function ProductGallery({
   /* ---------- Visible list ---------- */
   const displayedCards = useMemo(
     () => uiListedProducts.slice(0, visibleItems),
-    [uiListedProducts, visibleItems]
+    [uiListedProducts, visibleItems],
   );
 
   useEffect(() => {
@@ -204,9 +200,11 @@ export function ProductGallery({
                 {/* Desktop list (SS’deki görünüme uygun) */}
                 <div className="bg-white rounded-lg shadow-lg overflow-hidden hidden lg:block">
                   <div className="bg-teal-500 text-white px-6 py-4">
-                    <h3 className="font-bold text-lg text-center">MEZAR MODELLERİ</h3>
+                    <h3 className="font-bold text-lg text-center">
+                      MEZAR MODELLERİ
+                    </h3>
                   </div>
-                  {SUBCATS.map((c, idx) => (
+                  {SUBCATS.map((c) => (
                     <button
                       key={c.id}
                       type="button"
@@ -222,14 +220,17 @@ export function ProductGallery({
                   ))}
                 </div>
 
-                {/* Mobile grid (kompakt) */}
+                {/* Mobile & tablet grid (başlık 2 sütunu kaplamaz) */}
                 <div className="lg:hidden">
-                  <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-2">
-                    <div className="bg-teal-500 text-white px-4 py-3 text-center font-bold">
-                      MEZAR MODELLERİ
-                    </div>
-                  </div>
                   <div className="grid grid-cols-2 gap-2">
+                    {/* Sol üst hücre: MEZAR MODELLERİ */}
+                    <div className="col-span-1">
+                      <div className="bg-teal-500 text-white px-4 py-3 text-center font-bold rounded-lg shadow-md">
+                        MEZAR MODELLERİ
+                      </div>
+                    </div>
+
+                    {/* Kategoriler */}
                     {SUBCATS.map((c) => (
                       <button
                         key={c.id}
@@ -299,7 +300,8 @@ export function ProductGallery({
                       size="lg"
                       className="px-8 py-3 border-teal-500 text-teal-600 hover:bg-teal-50"
                     >
-                      Daha Fazla Göster ({uiListedProducts.length - visibleItems} öğe daha)
+                      Daha Fazla Göster (
+                      {uiListedProducts.length - visibleItems} öğe daha)
                     </Button>
                   </div>
                 )}
@@ -309,7 +311,9 @@ export function ProductGallery({
                     <div className="mb-6">
                       <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                       <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                        {showSearchResults ? "Arama sonucu bulunamadı" : "Bu kategoride içerik yok"}
+                        {showSearchResults
+                          ? "Arama sonucu bulunamadı"
+                          : "Bu kategoride içerik yok"}
                       </h3>
                       <p className="text-gray-600 max-w-md mx-auto">
                         {showSearchResults

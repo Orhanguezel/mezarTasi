@@ -163,7 +163,6 @@ export function MobileOptimizer({ children }: MobileOptimizerProps) {
         const lcpObserver = new PerformanceObserver((list) => {
           const entries = list.getEntries();
           const lastEntry = entries[entries.length - 1];
-          console.log('Mobile LCP:', lastEntry.startTime);
         });
         lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
 
@@ -219,7 +218,6 @@ export function MobileOptimizer({ children }: MobileOptimizerProps) {
           }
         };
         window.addEventListener('test', () => {}, options);
-        window.removeEventListener('test', () => {}, options);
       } catch (err) {
         passiveSupported = false;
       }

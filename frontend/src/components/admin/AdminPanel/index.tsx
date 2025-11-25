@@ -8,7 +8,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStatusQuery } from "@/integrations/rtk/endpoints/auth_public.endpoints";
 
-
 import AdminLayout, { ActiveTab } from "@/components/layout/AdminLayout";
 import AdminHeader from "@/components/layout/AdminHeader";
 import AdminFooter from "@/components/layout/AdminFooter";
@@ -32,6 +31,7 @@ import AnnouncementForm from "./form/AnnouncementForm";
 
 // Tab sayfaları
 import { TabsProducts } from "./Tabs/TabsProducts";
+import { TabsHeadstones } from "./Tabs/TabsHeadstones";
 import CategoriesTabs from "./Tabs/CategoriesTab";
 import SubCategoriesTab from "./Tabs/SubCategoriesTab";
 import TabsPages from "./Tabs/PagesTab";
@@ -68,6 +68,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     new RegExp(`^/admin/${segment}/[^/]+$`).test(pathname);
 
   const isProductFormRoute = isFormRoute("products");
+  const isHeadstoneFormRoute = isFormRoute("headstones"); // ⬅️ YENİ
   const isCategoryFormRoute = isFormRoute("categories");
   const isSubCategoryFormRoute = isFormRoute("subcategories");
   const isCustomPageFormRoute = isFormRoute("pages");
@@ -92,6 +93,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
 
   const isAnyFormRoute =
     isProductFormRoute ||
+    isHeadstoneFormRoute || // ⬅️ YENİ
     isCategoryFormRoute ||
     isSubCategoryFormRoute ||
     isCustomPageFormRoute ||
@@ -135,6 +137,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   // ✅ Form rotasındayken ilgili sekmeyi aktif tut
   useEffect(() => {
     if (isProductFormRoute && activeTab !== "products") setActiveTab("products");
+    if (isHeadstoneFormRoute && activeTab !== "headstones") setActiveTab("headstones"); // ⬅️ YENİ
     if (isCategoryFormRoute && activeTab !== "categories") setActiveTab("categories");
     if (isSubCategoryFormRoute && activeTab !== "subcategories") setActiveTab("subcategories");
     if (isCustomPageFormRoute && activeTab !== "pages") setActiveTab("pages");
@@ -157,6 +160,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     if (isRootAdmin && activeTab !== "dashboard") setActiveTab("dashboard");
   }, [
     isProductFormRoute,
+    isHeadstoneFormRoute,
     isCategoryFormRoute,
     isSubCategoryFormRoute,
     isCustomPageFormRoute,
@@ -182,6 +186,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
       const map: Record<ActiveTab, string> = {
         dashboard: "",
         products: "products",
+        headstones: "headstones", // ⬅️ YENİ
         services: "services",
         campaigns: "campaigns",
         sliders: "sliders",
@@ -218,6 +223,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
 
     const map: Record<string, ActiveTab> = {
       products: "products",
+      headstones: "headstones", // ⬅️ YENİ
       services: "services",
       campaigns: "campaigns",
       sliders: "sliders",
@@ -245,7 +251,6 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
 
   /* ================== Auth/Yetki ================== */
 
-  // 🔹 İlk auth cevabı gelene kadar sadece skeleton göster
   if (!initialCheckDone) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-white text-gray-900">
@@ -254,8 +259,6 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     );
   }
 
-  // 🔹 Sonradan refetch olsa bile artık layout'u unmount ETMİYORUZ;
-  // sadece yetkisizse blokluyoruz.
   if (!isAuthorized) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-white text-gray-900">
@@ -288,7 +291,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     >
       {/* FORM ROTALARI */}
       {isAnyFormRoute ? (
-        isProductFormRoute ? (
+        isProductFormRoute || isHeadstoneFormRoute ? ( // ⬅️ İKİSİ DE AYNI FORM
           <ProductFormPage />
         ) : isCategoryFormRoute ? (
           <CategoryFormPage />
@@ -343,11 +346,26 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                 <Card className="border border-gray-200 shadow-none">
                   <CardHeader className="border-b border-gray-200 py-4">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base sm:text-lg">Ürünler</CardTitle>
+                      <CardTitle className="text-base sm:text-lg">Mezar Modelleri</CardTitle>
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 sm:p-6">
                     <TabsProducts />
+                  </CardContent>
+                </Card>
+              )}
+
+              {activeTab === "headstones" && (  /* ⬅️ YENİ TAB */
+                <Card className="border border-gray-200 shadow-none">
+                  <CardHeader className="border-b border-gray-200 py-4">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base sm:text-lg">
+                        Mezar Baş Taşı Modelleri
+                      </CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 sm:p-6">
+                    <TabsHeadstones />
                   </CardContent>
                 </Card>
               )}
