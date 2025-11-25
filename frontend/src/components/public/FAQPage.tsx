@@ -82,7 +82,6 @@ export function FAQPage({ onNavigate }: FAQPageProps) {
                 <span>Mezar Yapımında Sık Sorulan Sorular</span>
               </nav>
               <h1 className="text-4xl mb-2">Mezar Yapımında Sık Sorulan Sorular</h1>
-              <p className="text-lg opacity-90">Anasayfa &gt; Mezar Yapımında Sık Sorulan Sorular</p>
             </div>
 
             <div className="hidden lg:block">

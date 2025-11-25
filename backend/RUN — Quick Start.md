@@ -92,5 +92,12 @@ pm2 logs productspark-backend --lines 100
 
 ```
 
+cd /var/www/mezarTasi
+
+git fetch origin
+git reset --hard origin/main
+git clean -fd   # (untracked dosyaları da siler, istersen)
+
+
 
 
