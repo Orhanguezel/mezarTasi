@@ -4,6 +4,34 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------------- */
+/* GENEL TAŞMA KİLİDİ – yatay scroll'u kapat            */
+/* ---------------------------------------------------- */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;    /* 🔒 YATAY TAŞMA YOK */
+}
+
+/* React root / Next root hangisini kullanıyorsan */
+#root,
+#__next {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Güvenlik için – tüm elemanlar box-sizing: border-box olsun */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 /* ---- Sidebar tokenları ve yardımcı sınıflar ---- */
 @layer base {
   :root {

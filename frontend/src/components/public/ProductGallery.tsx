@@ -193,17 +193,25 @@ export function ProductGallery({
         )}
 
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sol menü – sadece sabit alt kategoriler; başlık tıklanmaz; sayaç yok */}
+          {/* Sol menü – sadece sabit alt kategoriler; sayaç yok */}
           {!showSearchResults && (
             <div className="lg:w-1/4">
               <div className="sticky top-24">
-                {/* Desktop list (SS’deki görünüme uygun) */}
+                {/* Desktop list */}
                 <div className="bg-white rounded-lg shadow-lg overflow-hidden hidden lg:block">
-                  <div className="bg-teal-500 text-white px-6 py-4">
-                    <h3 className="font-bold text-lg text-center">
-                      MEZAR MODELLERİ
-                    </h3>
-                  </div>
+                  {/* 🔹 Başlık artık tıklanabilir ve ALL_KEY seçiyor, KALIN DEĞİL */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSubCat(ALL_KEY)}
+                    className={`w-full px-6 py-4 text-center border-b border-gray-100 transition-colors ${
+                      selectedSubCat === ALL_KEY
+                        ? "bg-teal-600 text-white"
+                        : "bg-teal-500 text-white hover:bg-teal-600"
+                    }`}
+                  >
+                    MEZAR MODELLERİ
+                  </button>
+
                   {SUBCATS.map((c) => (
                     <button
                       key={c.id}
@@ -211,7 +219,7 @@ export function ProductGallery({
                       onClick={() => setSelectedSubCat(c.id)}
                       className={`w-full text-left px-6 py-4 border-b border-gray-100 last:border-b-0 transition-colors ${
                         selectedSubCat === c.id
-                          ? "bg-teal-50 text-teal-700 font-medium"
+                          ? "bg-teal-50 text-teal-700"
                           : "bg-white text-gray-700 hover:bg-gray-50"
                       }`}
                     >
@@ -220,15 +228,21 @@ export function ProductGallery({
                   ))}
                 </div>
 
-                {/* Mobile & tablet grid (başlık 2 sütunu kaplamaz) */}
+                {/* Mobile & tablet grid */}
                 <div className="lg:hidden">
                   <div className="grid grid-cols-2 gap-2">
-                    {/* Sol üst hücre: MEZAR MODELLERİ */}
-                    <div className="col-span-1">
-                      <div className="bg-teal-500 text-white px-4 py-3 text-center font-bold rounded-lg shadow-md">
-                        MEZAR MODELLERİ
-                      </div>
-                    </div>
+                    {/* 🔹 Sol üst hücre: MEZAR MODELLERİ – tıklanabilir, KALIN DEĞİL */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSubCat(ALL_KEY)}
+                      className={`px-4 py-3 rounded-lg text-center shadow-md transition-colors ${
+                        selectedSubCat === ALL_KEY
+                          ? "bg-teal-600 text-white"
+                          : "bg-teal-500 text-white hover:bg-teal-600"
+                      }`}
+                    >
+                      MEZAR MODELLERİ
+                    </button>
 
                     {/* Kategoriler */}
                     {SUBCATS.map((c) => (

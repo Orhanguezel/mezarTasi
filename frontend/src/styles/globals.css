@@ -2,6 +2,9 @@
 
 @import "@/styles/sidebar.css";
 
+
+
+
 /* Dropdown (admin) */
 .admin-dropdown-content {
   z-index: 9999;
@@ -60,3 +63,8 @@
 
 /* (Eski index.css içindeki diğer ÖZEL sınıfların hepsini buranın altına taşı) */
 /* ---------------------------------------------------- */
+
+body {
+  position: relative;
+  left: 0;
+}

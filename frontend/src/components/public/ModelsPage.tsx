@@ -18,9 +18,8 @@ import { useActiveSlidesRtk } from "../../data/sliderData";
 
 // ✅ METAHUB PUBLIC RTK
 import { useListCategoriesQuery } from "@/integrations/rtk/endpoints/categories.endpoints";
-import {
-  useListSubCategoriesQuery,
-} from "@/integrations/rtk/endpoints/sub_categories.endpoints";
+import { useListSubCategoriesQuery } from "@/integrations/rtk/endpoints/sub_categories.endpoints";
+import { useListProductsQuery } from "@/integrations/rtk/endpoints/products.endpoints";
 
 import backgroundImage from "figma:asset/0a9012ca17bfb48233c0877277b7fb8427a12d4c.png";
 
@@ -34,7 +33,7 @@ interface TombstoneModel {
   id: number;
   /** bağlı sub-category id (BE) */
   subCategoryId?: string;
-  /** İleride ürün slug'ı vs eklemek istersen */
+  /** ürün slug'ı (public detay sayfası için) */
   slug?: string;
   name: string;
   /** UI filtresi: "mermer" | "granit" | "sutunlu" */
@@ -97,11 +96,17 @@ const getSpec = (d: SpecDict, keys: string[]): string => {
   return "";
 };
 
-const pickSubImage = (sc: any): string => {
-  const img = sc?.image_effective_url || sc?.image_url || sc?.image;
+const pickImage = (r: any): string => {
+  const img =
+    r?.image_effective_url ||
+    r?.image_url ||
+    r?.image ||
+    r?.cover_image ||
+    r?.cover_url;
   if (typeof img === "string" && img.trim()) return img;
-  if (Array.isArray(sc?.images) && sc.images[0]) {
-    const i0 = sc.images[0];
+
+  if (Array.isArray(r?.images) && r.images[0]) {
+    const i0 = r.images[0];
     if (typeof i0 === "string") return i0;
     if (i0?.image_effective_url) return i0.image_effective_url;
     if (i0?.image_url) return i0.image_url;
@@ -152,9 +157,7 @@ const isTombstoneBaseCategory = (cat: any): boolean => {
 };
 
 // Alt kategori adından tip çıkar: mermer / granit / sutunlu
-const inferSubType = (
-  sc: any
-): "mermer" | "granit" | "sutunlu" => {
+const inferSubType = (sc: any): "mermer" | "granit" | "sutunlu" => {
   const txt = normalize(sc?.slug || sc?.name);
   if (txt.includes("granit")) return "granit";
   if (txt.includes("sutun") || txt.includes("sütun")) return "sutunlu";
@@ -196,11 +199,25 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
     refetch: refetchSubs,
   } = useListSubCategoriesQuery({
     is_active: true,
-    limit: 500,
+    limit: 200,
     offset: 0,
     sort: "display_order",
     order: "asc",
   });
+
+  // ✅ Ürünler (public mezar ürünleri)
+  const {
+  data: productsRes = [],
+  isFetching: loadingProducts,
+  refetch: refetchProducts,
+} = useListProductsQuery({
+  is_active: true,
+  limit: 500,
+  offset: 0,
+  // RTK tipine göre sadece: "price" | "rating" | "created_at" geçerli
+  sort: "created_at",
+  order: "asc",
+});
 
   // Kök kategori id'leri (MEZAR BAŞ TAŞI MODELLERİ)
   const baseCategoryIds = useMemo(() => {
@@ -210,11 +227,33 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
       .map((c) => String(c.id));
   }, [categories]);
 
+  // Bu kök kategorilere bağlı alt kategoriler
+  const tombstoneSubcategoryIds = useMemo(() => {
+    if (!Array.isArray(subCategoriesRes) || !baseCategoryIds.length) return [];
+    return (subCategoriesRes as any[])
+      .filter((sc) =>
+        baseCategoryIds.includes(
+          String(sc.category_id ?? sc.categoryId ?? "")
+        )
+      )
+      .map((sc) => String(sc.id));
+  }, [subCategoriesRes, baseCategoryIds]);
+
+  // subCategory map (id -> kayıt)
+  const subcategoryMap = useMemo(() => {
+    const map = new Map<string, any>();
+    (subCategoriesRes as any[]).forEach((sc) => {
+      map.set(String(sc.id), sc);
+    });
+    return map;
+  }, [subCategoriesRes]);
+
   // RTK değişince tekrar çek
   useEffect(() => {
     const onAnyUpdate = () => {
       refetchCats();
       refetchSubs();
+      refetchProducts();
     };
     window.addEventListener(
       "mezarisim-categories-updated",
@@ -222,6 +261,10 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
     );
     window.addEventListener(
       "mezarisim-subcategories-updated",
+      onAnyUpdate as any
+    );
+    window.addEventListener(
+      "mezarisim-products-updated",
       onAnyUpdate as any
     );
     return () => {
@@ -233,92 +276,126 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
         "mezarisim-subcategories-updated",
         onAnyUpdate as any
       );
+      window.removeEventListener(
+        "mezarisim-products-updated",
+        onAnyUpdate as any
+      );
     };
-  }, [refetchCats, refetchSubs]);
+  }, [refetchCats, refetchSubs, refetchProducts]);
 
-  // ✅ Tüm mezar baş taşı modellerini sub-category kayıtlarından üret
+  // ✅ Tüm mezar baş taşı MODELLERİNİ ÜRÜNLERDEN üret
   const allModels: TombstoneModel[] = useMemo(() => {
-    if (!Array.isArray(subCategoriesRes) || !baseCategoryIds.length) return [];
+  if (!Array.isArray(productsRes)) return [];
 
-    // sadece MEZAR BAŞ TAŞI MODELLERİ kategorisine bağlı sub-categories
-    const subs = (subCategoriesRes as any[]).filter((sc) =>
-      baseCategoryIds.includes(String(sc.category_id ?? sc.categoryId ?? ""))
-    );
+  // Eğer MEZAR BAŞ TAŞI kök kategorisini bulabildiysek,
+  // sadece o alt kategorilere bağlı ürünleri filtrele.
+  // Bulamadıysak bütün ürünleri kullan (fallback).
+  const rawProducts: any[] =
+    tombstoneSubcategoryIds.length > 0
+      ? (productsRes as any[]).filter((p) => {
+          const sid = String(p.sub_category_id ?? (p as any).subCategoryId ?? "");
+          return tombstoneSubcategoryIds.includes(sid);
+        })
+      : (productsRes as any[]);
 
-    return subs.map((sc) => {
-      const specs = toSpecDict((sc as any).specifications);
-      const dimensions = getSpec(specs, [
-        "dimensions",
-        "ölçü",
-        "olcu",
-        "boyut",
-        "size",
-      ]);
-      const weight = getSpec(specs, ["weight", "ağırlık", "agirlik"]);
-      const thickness = getSpec(specs, ["thickness", "kalınlık", "kalinlik"]);
-      const finish = getSpec(specs, [
-        "finish",
-        "yüzey",
-        "surface",
-        "polisaj",
-        "polish",
-      ]);
-      const warranty = getSpec(specs, ["warranty", "garanti"]);
-      const installationTime = getSpec(specs, [
-        "installationtime",
-        "kurulum süresi",
-        "montaj süresi",
-        "montaj",
-      ]);
+  return rawProducts.map((p) => {
+    const sid = String(p.sub_category_id ?? (p as any).subCategoryId ?? "");
+    const sc = subcategoryMap.get(sid);
 
-      const subType = inferSubType(sc);
-      const material =
-        subType === "granit"
-          ? "Granit Mezar Taşı"
-          : subType === "sutunlu"
-          ? "Sütunlu Mezar"
-          : "Mermer Mezar Taşı";
+    const specs = toSpecDict(p.specifications ?? sc?.specifications);
+    const dimensions = getSpec(specs, [
+      "dimensions",
+      "ölçü",
+      "olcu",
+      "boyut",
+      "size",
+    ]);
+    const weight = getSpec(specs, ["weight", "ağırlık", "agirlik"]);
+    const thickness = getSpec(specs, ["thickness", "kalınlık", "kalinlik"]);
+    const finish = getSpec(specs, [
+      "finish",
+      "surfacefinish",   // ProductSpecifications.surfaceFinish → "surfacefinish"
+      "yüzey",
+      "surface",
+      "polisaj",
+      "polish",
+    ]);
+    const warranty = getSpec(specs, ["warranty", "garanti"]);
+    const installationTime = getSpec(specs, [
+      "installationtime",
+      "kurulum süresi",
+      "montaj süresi",
+      "montaj",
+    ]);
 
-      const img = pickSubImage(sc);
-      const price = normalizePrice(sc);
+    const subType = sc ? inferSubType(sc) : "mermer";
+    const material =
+      subType === "granit"
+        ? "Granit Mezar Taşı"
+        : subType === "sutunlu"
+        ? "Sütunlu Mezar"
+        : "Mermer Mezar Taşı";
 
-      const backendId = String(sc.id ?? "");
-      const idNum = Number(backendId);
-      const safeId = Number.isFinite(idNum)
-        ? idNum
-        : Math.floor(Math.random() * 1_000_000);
+    const img = pickImage(p);
+    const price = normalizePrice(p);
 
-      const model: TombstoneModel = {
-        id: safeId,
-        ...(backendId ? { subCategoryId: backendId } : {}),
-        name: String(sc.name ?? "Mezar Baş Taşı Modeli"),
-        category: subType,
-        material,
-        price,
-        image: img,
-        description: String(sc.description ?? sc.short_description ?? ""),
-        featured: Boolean(sc.is_featured),
-        dimensions,
-        weight,
-        thickness,
-        finish,
-        warranty,
-        installationTime,
-      };
+    const backendId = String(p.id ?? "");
+    const idNum = Number(backendId);
+    const safeId = Number.isFinite(idNum)
+      ? idNum
+      : Math.floor(Math.random() * 1_000_000);
 
-      // ileride slug ile detay sayfasına gitmek istersen:
-      const rawSlug = String(
-        sc.slug ??
-          sc.slug_tr ??
-          sc.slug_en ??
-          sc.slug_de ??
-          ""
-      ).trim();
-      if (rawSlug) model.slug = rawSlug;
+    const name =
+      p.title ??
+      p.name ??
+      sc?.name ??
+      "Mezar Baş Taşı Modeli";
 
-      return model;
-    });
-  }, [subCategoriesRes, baseCategoryIds]);
+    const desc =
+      p.description ??
+      p.short_description ??
+      sc?.description ??
+      sc?.short_description ??
+      "";
+
+    const rawSlug = String(
+      p.slug ??
+        (p as any).slug_tr ??
+        (p as any).slug_en ??
+        (p as any).slug_de ??
+        ""
+    ).trim();
+
+    const featured =
+      Boolean(p.is_featured) ||
+      Boolean((p as any).is_featured_homepage) ||
+      Boolean((p as any).featured);
+
+    const model: TombstoneModel = {
+      id: safeId,
+      ...(sid ? { subCategoryId: sid } : {}),
+      name: String(name),
+      category: subType,
+      material,
+      price,
+      image: img,
+      description: String(desc),
+      featured,
+      dimensions,
+      weight,
+      thickness,
+      finish,
+      warranty,
+      installationTime,
+    };
+
+    if (rawSlug) model.slug = rawSlug;
+
+    return model;
+  });
+}, [productsRes, tombstoneSubcategoryIds, subcategoryMap]);
+
+
 
   // Slider autoplay
   useEffect(() => {
@@ -405,7 +482,7 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
     onProductDetail(model.slug!.trim());
   };
 
-  const isLoading = loadingCats || loadingSubs;
+  const isLoading = loadingCats || loadingSubs || loadingProducts;
 
   return (
     <div className="min-h-screen">
