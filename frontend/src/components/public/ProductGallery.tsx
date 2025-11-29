@@ -271,7 +271,7 @@ export function ProductGallery({
               <SkeletonLoader type="grid" count={12} />
             ) : (
               <>
-                {/* 🔹 PricingPage’e benzer: mobilde bile 2’li grid */}
+                {/* PricingPage’e benzer: mobilde bile 2’li grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-12">
                   {displayedCards.map((card) => (
                     <div
@@ -279,12 +279,12 @@ export function ProductGallery({
                       className="bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-lg hover:scale-105 transform transition-all duration-300 cursor-pointer"
                       onClick={() => navigateFromCard(card)}
                     >
-                      {/* Oran koruma: mobilde biraz daha yüksek, md+ 4/3 */}
-                      <div className="relative aspect-[3/4] md:aspect-[4/3] overflow-hidden bg-gray-100 flex items-center justify-center">
+                      {/* 🔹 Resim kutusu: tam doldur, boşluk yok */}
+                      <div className="relative aspect-[3/4] md:aspect-[4/3] overflow-hidden bg-gray-100">
                         <ImageOptimized
                           src={card.image}
                           alt={card.title}
-                          className="max-w-full max-h-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                           priority={true}
                           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                           quality={85}
@@ -341,7 +341,7 @@ export function ProductGallery({
                       <p className="text-gray-600 max-w-md mx-auto">
                         {showSearchResults
                           ? `"${searchTerm}" ile eşleşen ürün bulunamadı.`
-                          : "Seçilen kategoride henüz içerik bulunmuyor."}
+                          : "Seçilen kategoride henüz içerik bulunmuyor."
                       </p>
                     </div>
 
