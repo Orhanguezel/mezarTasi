@@ -279,8 +279,8 @@ export function ProductGallery({
                       className="bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-lg hover:scale-105 transform transition-all duration-300 cursor-pointer"
                       onClick={() => navigateFromCard(card)}
                     >
-                      {/* Oran koruma: aspect + object-contain (PricingPage ile aynı mantık) */}
-                      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 flex items-center justify-center">
+                      {/* Oran koruma: mobilde biraz daha yüksek, md+ 4/3 */}
+                      <div className="relative aspect-[3/4] md:aspect-[4/3] overflow-hidden bg-gray-100 flex items-center justify-center">
                         <ImageOptimized
                           src={card.image}
                           alt={card.title}
