@@ -284,7 +284,7 @@ export function ProductGallery({
                           alt={card.title}
                           className="max-w-full max-h-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105"
                           priority={true}
-                          sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                          sizes="max-w-full max-h-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105"
                           quality={85}
                         />
                       </div>
