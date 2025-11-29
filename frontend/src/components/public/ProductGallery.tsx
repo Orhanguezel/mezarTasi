@@ -29,7 +29,7 @@ const SUBCATS: Array<{ id: string; label: string }> = [
 
 type UiProduct = {
   id: string;
-  slug: string; // 🔹 slug ile detay sayfasına gideceğiz
+  slug: string; // slug ile detay sayfasına gideceğiz
   title: string;
   productCode?: string | null;
   price: number | string;
@@ -45,7 +45,9 @@ type UiCard = UiProduct & { kind: "product" };
 
 function toUiProduct(p: ApiProduct): UiProduct {
   const primaryImage =
-    (Array.isArray((p as any).images) && (p as any).images.length ? (p as any).images[0] : null) ||
+    (Array.isArray((p as any).images) && (p as any).images.length
+      ? (p as any).images[0]
+      : null) ||
     (p as any).image_url ||
     "";
 
@@ -55,7 +57,9 @@ function toUiProduct(p: ApiProduct): UiProduct {
     title: String((p as any).title ?? ""),
     productCode: (p as any).product_code ?? null,
     price:
-      typeof (p as any).price === "number" ? (p as any).price : Number((p as any).price) || 0,
+      typeof (p as any).price === "number"
+        ? (p as any).price
+        : Number((p as any).price) || 0,
     image: primaryImage,
     description: (p as any).description ?? "",
     category_id: String((p as any).category_id ?? ""),
@@ -81,6 +85,7 @@ interface ProductGalleryProps {
   searchTerm: string;
   showSearchResults: boolean;
   onClearSearch: () => void;
+  /** slug ile detail açıyoruz */
   onProductDetail: (slug: string) => void;
   refreshKey?: number;
 }
@@ -92,6 +97,9 @@ export function ProductGallery({
   onProductDetail,
   refreshKey,
 }: ProductGalleryProps) {
+  // const navigate = useNavigate(); // kullanılmıyor
+
+  /** ALL_KEY = tüm alt kategoriler; yoksa seçilen alt kategori id’si */
   const [selectedSubCat, setSelectedSubCat] = useState<string>(ALL_KEY);
   const [visibleItems, setVisibleItems] = useState(12);
   const [softLoading, setSoftLoading] = useState(true);
@@ -105,12 +113,13 @@ export function ProductGallery({
 
     if (showSearchResults && searchTerm.trim()) {
       params.q = searchTerm.trim();
+      // Arama da sadece bu üst kategoride olsun
       params.category_id = TOP_CATEGORY_ID;
       return params;
     }
 
     if (selectedSubCat !== ALL_KEY) {
-      params.sub_category_id = selectedSubCat;
+      params.sub_category_id = selectedSubCat; // BE bunu destekliyorsa
     } else {
       params.category_id = TOP_CATEGORY_ID;
     }
@@ -133,12 +142,13 @@ export function ProductGallery({
     return serverArr.map((p) => ({ ...p, kind: "product" as const }));
   }, [listRes]);
 
+  /* ---------- Loading state ---------- */
   const isLoading = fetchingList || softLoading;
 
   /* ---------- Visible list ---------- */
   const displayedCards = useMemo(
     () => uiListedProducts.slice(0, visibleItems),
-    [uiListedProducts, visibleItems],
+    [uiListedProducts, visibleItems]
   );
 
   useEffect(() => {
@@ -149,7 +159,7 @@ export function ProductGallery({
 
   const navigateFromCard = (card: UiCard) => {
     if (card.kind === "product" && card.slug) {
-      onProductDetail(card.slug);
+      onProductDetail(card.slug); // slug ile yönlendir
     }
   };
 
@@ -190,6 +200,7 @@ export function ProductGallery({
               <div className="sticky top-24">
                 {/* Desktop list */}
                 <div className="bg-white rounded-lg shadow-lg overflow-hidden hidden lg:block">
+                  {/* Başlık tıklanabilir: ALL_KEY */}
                   <button
                     type="button"
                     onClick={() => setSelectedSubCat(ALL_KEY)}
@@ -221,6 +232,7 @@ export function ProductGallery({
                 {/* Mobile & tablet grid */}
                 <div className="lg:hidden">
                   <div className="grid grid-cols-2 gap-2">
+                    {/* Sol üst hücre: MEZAR MODELLERİ */}
                     <button
                       type="button"
                       onClick={() => setSelectedSubCat(ALL_KEY)}
@@ -233,6 +245,7 @@ export function ProductGallery({
                       MEZAR MODELLERİ
                     </button>
 
+                    {/* Kategoriler */}
                     {SUBCATS.map((c) => (
                       <button
                         key={c.id}
@@ -258,36 +271,42 @@ export function ProductGallery({
               <SkeletonLoader type="grid" count={12} />
             ) : (
               <>
-                {/* 🔹 Mobile: 1 sütun, sm: 2, lg: 3 → telefonda bozulma yok */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
+                {/* 🔹 PricingPage’e benzer: mobilde bile 2’li grid */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-12">
                   {displayedCards.map((card) => (
                     <div
                       key={`${card.kind}-${card.id}`}
                       className="bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-lg hover:scale-105 transform transition-all duration-300 cursor-pointer"
                       onClick={() => navigateFromCard(card)}
                     >
-                      {/* 🔹 Sabit aspect + oran koruyan resim */}
-                      <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100 flex items-center justify-center">
+                      {/* Oran koruma: aspect + object-contain (PricingPage ile aynı mantık) */}
+                      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 flex items-center justify-center">
                         <ImageOptimized
                           src={card.image}
                           alt={card.title}
                           className="max-w-full max-h-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105"
                           priority={true}
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                           quality={85}
                         />
                       </div>
 
-                      <div className="p-4">
-                        <h3 className="text-base font-bold text-gray-800 mb-3 line-clamp-2 uppercase">
+                      <div className="p-3">
+                        <h3 className="text-sm font-bold text-gray-800 mb-2 line-clamp-2 uppercase leading-tight">
                           {card.title}
                         </h3>
 
                         <div className="flex items-center justify-between gap-2">
-                          <span className="inline-block px-3 py-1 border-2 border-blue-500 text-blue-600 text-xs font-bold rounded">
-                            {card.productCode ?? "KOD-YOK"}
-                          </span>
-                          <span className="text-lg font-bold text-gray-800">
+                          {card.productCode ? (
+                            <span className="inline-flex items-center px-2 py-1 bg-blue-50 border border-blue-500 text-blue-600 text-xs font-bold rounded">
+                              {card.productCode}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 bg-gray-50 border border-gray-300 text-gray-600 text-xs font-semibold rounded">
+                              KOD-YOK
+                            </span>
+                          )}
+                          <span className="text-sm font-bold text-gray-800">
                             {formatPrice(card.price)}
                           </span>
                         </div>
