@@ -278,7 +278,7 @@ export function ProductGallery({
                       onClick={() => navigateFromCard(card)}
                     >
                       {/* 🔹 Resim alanı: TÜM breakpoints'te sabit aspect-ratio + object-contain, oran korunur */}
-                      <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100 flex items-center justify-center">
+                      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 flex items-center justify-center">
                         <ImageOptimized
                           src={card.image}
                           alt={card.title}
