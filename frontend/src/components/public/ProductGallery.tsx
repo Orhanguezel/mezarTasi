@@ -287,7 +287,7 @@ export function ProductGallery({
                   {displayedCards.map((card, index) => (
                     <div
                       key={`${card.kind}-${card.id}`}
-                      className="bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-lg hover:scale-105 transform transition-all duration-300 cursor-pointer"
+                       className="bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-lg hover:scale-105 transform transition-all duration-300 cursor-pointer"
                       onClick={() => navigateFromCard(card)}
                     >
                       {/* Image Container */}
