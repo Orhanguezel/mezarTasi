@@ -199,7 +199,7 @@ export function ProductGallery({
               <div className="sticky top-24">
                 {/* Desktop list */}
                 <div className="bg-white rounded-lg shadow-lg overflow-hidden hidden lg:block">
-                  {/* 🔹 Başlık artık tıklanabilir ve ALL_KEY seçiyor, KALIN DEĞİL */}
+                  {/* 🔹 Başlık tıklanabilir: ALL_KEY */}
                   <button
                     type="button"
                     onClick={() => setSelectedSubCat(ALL_KEY)}
@@ -231,7 +231,7 @@ export function ProductGallery({
                 {/* Mobile & tablet grid */}
                 <div className="lg:hidden">
                   <div className="grid grid-cols-2 gap-2">
-                    {/* 🔹 Sol üst hücre: MEZAR MODELLERİ – tıklanabilir, KALIN DEĞİL */}
+                    {/* Sol üst hücre: MEZAR MODELLERİ */}
                     <button
                       type="button"
                       onClick={() => setSelectedSubCat(ALL_KEY)}
@@ -277,8 +277,8 @@ export function ProductGallery({
                       className="bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-lg hover:scale-105 transform transition-all duration-300 cursor-pointer"
                       onClick={() => navigateFromCard(card)}
                     >
-                      {/* 🔹 Resim alanı: aspect ratio sabit, resim object-contain ile oran korunuyor */}
-                      <div className="relative aspect-[4/3] sm:aspect-[3/4] lg:aspect-[4/3] overflow-hidden bg-gray-100 flex items-center justify-center">
+                      {/* 🔹 Resim alanı: TÜM breakpoints'te sabit aspect-ratio + object-contain, oran korunur */}
+                      <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100 flex items-center justify-center">
                         <ImageOptimized
                           src={card.image}
                           alt={card.title}
