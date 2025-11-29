@@ -291,13 +291,12 @@ export function ProductGallery({
                       onClick={() => navigateFromCard(card)}
                     >
                       {/* Image Container */}
-                      <div className="relative aspect-[4/3] sm:aspect-[3/4] lg:aspect-[4/3] overflow-hidden bg-gray-100">
+                      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 flex items-center justify-center">
                         <ImageOptimized
                           src={card.image}
                           alt={card.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          className="max-w-full max-h-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105"
                           priority={index < 6}
-                          sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                           quality={85}
                         />
                       </div>
