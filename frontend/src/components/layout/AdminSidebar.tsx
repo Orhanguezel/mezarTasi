@@ -205,7 +205,7 @@ export default function AdminSidebar({
                 <h2 className="truncate text-sm font-semibold leading-none">
                   Admin Panel
                 </h2>
-                <p className="text-xs text-white/60">Mezarizm</p>
+                <p className="text-xs text-white/60">Mezarisim</p>
               </div>
             )}
           </div>

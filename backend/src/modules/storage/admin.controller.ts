@@ -22,8 +22,7 @@ import {
   type UploadResult,
 } from "./cloudinary";
 
-import { env } from "@/core/env";
-import { normalizeFolder } from "./util";
+import { buildPublicUrl, normalizeFolder } from "./util";
 import {
   listAndCount,
   getById,
@@ -38,27 +37,11 @@ import {
 
 /* --------------------------------- utils ---------------------------------- */
 
-const encSeg = (s: string) => encodeURIComponent(s);
-const encPath = (p: string) => p.split("/").map(encSeg).join("/");
-
 /** NULL/undefined alanları INSERT’ten at */
 const omitNullish = <T extends Record<string, unknown>>(o: T) =>
   Object.fromEntries(
     Object.entries(o).filter(([, v]) => v !== null && v !== undefined),
   ) as Partial<T>;
-
-/** Public URL normalizasyonu (Cloudinary URL varsa onu kullan) */
-function publicUrlOf(
-  bucket: string,
-  path: string,
-  providerUrl?: string | null,
-): string {
-  if (providerUrl) return providerUrl;
-  const cdnBase = (env.CDN_PUBLIC_BASE || "").replace(/\/+$/, "");
-  if (cdnBase) return `${cdnBase}/${encSeg(bucket)}/${encPath(path)}`;
-  const apiBase = (env.PUBLIC_API_BASE || "").replace(/\/+$/, "");
-  return `${apiBase || ""}/storage/${encSeg(bucket)}/${encPath(path)}`;
-}
 
 /** Dosya adı sanitize */
 const sanitizeName = (name: string) => name.replace(/[^\w.\-]+/g, "_");
@@ -125,9 +108,11 @@ export const adminGetAsset: RouteHandler<{ Params: { id: string } }> = async (
   const row = await getById(req.params.id);
   if (!row) return reply.code(404).send({ error: { message: "not_found" } });
 
+  const cfg = await getCloudinaryConfig();
+
   return reply.send({
     ...row,
-    url: publicUrlOf(row.bucket, row.path, row.url),
+    url: buildPublicUrl(row.bucket, row.path, row.url, cfg ?? undefined),
   });
 };
 
@@ -313,7 +298,12 @@ export const adminCreateAsset: RouteHandler = async (req, reply) => {
         );
         return reply.code(200).send({
           ...existing,
-          url: publicUrlOf(existing.bucket, existing.path, existing.url),
+          url: buildPublicUrl(
+            existing.bucket,
+            existing.path,
+            existing.url,
+            cfg,
+          ),
           created_at: existing.created_at,
           updated_at: existing.updated_at,
         });
@@ -344,7 +334,7 @@ export const adminCreateAsset: RouteHandler = async (req, reply) => {
 
   return reply.code(201).send({
     ...recBase,
-    url: publicUrlOf(recBase.bucket, recBase.path, recBase.url),
+    url: buildPublicUrl(recBase.bucket, recBase.path, recBase.url, cfg),
     created_at: nowIso,
     updated_at: nowIso,
   });
@@ -368,6 +358,8 @@ export const adminPatchAsset: RouteHandler<{
 
   const cur = await getById(req.params.id);
   if (!cur) return reply.code(404).send({ error: { message: "not_found" } });
+
+  const cfg = await getCloudinaryConfig();
 
   const targetFolder =
     typeof patch.folder !== "undefined"
@@ -427,7 +419,7 @@ export const adminPatchAsset: RouteHandler<{
 
   return reply.send({
     ...fresh,
-    url: publicUrlOf(fresh.bucket, fresh.path, fresh.url),
+    url: buildPublicUrl(fresh.bucket, fresh.path, fresh.url, cfg ?? undefined),
   });
 };
 
@@ -635,7 +627,7 @@ export const adminBulkCreateAssets: RouteHandler = async (req, reply) => {
       );
       out.push({
         ...recBase,
-        url: publicUrlOf(recBase.bucket, recBase.path, recBase.url),
+        url: buildPublicUrl(recBase.bucket, recBase.path, recBase.url, cfg),
       });
     } catch (e) {
       const err = e as { message?: string };
@@ -651,10 +643,11 @@ export const adminBulkCreateAssets: RouteHandler = async (req, reply) => {
           );
           out.push({
             ...existing,
-            url: publicUrlOf(
+            url: buildPublicUrl(
               existing.bucket,
               existing.path,
               existing.url,
+              cfg,
             ),
           });
           continue;

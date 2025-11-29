@@ -207,17 +207,17 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
 
   // ✅ Ürünler (public mezar ürünleri)
   const {
-  data: productsRes = [],
-  isFetching: loadingProducts,
-  refetch: refetchProducts,
-} = useListProductsQuery({
-  is_active: true,
-  limit: 500,
-  offset: 0,
-  // RTK tipine göre sadece: "price" | "rating" | "created_at" geçerli
-  sort: "created_at",
-  order: "asc",
-});
+    data: productsRes = [],
+    isFetching: loadingProducts,
+    refetch: refetchProducts,
+  } = useListProductsQuery({
+    is_active: true,
+    limit: 500,
+    offset: 0,
+    // RTK tipine göre sadece: "price" | "rating" | "created_at" geçerli
+    sort: "created_at",
+    order: "asc",
+  });
 
   // Kök kategori id'leri (MEZAR BAŞ TAŞI MODELLERİ)
   const baseCategoryIds = useMemo(() => {
@@ -285,117 +285,114 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
 
   // ✅ Tüm mezar baş taşı MODELLERİNİ ÜRÜNLERDEN üret
   const allModels: TombstoneModel[] = useMemo(() => {
-  if (!Array.isArray(productsRes)) return [];
+    if (!Array.isArray(productsRes)) return [];
 
-  // Eğer MEZAR BAŞ TAŞI kök kategorisini bulabildiysek,
-  // sadece o alt kategorilere bağlı ürünleri filtrele.
-  // Bulamadıysak bütün ürünleri kullan (fallback).
-  const rawProducts: any[] =
-    tombstoneSubcategoryIds.length > 0
-      ? (productsRes as any[]).filter((p) => {
-          const sid = String(p.sub_category_id ?? (p as any).subCategoryId ?? "");
-          return tombstoneSubcategoryIds.includes(sid);
-        })
-      : (productsRes as any[]);
+    // Eğer MEZAR BAŞ TAŞI kök kategorisini bulabildiysek,
+    // sadece o alt kategorilere bağlı ürünleri filtrele.
+    // Bulamadıysak bütün ürünleri kullan (fallback).
+    const rawProducts: any[] =
+      tombstoneSubcategoryIds.length > 0
+        ? (productsRes as any[]).filter((p) => {
+            const sid = String(
+              p.sub_category_id ?? (p as any).subCategoryId ?? ""
+            );
+            return tombstoneSubcategoryIds.includes(sid);
+          })
+        : (productsRes as any[]);
 
-  return rawProducts.map((p) => {
-    const sid = String(p.sub_category_id ?? (p as any).subCategoryId ?? "");
-    const sc = subcategoryMap.get(sid);
+    return rawProducts.map((p) => {
+      const sid = String(p.sub_category_id ?? (p as any).subCategoryId ?? "");
+      const sc = subcategoryMap.get(sid);
 
-    const specs = toSpecDict(p.specifications ?? sc?.specifications);
-    const dimensions = getSpec(specs, [
-      "dimensions",
-      "ölçü",
-      "olcu",
-      "boyut",
-      "size",
-    ]);
-    const weight = getSpec(specs, ["weight", "ağırlık", "agirlik"]);
-    const thickness = getSpec(specs, ["thickness", "kalınlık", "kalinlik"]);
-    const finish = getSpec(specs, [
-      "finish",
-      "surfacefinish",   // ProductSpecifications.surfaceFinish → "surfacefinish"
-      "yüzey",
-      "surface",
-      "polisaj",
-      "polish",
-    ]);
-    const warranty = getSpec(specs, ["warranty", "garanti"]);
-    const installationTime = getSpec(specs, [
-      "installationtime",
-      "kurulum süresi",
-      "montaj süresi",
-      "montaj",
-    ]);
+      const specs = toSpecDict(p.specifications ?? sc?.specifications);
+      const dimensions = getSpec(specs, [
+        "dimensions",
+        "ölçü",
+        "olcu",
+        "boyut",
+        "size",
+      ]);
+      const weight = getSpec(specs, ["weight", "ağırlık", "agirlik"]);
+      const thickness = getSpec(specs, ["thickness", "kalınlık", "kalinlik"]);
+      const finish = getSpec(specs, [
+        "finish",
+        "surfacefinish", // ProductSpecifications.surfaceFinish → "surfacefinish"
+        "yüzey",
+        "surface",
+        "polisaj",
+        "polish",
+      ]);
+      const warranty = getSpec(specs, ["warranty", "garanti"]);
+      const installationTime = getSpec(specs, [
+        "installationtime",
+        "kurulum süresi",
+        "montaj süresi",
+        "montaj",
+      ]);
 
-    const subType = sc ? inferSubType(sc) : "mermer";
-    const material =
-      subType === "granit"
-        ? "Granit Mezar Taşı"
-        : subType === "sutunlu"
-        ? "Sütunlu Mezar"
-        : "Mermer Mezar Taşı";
+      const subType = sc ? inferSubType(sc) : "mermer";
+      const material =
+        subType === "granit"
+          ? "Granit Mezar Taşı"
+          : subType === "sutunlu"
+          ? "Sütunlu Mezar"
+          : "Mermer Mezar Taşı";
 
-    const img = pickImage(p);
-    const price = normalizePrice(p);
+      const img = pickImage(p);
+      const price = normalizePrice(p);
 
-    const backendId = String(p.id ?? "");
-    const idNum = Number(backendId);
-    const safeId = Number.isFinite(idNum)
-      ? idNum
-      : Math.floor(Math.random() * 1_000_000);
+      const backendId = String(p.id ?? "");
+      const idNum = Number(backendId);
+      const safeId = Number.isFinite(idNum)
+        ? idNum
+        : Math.floor(Math.random() * 1_000_000);
 
-    const name =
-      p.title ??
-      p.name ??
-      sc?.name ??
-      "Mezar Baş Taşı Modeli";
+      const name =
+        p.title ?? p.name ?? sc?.name ?? "Mezar Baş Taşı Modeli";
 
-    const desc =
-      p.description ??
-      p.short_description ??
-      sc?.description ??
-      sc?.short_description ??
-      "";
+      const desc =
+        p.description ??
+        p.short_description ??
+        sc?.description ??
+        sc?.short_description ??
+        "";
 
-    const rawSlug = String(
-      p.slug ??
-        (p as any).slug_tr ??
-        (p as any).slug_en ??
-        (p as any).slug_de ??
-        ""
-    ).trim();
+      const rawSlug = String(
+        p.slug ??
+          (p as any).slug_tr ??
+          (p as any).slug_en ??
+          (p as any).slug_de ??
+          ""
+      ).trim();
 
-    const featured =
-      Boolean(p.is_featured) ||
-      Boolean((p as any).is_featured_homepage) ||
-      Boolean((p as any).featured);
+      const featured =
+        Boolean(p.is_featured) ||
+        Boolean((p as any).is_featured_homepage) ||
+        Boolean((p as any).featured);
 
-    const model: TombstoneModel = {
-      id: safeId,
-      ...(sid ? { subCategoryId: sid } : {}),
-      name: String(name),
-      category: subType,
-      material,
-      price,
-      image: img,
-      description: String(desc),
-      featured,
-      dimensions,
-      weight,
-      thickness,
-      finish,
-      warranty,
-      installationTime,
-    };
+      const model: TombstoneModel = {
+        id: safeId,
+        ...(sid ? { subCategoryId: sid } : {}),
+        name: String(name),
+        category: subType,
+        material,
+        price,
+        image: img,
+        description: String(desc),
+        featured,
+        dimensions,
+        weight,
+        thickness,
+        finish,
+        warranty,
+        installationTime,
+      };
 
-    if (rawSlug) model.slug = rawSlug;
+      if (rawSlug) model.slug = rawSlug;
 
-    return model;
-  });
-}, [productsRes, tombstoneSubcategoryIds, subcategoryMap]);
-
-
+      return model;
+    });
+  }, [productsRes, tombstoneSubcategoryIds, subcategoryMap]);
 
   // Slider autoplay
   useEffect(() => {
@@ -523,11 +520,11 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
                     : "translate-x-full"
                 }`}
               >
-                <div className="relative w-full h-full">
+                <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
                   <ImageWithFallback
                     src={slide.image}
                     alt={slide.alt ?? slide.title}
-                    className="w-full h-96 object-cover opacity-30"
+                    className="max-w-full max-h-full w-auto h-auto object-contain opacity-40"
                   />
                   <div className="absolute inset-0 bg-black bg-opacity-60" />
                 </div>
@@ -683,22 +680,24 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
                         className="relative cursor-pointer"
                         onClick={() => handleImageClick(model)}
                       >
-                        <ImageWithFallback
-                          src={model.image}
-                          alt={model.name}
-                          className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        {model.featured && (
-                          <Badge className="absolute top-3 right-3 bg-teal-500 text-white">
-                            Öne Çıkan
-                          </Badge>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                          <div className="bg-white/90 rounded-full p-3">
-                            <span className="text-gray-800 text-sm">
-                              🔍 Detayları Gör
-                            </span>
+                        <div className="relative aspect-[4/3] w-full bg-gray-100 flex items-center justify-center overflow-hidden">
+                          <ImageWithFallback
+                            src={model.image}
+                            alt={model.name}
+                            className="max-w-full max-h-full w-auto h-auto object-contain group-hover:scale-105 transition-transform duration-300"
+                          />
+                          {model.featured && (
+                            <Badge className="absolute top-3 right-3 bg-teal-500 text-white">
+                              Öne Çıkan
+                            </Badge>
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                            <div className="bg-white/90 rounded-full p-3">
+                              <span className="text-gray-800 text-sm">
+                                🔍 Detayları Gör
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -860,21 +859,22 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
                     className="relative cursor-pointer"
                     onClick={() => handleImageClick(model)}
                   >
-                    <ImageWithFallback
-                      src={model.image}
-                      alt={model.name}
-                      className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <Badge className="absolute top-3 right-3 bg-teal-500 text-white">
-                      Öne Çıkan
-                    </Badge>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <div className="bg-white/90 rounded-full p-3">
-                        <span className="text-gray-800 text-sm">
-                          🔍 Detayları Gör
-                        </span>
+                    <div className="relative aspect-[4/3] w-full bg-gray-100 flex items-center justify-center overflow-hidden">
+                      <ImageWithFallback
+                        src={model.image}
+                        alt={model.name}
+                        className="max-w-full max-h-full w-auto h-auto object-contain group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <Badge className="absolute top-3 right-3 bg-teal-500 text-white">
+                        Öne Çıkan
+                      </Badge>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                        <div className="bg-white/90 rounded-full p-3">
+                          <span className="text-gray-800 text-sm">
+                            🔍 Detayları Gör
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -998,18 +998,20 @@ export function ModelsPage({ onNavigate, onProductDetail }: ModelsPageProps) {
               </DialogHeader>
 
               <div className="space-y-6">
-                {/* Görsel */}
-                <div className="relative bg-white rounded-lg overflow-hidden">
-                  <ImageWithFallback
-                    src={selectedModel.image}
-                    alt={selectedModel.name}
-                    className="w-full h-80 object-cover"
-                  />
-                  {selectedModel.featured && (
-                    <Badge className="absolute top-4 left-4 bg-teal-500 text-white">
-                      Öne Çıkan Model
-                    </Badge>
-                  )}
+                {/* Görsel (oran korumalı) */}
+                <div className="relative bg-white rounded-lg overflow-hidden flex items-center justify-center">
+                  <div className="relative w-full aspect-[4/3] bg-gray-100 flex items-center justify-center overflow-hidden">
+                    <ImageWithFallback
+                      src={selectedModel.image}
+                      alt={selectedModel.name}
+                      className="max-w-full max-h-full w-auto h-auto object-contain"
+                    />
+                    {selectedModel.featured && (
+                      <Badge className="absolute top-4 left-4 bg-teal-500 text-white">
+                        Öne Çıkan Model
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
                 {/* Etiketler + Fiyat */}

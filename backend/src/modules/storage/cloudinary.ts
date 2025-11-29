@@ -23,6 +23,10 @@ export type Cfg = {
   unsignedUploadPreset?: string | null;
   localRoot?: string | null;
   localBaseUrl?: string | null;
+
+  // ✅ site_settings üzerinden gelen public URL config'leri
+  cdnPublicBase?: string | null;
+  publicApiBase?: string | null;
 };
 
 export type UploadResult = {
@@ -84,9 +88,12 @@ export async function getCloudinaryConfig(): Promise<Cfg | null> {
     unsignedUploadPreset: settings?.unsignedUploadPreset ?? null,
     localRoot: settings?.localRoot ?? null,
     localBaseUrl: settings?.localBaseUrl ?? null,
+
+    // 🔥 yeni: cdn & public api base
+    cdnPublicBase: settings?.cdnPublicBase ?? null,
+    publicApiBase: settings?.publicApiBase ?? null,
   };
 
-  // Cloudinary driver ise key'leri kontrol et
   if (driver === "cloudinary") {
     if (!cfg.cloudName || !cfg.apiKey || !cfg.apiSecret) {
       return null;
@@ -104,6 +111,7 @@ export async function getCloudinaryConfig(): Promise<Cfg | null> {
   cachedAt = now;
   return cfg;
 }
+
 
 /* -------------------------------------------------------------------------- */
 /*                              LOCAL YÜKLEME                                  */

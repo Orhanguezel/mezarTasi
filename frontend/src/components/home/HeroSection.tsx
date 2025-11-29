@@ -97,7 +97,17 @@ export function HeroSection({ onNavigate }: HeroSectionProps) {
   // boş durum
   if (!isFetching && slides.length === 0) {
     return (
-      <section className="relative h-[280px] md:h-[380px] lg:h-[450px] overflow-hidden bg-gray-900">
+      <section
+  className="
+    relative
+    h-[280px]               /* mobile aynı kalsın */
+    md:h-[50vh] md:max-h-[640px]   /* tablet: ekranın %60’ı, max 640px */
+    lg:h-[60vh] lg:max-h-[750px]   /* desktop: ekranın %70’i, max 750px */
+    overflow-hidden
+    hero-section
+  "
+>
+
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center text-white">
             <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
@@ -135,6 +145,7 @@ export function HeroSection({ onNavigate }: HeroSectionProps) {
               className="w-full h-full object-cover"
               priority={index === 0}
               sizes="100vw"
+
               quality={index === 0 ? 90 : 75}
             />
             <div className="absolute inset-0 bg-black/10" />
@@ -172,19 +183,6 @@ export function HeroSection({ onNavigate }: HeroSectionProps) {
             ))}
           </div>
         </>
-      )}
-
-      {process.env.NODE_ENV === "development" && (
-        <div className="absolute top-4 right-4 z-30">
-          <Button
-            onClick={() => onNavigate?.("admin")}
-            variant="outline"
-            size="sm"
-            className="bg-black/20 text-white border-white/30 hover:bg-black/40 backdrop-blur-sm"
-          >
-            Slider Düzenle
-          </Button>
-        </div>
       )}
     </section>
   );

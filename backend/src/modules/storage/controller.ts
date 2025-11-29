@@ -5,11 +5,8 @@ import type { RouteHandler } from "fastify";
 import { randomUUID } from "node:crypto";
 import type { MultipartFile } from "@fastify/multipart";
 
-import { env } from "@/core/env";
-import {
-  getCloudinaryConfig,
-  uploadBufferAuto,
-} from "./cloudinary";
+import { getCloudinaryConfig, uploadBufferAuto } from "./cloudinary";
+import { buildPublicUrl, stripLeadingSlashes } from "./util";
 
 import {
   signMultipartBodySchema,
@@ -25,30 +22,13 @@ import {
 
 /* --------------------------------- helpers -------------------------------- */
 
-const encSeg = (s: string) => encodeURIComponent(s);
-const encPath = (p: string) => p.split("/").map(encSeg).join("/");
-
 /** NULL/undefined alanları INSERT’ten at */
 const omitNullish = <T extends Record<string, unknown>>(o: T) =>
   Object.fromEntries(
     Object.entries(o).filter(([, v]) => v !== null && v !== undefined),
   ) as Partial<T>;
 
-/** Public URL normalizasyonu (Cloudinary URL varsa onu kullan) */
-function publicUrlOf(
-  bucket: string,
-  path: string,
-  providerUrl?: string | null,
-): string {
-  if (providerUrl) return providerUrl;
-  const cdnBase = (env.CDN_PUBLIC_BASE || "").replace(/\/+$/, "");
-  if (cdnBase) return `${cdnBase}/${encSeg(bucket)}/${encPath(path)}`;
-  const apiBase = (env.PUBLIC_API_BASE || "").replace(/\/+$/, "");
-  return `${apiBase || ""}/storage/${encSeg(bucket)}/${encPath(path)}`;
-}
-
 // --- path helpers ---
-const stripLeadingSlashes = (s: string) => s.replace(/^\/+/, "");
 const normalizePath = (bucket: string, raw: string) => {
   let p = stripLeadingSlashes(raw).replace(/\/{2,}/g, "/");
   if (p.startsWith(bucket + "/")) p = p.slice(bucket.length + 1);
@@ -85,7 +65,9 @@ export const publicServe: RouteHandler<{
     return reply.code(404).send({ message: "not_found" });
   }
 
-  const redirectUrl = row.url || publicUrlOf(bucket, path, null);
+  const cfg = await getCloudinaryConfig();
+  const redirectUrl = buildPublicUrl(bucket, path, row.url, cfg ?? undefined);
+
   req.log.info(
     { bucket, path, redirectUrl },
     "storage_public_serve_redirect",
@@ -282,10 +264,11 @@ export const uploadToBucket: RouteHandler<{
           bucket: existing.bucket,
           path: existing.path,
           folder: existing.folder ?? null,
-          url: publicUrlOf(
+          url: buildPublicUrl(
             existing.bucket,
             existing.path,
             existing.url,
+            cfg,
           ),
           width: existing.width ?? null,
           height: existing.height ?? null,
@@ -334,7 +317,7 @@ export const uploadToBucket: RouteHandler<{
     bucket,
     path,
     folder: folder ?? null,
-    url: publicUrlOf(bucket, path, up.secure_url),
+    url: buildPublicUrl(bucket, path, up.secure_url, cfg),
     width: up.width ?? null,
     height: up.height ?? null,
     provider,

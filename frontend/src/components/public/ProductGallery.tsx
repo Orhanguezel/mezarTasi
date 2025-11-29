@@ -277,11 +277,12 @@ export function ProductGallery({
                       className="bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-lg hover:scale-105 transform transition-all duration-300 cursor-pointer"
                       onClick={() => navigateFromCard(card)}
                     >
-                      <div className="relative aspect-[4/3] lg:aspect-[4/3] sm:aspect-[3/4] overflow-hidden bg-gray-100">
+                      {/* 🔹 Resim alanı: aspect ratio sabit, resim object-contain ile oran korunuyor */}
+                      <div className="relative aspect-[4/3] sm:aspect-[3/4] lg:aspect-[4/3] overflow-hidden bg-gray-100 flex items-center justify-center">
                         <ImageOptimized
                           src={card.image}
                           alt={card.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          className="max-w-full max-h-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105"
                           priority={true}
                           sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                           quality={85}

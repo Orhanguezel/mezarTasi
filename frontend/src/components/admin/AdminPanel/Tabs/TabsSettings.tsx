@@ -212,19 +212,6 @@ export default function TabsSettings(_props: Props) {
 
   return (
     <Tabs defaultValue="database" className="w-full">
-      <TabsList
-        className={cn(
-          "grid w-full grid-cols-1",
-          "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-zinc-900 dark:to-zinc-900/60",
-        )}
-      >
-        <TabsTrigger
-          value="database"
-          className="data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900"
-        >
-          Veritabanı
-        </TabsTrigger>
-      </TabsList>
 
       {/* DATABASE */}
       <TabsContent value="database" className="mt-4">

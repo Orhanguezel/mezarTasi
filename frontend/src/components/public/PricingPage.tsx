@@ -130,21 +130,16 @@ const normalizePrice = (r: any): string => {
     const v = Math.round(p);
     // Örn: 26400 TL
     return `${v.toString()} TL`;
-    // Eğer 26.400 TL istersen:
-    // return `${v.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} TL`;
   }
 
   // price_minor: kuruş cinsinden (opsiyonel)
   if (typeof pm === "number" && Number.isFinite(pm) && pm > 0) {
     const tl = Math.round(pm / 100);
     return `${tl.toString()} TL`;
-    // veya:
-    // return `${tl.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} TL`;
   }
 
   return "Fiyat İçin Arayınız";
 };
-
 
 // Kök kategori: "Mezar Modelleri" / "Mezar Baş Taşı Modelleri"
 const isTombstoneModelsCategory = (cat: any): boolean => {
@@ -521,11 +516,11 @@ export function PricingPage({ onNavigate, onProductDetail }: PricingPageProps) {
                     : "translate-x-full"
                 }`}
               >
-                <div className="relative w-full h-full">
+                <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
                   <ImageWithFallback
                     src={slide.image}
                     alt={slide.alt ?? slide.title}
-                    className="w-full h-96 object-cover opacity-30"
+                    className="max-w-full max-h-full w-auto h-auto object-contain opacity-40"
                   />
                   <div className="absolute inset-0 bg-black bg-opacity-60" />
                 </div>
@@ -659,11 +654,12 @@ export function PricingPage({ onNavigate, onProductDetail }: PricingPageProps) {
                   className="bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-lg hover:scale-105 transform transition-all duration-300 cursor-pointer"
                   onClick={() => handleProductDetail(model)}
                 >
-                  <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+                  {/* 🔹 Oran koruma: aspect + object-contain */}
+                  <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 flex items-center justify-center">
                     <ImageWithFallback
                       src={model.image}
                       alt={model.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="max-w-full max-h-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105"
                     />
                   </div>
 
@@ -737,11 +733,12 @@ export function PricingPage({ onNavigate, onProductDetail }: PricingPageProps) {
                       className="group hover:shadow-xl transition-all duration-300 bg-white border-0 overflow-hidden h-full cursor-pointer"
                       onClick={() => handleProductDetail(model)}
                     >
-                      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+                      {/* 🔹 Oran koruma: aspect + object-contain */}
+                      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 flex items-center justify-center">
                         <ImageWithFallback
                           src={model.image}
                           alt={model.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          className="max-w-full max-h-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105"
                         />
                       </div>
 
