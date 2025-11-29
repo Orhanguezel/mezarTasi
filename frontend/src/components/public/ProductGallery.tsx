@@ -36,7 +36,6 @@ type UiProduct = {
   image: string;
   description: string;
   category_id: string;
-  // (opsiyonel) BE tarafında varsa ama tiplerde görünmüyorsa sorun çıkmasın diye
   sub_category_id?: string | null;
 };
 
@@ -52,7 +51,7 @@ function toUiProduct(p: ApiProduct): UiProduct {
 
   return {
     id: String((p as any).id),
-    slug: String((p as any).slug ?? ""), // 🔹 buradan slug’ı alıyoruz
+    slug: String((p as any).slug ?? ""),
     title: String((p as any).title ?? ""),
     productCode: (p as any).product_code ?? null,
     price:
@@ -68,12 +67,10 @@ function toUiProduct(p: ApiProduct): UiProduct {
 function formatPrice(price: number | string | null | undefined): string {
   const num = typeof price === "number" ? price : Number(price);
 
-  // 0 veya geçersizse
   if (!Number.isFinite(num) || num <= 0) {
     return "Fiyat İçin Arayınız";
   }
 
-  // Görseldeki gibi: 26400 TL (tam sayı, ayırıcı yok)
   const rounded = Math.round(num);
   return `${rounded} TL`;
 }
@@ -84,7 +81,6 @@ interface ProductGalleryProps {
   searchTerm: string;
   showSearchResults: boolean;
   onClearSearch: () => void;
-  /** Artık slug ile detail açıyoruz */
   onProductDetail: (slug: string) => void;
   refreshKey?: number;
 }
@@ -96,9 +92,6 @@ export function ProductGallery({
   onProductDetail,
   refreshKey,
 }: ProductGalleryProps) {
-  // const navigate = useNavigate(); // kullanılmıyor
-
-  /** ALL_KEY = tüm alt kategoriler; yoksa seçilen alt kategori id’si */
   const [selectedSubCat, setSelectedSubCat] = useState<string>(ALL_KEY);
   const [visibleItems, setVisibleItems] = useState(12);
   const [softLoading, setSoftLoading] = useState(true);
@@ -112,13 +105,12 @@ export function ProductGallery({
 
     if (showSearchResults && searchTerm.trim()) {
       params.q = searchTerm.trim();
-      // Arama da sadece bu üst kategoride olsun
       params.category_id = TOP_CATEGORY_ID;
       return params;
     }
 
     if (selectedSubCat !== ALL_KEY) {
-      params.sub_category_id = selectedSubCat; // BE bunu destekliyorsa
+      params.sub_category_id = selectedSubCat;
     } else {
       params.category_id = TOP_CATEGORY_ID;
     }
@@ -141,7 +133,6 @@ export function ProductGallery({
     return serverArr.map((p) => ({ ...p, kind: "product" as const }));
   }, [listRes]);
 
-  /* ---------- Loading state ---------- */
   const isLoading = fetchingList || softLoading;
 
   /* ---------- Visible list ---------- */
@@ -158,7 +149,7 @@ export function ProductGallery({
 
   const navigateFromCard = (card: UiCard) => {
     if (card.kind === "product" && card.slug) {
-      onProductDetail(card.slug); // 🔹 slug ile yönlendir
+      onProductDetail(card.slug);
     }
   };
 
@@ -199,7 +190,6 @@ export function ProductGallery({
               <div className="sticky top-24">
                 {/* Desktop list */}
                 <div className="bg-white rounded-lg shadow-lg overflow-hidden hidden lg:block">
-                  {/* 🔹 Başlık tıklanabilir: ALL_KEY */}
                   <button
                     type="button"
                     onClick={() => setSelectedSubCat(ALL_KEY)}
@@ -231,7 +221,6 @@ export function ProductGallery({
                 {/* Mobile & tablet grid */}
                 <div className="lg:hidden">
                   <div className="grid grid-cols-2 gap-2">
-                    {/* Sol üst hücre: MEZAR MODELLERİ */}
                     <button
                       type="button"
                       onClick={() => setSelectedSubCat(ALL_KEY)}
@@ -244,7 +233,6 @@ export function ProductGallery({
                       MEZAR MODELLERİ
                     </button>
 
-                    {/* Kategoriler */}
                     {SUBCATS.map((c) => (
                       <button
                         key={c.id}
@@ -270,21 +258,22 @@ export function ProductGallery({
               <SkeletonLoader type="grid" count={12} />
             ) : (
               <>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
+                {/* 🔹 Mobile: 1 sütun, sm: 2, lg: 3 → telefonda bozulma yok */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
                   {displayedCards.map((card) => (
                     <div
                       key={`${card.kind}-${card.id}`}
                       className="bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-lg hover:scale-105 transform transition-all duration-300 cursor-pointer"
                       onClick={() => navigateFromCard(card)}
                     >
-                      {/* 🔹 Resim alanı: TÜM breakpoints'te sabit aspect-ratio + object-contain, oran korunur */}
-                      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 flex items-center justify-center">
+                      {/* 🔹 Sabit aspect + oran koruyan resim */}
+                      <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100 flex items-center justify-center">
                         <ImageOptimized
                           src={card.image}
                           alt={card.title}
                           className="max-w-full max-h-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105"
                           priority={true}
-                          sizes="max-w-full max-h-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                           quality={85}
                         />
                       </div>
