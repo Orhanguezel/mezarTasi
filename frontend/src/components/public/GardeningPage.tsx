@@ -637,7 +637,7 @@ export function GardeningPage({ onNavigate }: GardeningPageProps) {
       {/* Service Detail Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent
-          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white"
           aria-describedby={
             selectedService
               ? `service-description-${selectedService.id}`
