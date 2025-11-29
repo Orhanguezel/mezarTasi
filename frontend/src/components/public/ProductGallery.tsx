@@ -341,7 +341,7 @@ export function ProductGallery({
                       <p className="text-gray-600 max-w-md mx-auto">
                         {showSearchResults
                           ? `"${searchTerm}" ile eşleşen ürün bulunamadı.`
-                          : "Seçilen kategoride henüz içerik bulunmuyor."
+                          : "Seçilen kategoride henüz içerik bulunmuyor."}
                       </p>
                     </div>
 
