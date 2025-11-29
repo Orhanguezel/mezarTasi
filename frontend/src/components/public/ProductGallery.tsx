@@ -14,7 +14,7 @@ import type { Product as ApiProduct } from "@/integrations/rtk/types/products.ro
 /** Ana kategori: MEZAR MODELLERİ */
 const TOP_CATEGORY_ID = "aaaa0001-1111-4111-8111-aaaaaaaa0001";
 
-/** Başlığa tıklama yok; fakat başlangıçta “hepsi” gösterimi için sanal durum */
+/** Başlangıçta “hepsi” gösterimi için sanal durum */
 const ALL_KEY = "ALL";
 
 const SUBCATS: Array<{ id: string; label: string }> = [
@@ -40,6 +40,26 @@ type UiProduct = {
 };
 
 type UiCard = UiProduct & { kind: "product" };
+
+type UiCategory = {
+  id: string;
+  label: string;
+  isHeader: boolean;
+};
+
+/** Sidebar için UI kategorileri (header + alt kategoriler) */
+const CATEGORIES: UiCategory[] = [
+  {
+    id: ALL_KEY,
+    label: "MEZAR MODELLERİ",
+    isHeader: true,
+  },
+  ...SUBCATS.map((c) => ({
+    id: c.id,
+    label: c.label,
+    isHeader: false,
+  })),
+];
 
 /* ========================== mappers ========================== */
 
@@ -193,120 +213,108 @@ export function ProductGallery({
           </div>
         )}
 
+        {/* Main Content - Sidebar + Grid */}
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sol menü – sadece sabit alt kategoriler; sayaç yok */}
+          {/* Sol sidebar – kategoriler (sadece arama yokken) */}
           {!showSearchResults && (
             <div className="lg:w-1/4">
               <div className="sticky top-24">
-                {/* Desktop list */}
-                <div className="bg-white rounded-lg shadow-lg overflow-hidden hidden lg:block">
-                  {/* Başlık tıklanabilir: ALL_KEY */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedSubCat(ALL_KEY)}
-                    className={`w-full px-6 py-4 text-center border-b border-gray-100 transition-colors ${
-                      selectedSubCat === ALL_KEY
-                        ? "bg-teal-600 text-white"
-                        : "bg-teal-500 text-white hover:bg-teal-600"
-                    }`}
-                  >
-                    MEZAR MODELLERİ
-                  </button>
-
-                  {SUBCATS.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setSelectedSubCat(c.id)}
-                      className={`w-full text-left px-6 py-4 border-b border-gray-100 last:border-b-0 transition-colors ${
-                        selectedSubCat === c.id
-                          ? "bg-teal-50 text-teal-700"
-                          : "bg-white text-gray-700 hover:bg-gray-50"
-                      }`}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Mobile & tablet grid */}
+                {/* Mobile Layout - 2 kolon grid */}
                 <div className="lg:hidden">
                   <div className="grid grid-cols-2 gap-2">
-                    {/* Sol üst hücre: MEZAR MODELLERİ */}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedSubCat(ALL_KEY)}
-                      className={`px-4 py-3 rounded-lg text-center shadow-md transition-colors ${
-                        selectedSubCat === ALL_KEY
-                          ? "bg-teal-600 text-white"
-                          : "bg-teal-500 text-white hover:bg-teal-600"
-                      }`}
-                    >
-                      MEZAR MODELLERİ
-                    </button>
-
-                    {/* Kategoriler */}
-                    {SUBCATS.map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => setSelectedSubCat(c.id)}
-                        className={`px-3 py-3 rounded-lg text-sm transition-colors ${
-                          selectedSubCat === c.id
+                    {CATEGORIES.map((category) => (
+                      <div
+                        key={category.id}
+                        onClick={() => setSelectedSubCat(category.id)}
+                        className={`px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 text-sm ${
+                          category.isHeader
+                            ? selectedSubCat === category.id
+                              ? "bg-teal-600 text-white"
+                              : "bg-teal-500 text-white hover:bg-teal-600"
+                            : selectedSubCat === category.id
                             ? "bg-teal-100 text-teal-700"
                             : "bg-white text-gray-700 hover:bg-gray-50"
                         }`}
                       >
-                        {c.label}
-                      </button>
+                        <div className="text-center">{category.label}</div>
+                      </div>
                     ))}
+                  </div>
+                </div>
+
+                {/* Desktop Layout - üstte header, altta satırlar */}
+                <div className="hidden lg:block">
+                  <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+                    {CATEGORIES.map((category) =>
+                      category.isHeader ? (
+                        <div
+                          key={category.id}
+                          className="bg-teal-500 text-white px-6 py-4 cursor-pointer hover:bg-teal-600 transition-colors duration-200"
+                          onClick={() => setSelectedSubCat(category.id)}
+                        >
+                          <h3 className="font-bold text-lg text-center">
+                            {category.label}
+                          </h3>
+                        </div>
+                      ) : (
+                        <div
+                          key={category.id}
+                          onClick={() => setSelectedSubCat(category.id)}
+                          className={`px-6 py-4 cursor-pointer transition-all duration-200 border-b border-gray-100 last:border-b-0 ${
+                            selectedSubCat === category.id
+                              ? "bg-teal-50 text-teal-700 font-medium"
+                              : "bg-white text-gray-700 hover:bg-gray-50"
+                          }`}
+                        >
+                          <div className="text-sm">{category.label}</div>
+                        </div>
+                      )
+                    )}
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Grid */}
+          {/* Sağ taraf – ürün grid */}
           <div className={showSearchResults ? "w-full" : "lg:w-3/4"}>
             {isLoading ? (
               <SkeletonLoader type="grid" count={12} />
             ) : (
               <>
-                {/* PricingPage’e benzer: mobilde bile 2’li grid */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-12">
-                  {displayedCards.map((card) => (
+                {/* 2 kolon mobil, 3 kolon desktop – stil static ProductGallery ile uyumlu */}
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
+                  {displayedCards.map((card, index) => (
                     <div
                       key={`${card.kind}-${card.id}`}
                       className="bg-white rounded-lg shadow-md overflow-hidden group hover:shadow-lg hover:scale-105 transform transition-all duration-300 cursor-pointer"
                       onClick={() => navigateFromCard(card)}
                     >
-                      {/* 🔹 Resim kutusu: tam doldur, boşluk yok */}
-                      <div className="relative aspect-[3/4] md:aspect-[4/3] overflow-hidden bg-gray-100">
+                      {/* Image Container */}
+                      <div className="relative aspect-[4/3] sm:aspect-[3/4] lg:aspect-[4/3] overflow-hidden bg-gray-100">
                         <ImageOptimized
                           src={card.image}
                           alt={card.title}
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          priority={true}
-                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          priority={index < 6}
+                          sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                           quality={85}
                         />
                       </div>
 
-                      <div className="p-3">
-                        <h3 className="text-sm font-bold text-gray-800 mb-2 line-clamp-2 uppercase leading-tight">
+                      {/* Content */}
+                      <div className="p-4">
+                        {/* Title */}
+                        <h3 className="text-base font-bold text-gray-800 mb-3 line-clamp-2 uppercase">
                           {card.title}
                         </h3>
 
+                        {/* Code + Price */}
                         <div className="flex items-center justify-between gap-2">
-                          {card.productCode ? (
-                            <span className="inline-flex items-center px-2 py-1 bg-blue-50 border border-blue-500 text-blue-600 text-xs font-bold rounded">
-                              {card.productCode}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-1 bg-gray-50 border border-gray-300 text-gray-600 text-xs font-semibold rounded">
-                              KOD-YOK
-                            </span>
-                          )}
-                          <span className="text-sm font-bold text-gray-800">
+                          <span className="inline-block px-3 py-1 border-2 border-blue-500 text-blue-600 text-xs font-bold rounded">
+                            {card.productCode ?? "KOD-YOK"}
+                          </span>
+                          <span className="text-lg font-bold text-gray-800">
                             {formatPrice(card.price)}
                           </span>
                         </div>
@@ -315,6 +323,7 @@ export function ProductGallery({
                   ))}
                 </div>
 
+                {/* Load More */}
                 {visibleItems < uiListedProducts.length && (
                   <div className="text-center">
                     <Button
@@ -329,6 +338,7 @@ export function ProductGallery({
                   </div>
                 )}
 
+                {/* No Results */}
                 {uiListedProducts.length === 0 && (
                   <div className="text-center py-12">
                     <div className="mb-6">
